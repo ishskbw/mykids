@@ -440,22 +440,27 @@ let nmap=null, nlayers=[], niw=null;
 function loadNaver(){
   const id=(window.NAVER_MAP_CLIENT_ID||"").trim();
   if(!id)return;
-  window.navermap_authFailure=function(){nmap=null;$("nmap").hidden=true;$("map").style.display="";render();};
+  window.navermap_authFailure=function(){naverReady=false;nmap=null;$("nmap").hidden=true;$("map").style.display="";render();};
   const s=document.createElement("script");
   s.src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId="+encodeURIComponent(id)+"&submodules=geocoder";
-  s.onload=()=>{
-    try{
-      $("nmap").hidden=false; $("map").style.display="none";
-      nmap=new naver.maps.Map("nmap",{center:new naver.maps.LatLng(state.origin.lat,state.origin.lng),zoom:9,scaleControl:true,mapDataControl:false,zoomControl:true,zoomControlOptions:{position:naver.maps.Position.TOP_RIGHT}});
-      niw=new naver.maps.InfoWindow({content:"",borderWidth:0,backgroundColor:"#fff",anchorSize:new naver.maps.Size(10,8),pixelOffset:new naver.maps.Point(0,-6)});
-      render();
-    }catch(e){nmap=null;$("nmap").hidden=true;$("map").style.display="";}
-  };
+  s.onload=()=>{naverReady=!!(window.naver&&naver.maps);render();};
   s.onerror=()=>{};
   document.head.appendChild(s);
 }
+let naverReady=false;
+function fitNaverSize(){const el=$("nmap");if(nmap&&el.clientWidth)nmap.setSize(new naver.maps.Size(el.clientWidth,el.clientHeight));}
+window.addEventListener("resize",fitNaverSize);
 function drawNaver(items){
-  if(!nmap)return false;
+  if(!naverReady)return false;
+  // 지도 영역이 화면에 보이는 상태에서 처음 만든다 (숨겨진 상태로 만들면 크기·중심이 어긋남)
+  $("nmap").hidden=false; $("map").style.display="none";
+  if(!nmap){
+    try{
+      nmap=new naver.maps.Map("nmap",{center:new naver.maps.LatLng(state.origin.lat,state.origin.lng),zoom:10,scaleControl:true,mapDataControl:false,zoomControl:true,zoomControlOptions:{position:naver.maps.Position.TOP_RIGHT}});
+      niw=new naver.maps.InfoWindow({content:"",borderWidth:0,backgroundColor:"#fff",anchorSize:new naver.maps.Size(10,8),pixelOffset:new naver.maps.Point(0,-6)});
+    }catch(e){naverReady=false;nmap=null;$("nmap").hidden=true;$("map").style.display="";return false;}
+  }
+  fitNaverSize();
   nlayers.forEach(l=>l.setMap(null)); nlayers=[]; niw.close();
   const o=new naver.maps.LatLng(state.origin.lat,state.origin.lng);
   const bounds=new naver.maps.LatLngBounds(o,o);
@@ -465,7 +470,7 @@ function drawNaver(items){
   nlayers.push(new naver.maps.Marker({map:nmap,position:o,title:"출발지: "+state.origin.label,icon:{content:'<div class="nhome"></div>',anchor:new naver.maps.Point(8,8)},zIndex:50}));
   const top=items.slice(0,10);
   top.forEach((x,i)=>{
-    const p=new naver.maps.LatLng(+x.ev.lat,+x.ev.lng); bounds.extend(p);
+    const p=new naver.maps.LatLng(+x.ev.lat,+x.ev.lng); if(i<5)bounds.extend(p); // 첫 화면은 출발지+상위 5곳에 맞춘다
     const mk=new naver.maps.Marker({map:nmap,position:p,title:`${i+1}위 ${x.ev.name}`,zIndex:100-i,
       icon:{content:`<div class="npin${i<3?" top":""}">${i+1}</div>`,anchor:new naver.maps.Point(13,13)}});
     naver.maps.Event.addListener(mk,"click",()=>{
@@ -477,6 +482,7 @@ function drawNaver(items){
     nlayers.push(mk);
   });
   nmap.fitBounds(bounds,{top:40,right:40,bottom:40,left:40});
+  if(nmap.getZoom()>12)nmap.setZoom(12);
   return true;
 }
 document.addEventListener("click",e=>{const a=e.target.closest("[data-jump]");if(a){e.preventDefault();jump(+a.dataset.jump);}});
