@@ -153,6 +153,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 @keyframes rise{from{transform:translateY(4px)}to{transform:none}}
 #nmap{width:100%;height:440px;border-radius:8px;overflow:hidden;background:var(--bg)}
 @media (max-width:560px){#nmap{height:340px}}
+.nmap-box{position:relative}
+#nmap.locked{touch-action:pan-y}
+.maplock{position:absolute;left:10px;top:10px;z-index:200;font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid #1C6A47;background:#fff;color:#1C6A47;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}
+.maplock[aria-pressed="true"]{background:#1C6A47;color:#fff}
 .npin{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#1C6A47;color:#fff;font:700 13px/1 "IBM Plex Sans KR",sans-serif;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:pointer}
 .npin.top{background:#D99A12;color:#2A1E05}
 .nhome{width:16px;height:16px;border-radius:4px;background:#6B3A1E;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
@@ -223,7 +227,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
       <section class="mapbox" id="mapbox" hidden aria-label="상위 행사 지도">
         <div class="map-head"><strong>상위 10곳 위치</strong><span class="note">출발지 중심 · 원은 차로 30분·1시간·2시간 추정 거리 · 핀을 누르면 해당 행사로 이동</span></div>
         <div class="map-grid">
-          <div class="map-wrap"><div id="nmap" hidden></div><svg id="map" viewBox="0 0 640 520" role="img" aria-label="출발지 기준 상위 행사 위치"></svg></div>
+          <div class="map-wrap"><div class="nmap-box"><div id="nmap" hidden></div><button type="button" class="maplock" id="mapLock" hidden aria-pressed="false">지도 움직이기</button></div><svg id="map" viewBox="0 0 640 520" role="img" aria-label="출발지 기준 상위 행사 위치"></svg></div>
           <ol class="legend" id="legend"></ol>
         </div>
       </section>
@@ -448,6 +452,15 @@ function loadNaver(){
   document.head.appendChild(s);
 }
 let naverReady=false;
+/* 평소엔 지도를 고정해 페이지 스크롤이 지도에 걸리지 않게 한다. 버튼을 누를 때만 끌기·확대 가능 */
+let mapFree=false;
+function setMapFree(on){
+  mapFree=on;
+  const b=$("mapLock"); b.setAttribute("aria-pressed",on); b.textContent=on?"지도 고정하기":"지도 움직이기";
+  $("nmap").classList.toggle("locked",!on);
+  if(nmap)nmap.setOptions({draggable:on,pinchZoom:on,scrollWheel:on,keyboardShortcuts:on,disableDoubleClickZoom:!on,disableDoubleTapZoom:!on,disableTwoFingerTapZoom:!on});
+}
+$("mapLock").addEventListener("click",()=>setMapFree(!mapFree));
 function fitNaverSize(){const el=$("nmap");if(nmap&&el.clientWidth)nmap.setSize(new naver.maps.Size(el.clientWidth,el.clientHeight));}
 window.addEventListener("resize",fitNaverSize);
 function drawNaver(items){
@@ -457,6 +470,7 @@ function drawNaver(items){
   if(!nmap){
     try{
       nmap=new naver.maps.Map("nmap",{center:new naver.maps.LatLng(state.origin.lat,state.origin.lng),zoom:10,scaleControl:true,mapDataControl:false,zoomControl:true,zoomControlOptions:{position:naver.maps.Position.TOP_RIGHT}});
+      $("mapLock").hidden=false; setMapFree(false);
       niw=new naver.maps.InfoWindow({content:"",borderWidth:0,backgroundColor:"#fff",anchorSize:new naver.maps.Size(10,8),pixelOffset:new naver.maps.Point(0,-6)});
     }catch(e){naverReady=false;nmap=null;$("nmap").hidden=true;$("map").style.display="";return false;}
   }
