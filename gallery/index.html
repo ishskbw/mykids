@@ -68,6 +68,11 @@ button{cursor:pointer}
 }
 
 /* 하단 안내 & 작품 카드 */
+/* 휴대폰 앞뒤 기준선: 화면 아래 12% 높이에 흐린 발자국. 발자국 위를 누르면 앞으로, 아래를 누르면 뒤로 */
+.backzone{position:fixed;left:0;right:0;bottom:calc(12% - 20px);height:40px;z-index:2;pointer-events:none;display:none;align-items:center;justify-content:center;color:rgba(70,44,20,.3);transition:opacity .3s}
+.coarse .backzone{display:flex}
+body.col .backzone{display:none}
+.coarse .hint{bottom:calc(12% + 28px)}
 .hint{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;max-width:calc(100% - 32px);
   background:var(--glass);color:var(--glass-ink);padding:10px 16px;border-radius:12px;font-size:13px;text-align:center;pointer-events:none;transition:opacity .6s}
 .hint b{color:#e8c77a;font-weight:600}
@@ -100,23 +105,19 @@ button{cursor:pointer}
 #viewer img{max-width:calc(100% - 20px);max-height:calc(100% - 20px);object-fit:contain;box-shadow:0 0 0 10px #fff,0 20px 60px rgba(0,0,0,.6);background:#fff;
   transform-origin:center;will-change:transform;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}
 #viewer img.anim{transition:transform .22s ease-out}
-#viewer .vinfo{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:min(720px,100%);padding:6px 14px;border:none;border-radius:10px;background:none;color:#efe7d8;text-align:center;cursor:pointer}
-#viewer .vinfo:hover,#viewer .vinfo:focus-visible{background:rgba(255,255,255,.07);outline:none}
+#viewer .vinfo{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:min(720px,100%);padding:6px 14px;color:#efe7d8;text-align:center}
 #viewer .vt{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.35}
 #viewer .vm{font-size:13px;color:#c9bda8}
 #viewer .vn{font-size:14px;line-height:1.55;color:#e6dccb;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
 #viewer .vn:empty{display:none}
-#viewer .vmore{font-size:12px;color:#e8c77a;margin-top:2px}
-#viewer .vdesc{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,8,6,.72)}
-#viewer .vdesc[hidden]{display:none}
-#viewer .vcard{text-align:left;position:relative;width:min(620px,100%);max-height:calc(100% - 32px);overflow:auto;background:#f8f4ea;color:#2a2219;border-radius:6px;padding:34px 32px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-#viewer .vcard .x{position:absolute;top:10px;right:12px;color:#6f6352}
-#viewer .vcard p{color:#2a2219;text-align:left;font-family:var(--f-body)}
-#viewer .vcard .dk{margin:0;font-size:12px;letter-spacing:.2em;color:#a8812f;font-weight:600}
-#viewer .vcard h2{font-family:var(--f-display);font-weight:600;font-size:clamp(24px,5.5vw,34px);line-height:1.3;margin:6px 0 6px;text-wrap:balance}
-#viewer .vcard .dm{margin:0 0 20px;font-size:16px;color:#6f6352}
-#viewer .vcard .dn{margin:0;font-size:clamp(18px,4vw,21px);line-height:1.8;white-space:pre-wrap;word-break:keep-all}
-#viewer .vcard .dn.empty{color:#9a8d78;font-size:16px}
+/* 벽 설명 카드 크게 보기: 3D 벽에 붙은 카드(크림색 종이, 함렛 제목, 갈색 글씨)와 같은 모양 */
+.labelview{position:fixed;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,8,6,.6)}
+.labelview[hidden]{display:none}
+.wlabel{position:relative;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;background:#f8f5ee;color:#2a2219;border-radius:2px;padding:34px 34px 30px;box-shadow:0 2px 0 rgba(0,0,0,.08),0 24px 60px rgba(0,0,0,.45)}
+.wlabel .x{position:absolute;top:8px;right:10px;color:#8a7d6a}
+.wlabel h2{font-family:var(--f-display);font-weight:600;font-size:clamp(26px,6.5vw,38px);line-height:1.25;margin:0 0 14px;color:#2a2219;text-wrap:balance}
+.wlabel .lb{margin:0;font-size:clamp(17px,4vw,20px);font-weight:500;color:#5a4d3c;line-height:1.6}
+.wlabel .ln{margin:18px 0 0;font-size:clamp(17px,4vw,19px);line-height:1.75;color:#7a6d5a;white-space:pre-wrap;word-break:keep-all}
 #viewer p{color:#efe7d8;margin:0;font-family:var(--f-display);font-size:16px;text-align:center}
 #viewer .vbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 #viewer .vbar .zoom{min-width:40px;font-weight:600}
@@ -269,6 +270,22 @@ label.f textarea{resize:vertical;min-height:38px}
 </div>
 <div class="room-now" id="roomNow">로비</div>
 <div class="hint" id="hint"></div>
+<!-- 휴대폰: 화면 맨 아래 '뒤로 물러나기' 영역 표시 (흐린 기준선 + 뒤를 향한 발자국) -->
+<div class="backzone" id="backzone" aria-hidden="true">
+  <!-- 구두 발자국 한 쌍(앞창 + 뒷굽), 발끝이 앞(위)을 향한다 -->
+  <svg viewBox="0 0 64 72" width="40" height="44">
+    <defs>
+      <g id="shoe">
+        <path d="M0,-30 C8,-30 10.5,-19 9.5,-9 C8.8,-2 5.5,3 5,8 L-5,8 C-5.5,3 -8.8,-2 -9.5,-9 C-10.5,-19 -8,-30 0,-30 Z"/>
+        <path d="M-6,14 Q0,11.5 6,14 L6,24 Q6,27 3,27 L-3,27 Q-6,27 -6,24 Z"/>
+      </g>
+    </defs>
+    <g fill="currentColor">
+      <use href="#shoe" transform="translate(20 38) rotate(-6) scale(-1 1)"/>
+      <use href="#shoe" transform="translate(44 34) rotate(6)"/>
+    </g>
+  </svg>
+</div>
 
 <div class="card" id="card" role="dialog" aria-live="polite">
   <h3 id="cTitle"></h3>
@@ -303,22 +320,11 @@ label.f textarea{resize:vertical;min-height:38px}
 
 <div id="viewer">
   <div class="vstage" id="vStage"><img id="vImg" alt="" draggable="false"></div>
-  <!-- 그림 아래 작품 정보: 누르면 설명을 크게 본다 -->
-  <button class="vinfo" id="vInfo" aria-label="작품 설명 크게 보기">
+  <!-- 그림 아래 작품 정보 -->
+  <div class="vinfo" id="vInfo">
     <span class="vt" id="vTitle"></span>
     <span class="vm" id="vMeta"></span>
     <span class="vn" id="vNote"></span>
-    <span class="vmore">설명 크게 보기 ›</span>
-  </button>
-  <!-- 작품 설명 크게 보기: 미술관 벽의 설명 카드처럼 -->
-  <div class="vdesc" id="vDesc" hidden>
-    <div class="vcard" role="dialog" aria-labelledby="dTitle">
-      <button class="x" id="vDescClose" aria-label="설명 닫기">×</button>
-      <p class="dk">작품 설명</p>
-      <h2 id="dTitle"></h2>
-      <p class="dm" id="dMeta"></p>
-      <p class="dn" id="dNote"></p>
-    </div>
   </div>
   <div class="vbar">
     <button class="btn zoom" id="vZoomOut" aria-label="축소">－</button>
@@ -327,6 +333,16 @@ label.f textarea{resize:vertical;min-height:38px}
     <button class="btn primary" id="vGo">전시실에서 보기</button>
     <button class="btn" id="vNext" aria-label="다음 작품">▶</button>
     <button class="btn" id="vClose">닫기</button>
+  </div>
+</div>
+<!-- 벽의 작품 설명 카드를 누르면 같은 모양 그대로 크게 본다 -->
+<div class="labelview" id="labelView" hidden>
+  <div class="wlabel" role="dialog" aria-labelledby="lTitle">
+    <button class="x" id="labelClose" aria-label="설명 닫기">×</button>
+    <h2 id="lTitle"></h2>
+    <p class="lb" id="lBy"></p>
+    <p class="lb" id="lDate"></p>
+    <p class="ln" id="lNote"></p>
   </div>
 </div>
 <div id="fade"></div>
@@ -1272,6 +1288,7 @@ function hang(a,wall,x,rm){
     for(const ch of n){if(x.measureText(line+ch).width>cw-36){x.fillText(line,18,y);y+=22;line='';if(++lines>=2)break;}line+=ch;}if(lines<2&&line)x.fillText(line,18,y);
   },{transparent:false});
   label.position.set(W/2+.5,1.42,.02);g.add(label);
+  label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
   artIndex.push({art:a,mesh:pic,room:rm});
 }
 
@@ -1411,21 +1428,25 @@ stage.addEventListener('wheel',e=>{e.preventDefault();if(tween)return;autoWalk=n
   if(!e.ctrlKey)player.yaw-=e.deltaX*unit*dragK();},{passive:false});
 stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag)return;
   ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObjects(rayTargets,false)[0];stage.style.cursor=hit?.object.userData.art?'pointer':'';});
+  const hit=ray.intersectObjects(rayTargets,false)[0];stage.style.cursor=hit?.object.userData.art||hit?.object.userData.label?'pointer':'';});
 
 // 휴대폰에서 화면 아래쪽(발치)을 톡 하면 뒤로 물러난다. 바로 앞 바닥이라 '그리로 걷기'로는 거의 안 움직이기 때문.
-const BACK_ZONE=.8, BACK_STEP=2.5;
+const BACK_ZONE=.88, BACK_STEP=2.5; // 화면 아래 12% (발자국 표시 영역과 같아야 한다)
 function tap(x,y,type){
   if(type==='touch'&&y>stage.clientHeight*BACK_ZONE){closeCard();autoWalk=null;wheelPending=-BACK_STEP;return;}
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(rayTargets,false)[0];if(!hit)return;
+  if(hit.object.userData.label){openLabel(hit.object.userData.label);return;}
   if(hit.object.userData.art){focusArt(hit.object.userData.art);return;}
-  if(hit.object.userData.floor){closeCard();autoWalk={x:hit.point.x,z:hit.point.z};}
+  if(hit.object.userData.floor){closeCard();
+    // 휴대폰에서 발자국 바로 위 바닥처럼 가까운 곳을 누르면 거의 안 움직이므로, 적어도 뒤로 물러나는 만큼은 앞으로 간다
+    if(type==='touch'&&Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<BACK_STEP){autoWalk=null;wheelPending=BACK_STEP;return;}
+    autoWalk={x:hit.point.x,z:hit.point.z};}
 }
 addEventListener('keydown',e=>{
   if(e.target.closest?.('input,textarea,select,dialog'))return;
-  if(e.code==='Escape'){if(!vDesc.hidden)closeDesc();else if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
-  if(!vDesc.hidden)return; // 설명 카드를 보는 동안에는 다른 단축키를 쓰지 않는다
+  if(e.code==='Escape'){if(!labelView.hidden)closeLabel();else if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
+  if(!labelView.hidden)return; // 설명 카드를 보는 동안에는 다른 단축키를 쓰지 않는다
   if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);
     if(e.key==='+'||e.key==='=')$('vZoomIn').click();if(e.key==='-')$('vZoomOut').click();if(e.key==='0')zoomAt(...stageCenter(),1,true);return;}
   if(colOpen())return;
@@ -1510,22 +1531,26 @@ function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.
   $('vPrev').disabled=$('vNext').disabled=vList.length<2;
   // '전시실에서 보기'를 누를 때 벽에 바로 걸려 있도록 3D용 이미지를 미리 준비해 둔다
   artTexture(a).catch(()=>{});}
-// 그림 아래 정보와 '설명 크게 보기' 카드를 같은 작품으로 채운다
+// 그림 아래 작품 정보
 function fillViewerInfo(a){
-  const meta=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
-  $('vTitle').textContent=a.title||'제목 없음';$('vMeta').textContent=meta;$('vNote').textContent=a.note||'';
-  $('dTitle').textContent=a.title||'제목 없음';$('dMeta').textContent=meta;
-  const dn=$('dNote');dn.textContent=a.note||'아직 적힌 설명이 없어요.';dn.classList.toggle('empty',!a.note);
+  $('vTitle').textContent=a.title||'제목 없음';
+  $('vMeta').textContent=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
+  $('vNote').textContent=a.note||'';
 }
-const vDesc=$('vDesc');
-function openDesc(){vDesc.hidden=false;openLayer('desc');$('vDescClose').focus();}
-function closeDesc(){if(vDesc.hidden)return;vDesc.hidden=true;syncClose('desc');}
-layerClose.desc=()=>{vDesc.hidden=true;};
-$('vInfo').onclick=openDesc;$('vDescClose').onclick=closeDesc;
-vDesc.addEventListener('click',e=>{if(e.target===vDesc)closeDesc();});
+// 전시실 벽의 작품 설명 카드를 누르면, 같은 모양 그대로 크게 보여 준다 (글이 길어도 다 보인다)
+const labelView=$('labelView');
+function openLabel(a){
+  $('lTitle').textContent=a.title||'제목 없음';$('lBy').textContent=byline(a);$('lDate').textContent=fmtDate(a.date);
+  $('lNote').textContent=a.note||'';$('lNote').hidden=!a.note;
+  labelView.hidden=false;openLayer('label');$('labelClose').focus();
+}
+function closeLabel(){if(labelView.hidden)return;labelView.hidden=true;syncClose('label');}
+layerClose.label=()=>{labelView.hidden=true;};
+$('labelClose').onclick=closeLabel;
+labelView.addEventListener('click',e=>{if(e.target===labelView)closeLabel();});
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
-function closeViewer(){closeDesc();viewer.classList.remove('show');syncClose('viewer');}
-layerClose.viewer=()=>{if(!vDesc.hidden){vDesc.hidden=true;syncClose('desc');}viewer.classList.remove('show');};
+function closeViewer(){viewer.classList.remove('show');syncClose('viewer');}
+layerClose.viewer=()=>viewer.classList.remove('show');
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
 // 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
@@ -1639,6 +1664,7 @@ $('colSort').onchange=renderCollection;
 /* ───────────────────────── 안내 문구 ───────────────────────── */
 const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
+document.body.classList.toggle('coarse',coarse);
 // 항목 하나는 한 줄 안에서 끊기지 않게 묶고, 줄은 항목 사이에서만 바뀐다 (항목은 간격으로 구분)
 hint.innerHTML=(coarse
   ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤·옆 이동','<b>아래쪽 톡</b>하면 뒤로']
