@@ -6,6 +6,14 @@
 <meta name="robots" content="noindex, nofollow">
 <title>공공의 미술관</title>
 <meta name="theme-color" content="#1b1714">
+<!-- 홈 화면에 앱으로 설치 -->
+<link rel="manifest" href="/gallery/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/gallery/icon-192.png">
+<link rel="apple-touch-icon" href="/gallery/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="공공의 미술관">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600&display=swap">
@@ -235,6 +243,7 @@ label.f textarea{resize:vertical;min-height:38px}
     <button role="tab" id="tabCol" aria-selected="false">작품 모아보기<span class="n" id="colCount"></span></button>
   </div>
   <button class="chip" id="btnRooms">전시실 안내</button>
+  <button class="chip" id="btnInstall" hidden>앱 설치</button>
   <button class="chip" id="btnLogin" hidden>가족 로그인</button>
   <button class="chip" id="btnManage">작품 관리</button>
   <button class="chip primary" id="btnUpload">그림 올리기</button>
@@ -1003,7 +1012,7 @@ function build(){
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
     for(const s of [-1,1])world.add(box(.7,.34,.12,M.wood,cx,.17,cz+s*1.4));
-    colliders.push({x0:cx-.45,x1:cx+.45,z0:cz-1.6,z1:cz+1.6});
+    // 벤치는 막지 않는다: 걸어서 그대로 지나갈 수 있다
     for(const s of [-1,1])world.add(box(.95,.008,4.6,grilleMat,cx+s*2.3,.004,cz));
     // 문이 없는 첫 벽 가운데에 방 이름
     const plainWall=['N','E','S','W'].find(k=>!hasDoor[k]);
@@ -1801,6 +1810,11 @@ function applyRole(){
   document.body.classList.toggle('remote',Store.remote);document.body.classList.toggle('editor',editor);
   $('btnLogin').hidden=!Store.remote||editor;
 }
+// 앱 설치: 브라우저가 설치할 수 있다고 알려 주면(안드로이드 크롬 등) '앱 설치' 버튼을 보여 준다
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('btnInstall').hidden=false;});
+addEventListener('appinstalled',()=>{installEvt=null;$('btnInstall').hidden=true;toast('홈 화면에 공공의 미술관을 설치했어요');});
+$('btnInstall').onclick=async()=>{if(!installEvt)return;installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;$('btnInstall').hidden=true;};
 $('btnLogin').onclick=async()=>{
   const p=new F.au.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
   try{await F.au.signInWithPopup(F.auth,p);}

@@ -1,0 +1,17 @@
+{
+  "id": "/gallery/",
+  "name": "공공의 미술관",
+  "short_name": "공공의 미술관",
+  "description": "공공 자매의 온라인 미술관",
+  "start_url": "/gallery/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1b1714",
+  "theme_color": "#1b1714",
+  "lang": "ko",
+  "icons": [
+    { "src": "/gallery/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/gallery/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/gallery/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
