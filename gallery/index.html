@@ -1269,7 +1269,7 @@ function moveBy(dx,dz){
   const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.1));
   for(let i=0;i<n;i++){player.x+=dx/n;player.z+=dz/n;collide();}
 }
-let lastSafe={x:START.x,z:START.z},wheelPending=0;
+let lastSafe={x:START.x,z:START.z},wheelPending=0,strafePending=0; // 앞뒤·옆으로 아직 남은 이동 거리(m)
 const angDiff=(a,b)=>{let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return d;};
 const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 
@@ -1294,11 +1294,13 @@ function update(dt){
     // 휠·트랙패드: 쌓인 스크롤 양만큼 부드럽게 앞뒤로 미끄러진다
     if(Math.abs(wheelPending)>.005){const st=wheelPending*Math.min(1,dt*8);wheelPending-=st;moveBy(-sy*st,-cy*st);}
     else wheelPending=0;
+    if(Math.abs(strafePending)>.005){const st=strafePending*Math.min(1,dt*8);strafePending-=st;moveBy(cy*st,-sy*st);}
+    else strafePending=0;
     collide();
     // 안전장치: 어떤 이유로든 건물 밖에 있으면 마지막으로 안전했던 자리로 돌려 놓는다
-    if(roomAt(player.x,player.z))lastSafe={x:player.x,z:player.z};else{player.x=lastSafe.x;player.z=lastSafe.z;wheelPending=0;autoWalk=null;}
+    if(roomAt(player.x,player.z))lastSafe={x:player.x,z:player.z};else{player.x=lastSafe.x;player.z=lastSafe.z;wheelPending=strafePending=0;autoWalk=null;}
     // 그림 감상이 끝나거나 다시 걷기 시작하면 눈높이를 사람 키로 천천히 되돌린다
-    const walking=fwd||str||autoWalk||Math.abs(wheelPending)>.005;
+    const walking=fwd||str||autoWalk||Math.abs(wheelPending)>.005||Math.abs(strafePending)>.005;
     if((!focused||walking)&&player.eye!==EYE){player.eye+=(EYE-player.eye)*Math.min(1,dt*3);if(Math.abs(player.eye-EYE)<.005)player.eye=EYE;}
   }
   camera.position.set(player.x,player.eye,player.z);camera.rotation.set(player.pitch,player.yaw,0);
@@ -1312,17 +1314,22 @@ function showRoom(rm){roomNow.textContent=rm.title;roomNow.style.opacity=1;clear
 /* ───────────────────────── 포인터 조작 ───────────────────────── */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 const pointers=new Map();let drag=null;
-// 두 손가락 벌리기·오므리기: 마우스 휠처럼 앞뒤로 걷는다 (벌리면 앞으로)
+// 두 손가락: 함께 끌면 그 방향으로 걷고(위=앞, 아래=뒤, 좌우=옆걸음), 벌리고 오므리면 앞뒤로 걷는다
 let pinch=null;
 const pinchDist=()=>{const[a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+const pinchMid=()=>{const[a,b]=[...pointers.values()];return{mx:(a.x+b.x)/2,my:(a.y+b.y)/2};};
+const clampMove=v=>Math.max(-2.5,Math.min(2.5,v));
 stage.addEventListener('pointerdown',e=>{
   try{stage.setPointerCapture(e.pointerId);}catch{}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now(),moved:0};
-  else{drag=null;pinch=pointers.size===2?{d:pinchDist()}:null;}
+  else{drag=null;pinch=pointers.size===2?{d:pinchDist(),...pinchMid()}:null;}
 });
 stage.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pinch&&pointers.size===2){const d=pinchDist();if(!tween){autoWalk=null;wheelPending=Math.max(-2.5,Math.min(2.5,wheelPending+(d-pinch.d)*.012));}pinch.d=d;return;}
+  if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid();
+    if(!tween){autoWalk=null;const k=.012; // 화면 1px당 0.012m
+      wheelPending=clampMove(wheelPending+(d-pinch.d)*k-(my-pinch.my)*k);strafePending=clampMove(strafePending+(mx-pinch.mx)*k);}
+    Object.assign(pinch,{d,mx,my});return;}
   if(!drag||tween)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
   drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.moved>6){stage.classList.add('dragging');autoWalk=null;}
   // 끌어당긴 거리에 비례해 돈다 (마우스·손가락별 배수는 DRAG_SPEED)
@@ -1576,7 +1583,7 @@ const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
 // 항목 하나는 한 줄 안에서 끊기지 않게 묶고, 줄은 항목 사이에서만 바뀐다 (항목은 간격으로 구분)
 hint.innerHTML=(coarse
-  ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤 이동','<b>아래쪽 톡</b>하면 뒤로']
+  ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤·옆 이동','<b>아래쪽 톡</b>하면 뒤로']
   :['<b>드래그</b>로 둘러보기','<b>WASD·방향키</b>로 걷기','<b>Q E</b>로 돌기','<b>바닥 클릭</b>으로 이동','<b>그림 클릭</b>으로 감상'])
   .map(s=>`<span class="hi">${s}</span>`).join('');
 setTimeout(()=>hint.style.opacity=0,9000);
