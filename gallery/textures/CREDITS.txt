@@ -1,0 +1,6 @@
+Textures from Poly Haven (https://polyhaven.com), CC0 license.
+Re-encoded at 1K, JPEG quality 80.
+
+- oak_wood_planks  (diff, nor_gl, rough)   floor
+- marble_01        (diff, nor_gl, rough)   lobby walls
+- velour_velvet    (nor_gl)                fabric weave on gallery walls
