@@ -170,12 +170,24 @@ label.f textarea{resize:vertical;min-height:38px}
 .kid-pick{display:flex;gap:6px;margin-top:4px}
 .kid-pick .btn{padding:6px 14px}
 .settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px}
-.room-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.room-list button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px 14px}
-.room-list button:hover,.room-list button:focus-visible{border-color:var(--gold);outline:none}
-.room-list .sw{width:14px;height:36px;border-radius:4px;flex:none}
-.room-list strong{display:block;font-family:var(--f-display);font-weight:700}
-.room-list span{color:var(--muted);font-size:13px}
+/* 전시실 안내 평면도 */
+.plan{display:block;width:100%;height:auto;max-height:calc(100dvh - 190px);background:var(--panel-2);border-radius:12px}
+.plan-room{cursor:pointer;outline:none}
+.plan-room rect{transition:fill-opacity .15s}
+.plan-room:hover rect,.plan-room:focus-visible rect{fill-opacity:.55}
+.plan-title{font-family:var(--f-display);font-weight:800;font-size:9px;text-anchor:middle;fill:var(--ink)}
+.plan-sub{font-size:6px;text-anchor:middle;fill:var(--muted)}
+.plan-walls line{stroke:var(--ink);stroke-width:2.6;stroke-linecap:square}
+.plan-art{cursor:pointer;outline:none}
+.plan-art line{stroke:#b8914a;stroke-width:3.2;stroke-linecap:round}
+.plan-art:hover line,.plan-art:focus-visible line{stroke:#e0b858;stroke-width:4.6}
+.plan-me{pointer-events:none}
+.plan-me circle{fill:#d64535;stroke:#fff;stroke-width:1.2}
+.plan-cone{fill:#d64535;fill-opacity:.25}
+.plan-here{font-size:5.5px;font-weight:600;text-anchor:middle;fill:#d64535;paint-order:stroke;stroke:var(--panel-2);stroke-width:2px}
+.plan-legend{margin:10px 0 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lg-me{width:10px;height:10px;border-radius:50%;background:#d64535;display:inline-block}
+.lg-art{width:16px;height:4px;border-radius:2px;background:#b8914a;display:inline-block;margin-left:8px}
 .toast{position:fixed;top:calc(70px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:40;background:var(--panel);color:var(--ink);padding:10px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.show{opacity:1}
 </style>
@@ -308,7 +320,10 @@ label.f textarea{resize:vertical;min-height:38px}
 <dialog id="dlgRooms">
   <div class="dlg">
     <header><h2>전시실 안내</h2><button class="x" data-close aria-label="닫기">×</button></header>
-    <div class="body"><ul class="room-list" id="roomList"></ul></div>
+    <div class="body">
+      <div id="planWrap"></div>
+      <p class="plan-legend"><span class="lg-me"></span>지금 위치와 바라보는 방향 <span class="lg-art"></span>작품 · 방이나 작품을 누르면 그곳으로 가요</p>
+    </div>
   </div>
 </dialog>
 
@@ -1167,8 +1182,8 @@ function hang(a,wall,x,rm){
 function buildLobby(rm,walls,hasDoor){
   const total=rooms.filter(r=>!r.lobby).reduce((s,r)=>s+r.arts.length,0);
   const t=textPlane(11,3.4,170,(x,w,h)=>{x.textAlign='center';x.shadowColor='rgba(60,40,10,.35)';x.shadowBlur=6;
-    x.fillStyle='#7a5a1c';x.font='500 52px "IBM Plex Sans KR",sans-serif';x.fillText(KIDS.filter(k=>k.kid).map(k=>k.name).join(' · '),w/2,h*.2);
-    fitText(x,state.name,'800 {s}px "Nanum Myeongjo",serif',w-80,230);x.fillStyle='#5b3e10';x.fillText(state.name,w/2,h*.6);
+    // 미술관 이름과 작품 수만 (위쪽 이름 줄은 두지 않는다)
+    fitText(x,state.name,'800 {s}px "Nanum Myeongjo",serif',w-80,230);x.fillStyle='#5b3e10';x.fillText(state.name,w/2,h*.55);
     x.font='500 60px "IBM Plex Sans KR",sans-serif';x.fillStyle='#6f5a3a';
     x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요'),w/2,h*.88);});
   t.position.set(0,3.6,.03);walls.N.add(t);
@@ -1408,15 +1423,53 @@ function enterRoom(rm){
     Object.assign(player,{x:rm.cx,z:rm.cz+(rm.lobby?6.4:6.2),yaw:0,pitch:.05});autoWalk=null;tween=null;
   });
 }
-$('btnRooms').onclick=()=>{
-  const ul=$('roomList');ul.replaceChildren();
-  for(const rm of rooms){const li=document.createElement('li'),b=document.createElement('button');
-    b.innerHTML=`<span class="sw"></span><div><strong></strong><span></span></div>`;
-    b.querySelector('.sw').style.background=rm.color;b.querySelector('strong').textContent=rm.title;
-    b.querySelector('div span').textContent=rm.lobby?'입구':`작품 ${rm.arts.length}점`;
-    b.onclick=()=>{$('dlgRooms').close();enterRoom(rm);};li.append(b);ul.append(li);}
-  $('dlgRooms').showModal();
-};
+/* 전시실 안내: 실제 배치 그대로 그린 평면도. 방 한 칸 = 100단위(16m).
+   벽과 문, 작품이 걸린 자리, 지금 위치와 바라보는 방향을 표시하고, 방이나 작품을 누르면 그리로 간다. */
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent?.append(e);return e;}
+function renderPlan(){
+  const wrap=$('planWrap');wrap.replaceChildren();
+  const sc=100/S,P=(x,z)=>[(x+S/2)*sc,(z+S/2)*sc],pad=10;
+  const cs=rooms.map(r=>r.c),rs=rooms.map(r=>r.r),minC=Math.min(...cs),maxC=Math.max(...cs),maxR=Math.max(...rs);
+  const vw=(maxC-minC+1)*100+pad*2,vh=(maxR+1)*100+pad*2+14;
+  const svg=svgEl('svg',{viewBox:`${minC*100-pad} ${-pad-14} ${vw} ${vh}`,class:'plan',role:'img','aria-label':'미술관 평면도'},wrap);
+  const at=(c,r)=>cellMap.get(cellKey(c,r));
+  // 방 (누르면 이동)
+  for(const rm of rooms){
+    const X=rm.c*100,Y=rm.r*100,g=svgEl('g',{class:'plan-room',tabindex:0,role:'button'},svg);
+    g.setAttribute('aria-label',`${rm.title}(으)로 이동`);
+    svgEl('rect',{x:X,y:Y,width:100,height:100,fill:rm.color,'fill-opacity':rm.lobby?.35:.3},g);
+    const t=svgEl('text',{x:X+50,y:Y+(rm.lobby?50:47),class:'plan-title'},g);t.textContent=rm.title;
+    const n=svgEl('text',{x:X+50,y:Y+(rm.lobby?62:60),class:'plan-sub'},g);n.textContent=rm.lobby?'입구':rm.arts.length?`작품 ${rm.arts.length}점`:'아직 비어 있어요';
+    const go=()=>{$('dlgRooms').close();enterRoom(rm);};
+    g.addEventListener('click',go);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+  }
+  // 벽: 방 네 변, 옆방이 있는 변은 가운데에 문
+  const dw=DOOR_W*sc,walls=svgEl('g',{class:'plan-walls'},svg);
+  for(const rm of rooms){const X=rm.c*100,Y=rm.r*100;
+    const side=(x1,y1,x2,y2,door)=>{if(!door){svgEl('line',{x1,y1,x2,y2},walls);return;}
+      const mx=(x1+x2)/2,my=(y1+y2)/2,ux=(x2-x1)/100,uy=(y2-y1)/100;
+      svgEl('line',{x1,y1,x2:mx-ux*dw/2,y2:my-uy*dw/2},walls);svgEl('line',{x1:mx+ux*dw/2,y1:my+uy*dw/2,x2,y2},walls);};
+    side(X,Y,X+100,Y,!!at(rm.c,rm.r-1));side(X+100,Y,X+100,Y+100,!!at(rm.c+1,rm.r));
+    side(X+100,Y+100,X,Y+100,!!at(rm.c,rm.r+1));side(X,Y+100,X,Y,!!at(rm.c-1,rm.r));}
+  // 작품이 걸린 자리 (누르면 그 작품 앞으로)
+  const v=new THREE.Vector3(),q=new THREE.Quaternion(),nrm=new THREE.Vector3();
+  for(const e of artIndex){e.mesh.getWorldPosition(v);e.mesh.getWorldQuaternion(q);nrm.set(0,0,1).applyQuaternion(q);
+    const[cx,cy]=P(v.x+nrm.x*.5,v.z+nrm.z*.5),half=e.mesh.userData.w*sc/2,tx=-nrm.z,ty=nrm.x;
+    const g=svgEl('g',{class:'plan-art',tabindex:0,role:'button'},svg);g.setAttribute('aria-label',`${e.art.title||'제목 없음'} 보러 가기`);
+    svgEl('title',{},g).textContent=[e.art.title,e.art.artist].filter(Boolean).join(' · ');
+    svgEl('line',{x1:cx-tx*half,y1:cy-ty*half,x2:cx+tx*half,y2:cy+ty*half},g);
+    const go=ev=>{ev.stopPropagation();$('dlgRooms').close();focusArt(e.art,{instant:true});};
+    g.addEventListener('click',go);g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();go(ev);}});}
+  // 지금 위치와 바라보는 방향
+  const[px,py]=P(player.x,player.z),dx=-Math.sin(player.yaw),dy=-Math.cos(player.yaw),a=.45,R=16;
+  const me=svgEl('g',{class:'plan-me'},svg);
+  const l=[dx*Math.cos(a)-dy*Math.sin(a),dx*Math.sin(a)+dy*Math.cos(a)],r=[dx*Math.cos(-a)-dy*Math.sin(-a),dx*Math.sin(-a)+dy*Math.cos(-a)];
+  svgEl('path',{d:`M${px},${py} L${px+l[0]*R},${py+l[1]*R} A${R},${R} 0 0 0 ${px+r[0]*R},${py+r[1]*R} Z`,class:'plan-cone'},me);
+  svgEl('circle',{cx:px,cy:py,r:3.2},me);
+  const lab=svgEl('text',{x:px,y:py+(dy<0?10:-6),class:'plan-here'},me);lab.textContent='지금 여기'; // 바라보는 쪽 반대편에 글자
+}
+$('btnRooms').onclick=()=>{renderPlan();$('dlgRooms').showModal();};
 document.querySelectorAll('dialog').forEach(d=>{
   d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close();});
 });
@@ -1609,6 +1662,7 @@ function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
     catch(err){console.error(err);toast('온라인 미술관에 연결하지 못했어요. 잠시 후 다시 열어 주세요.');}
   }
   applyRole();
+  if(FIREBASE_CONFIG&&!Store.remote&&new URLSearchParams(location.search).has("local"))setTimeout(()=>toast("디자인 확인 모드 · 온라인 미술관이 아니라 예시 작품만 보여요"),1200);
   try{
     const [arts,settings]=await Promise.all([Store.all(),Store.getMeta('settings')]);
     state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);if(settings){state.name=settings.name||state.name;state.groupBy=settings.groupBy||state.groupBy;}
