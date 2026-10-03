@@ -167,6 +167,8 @@ body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:
 #loading{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#efe7d8;transition:opacity .6s}
 #loading h1{font-family:var(--f-display);font-weight:600;font-size:30px;margin:0;text-align:center;padding-inline:16px}
 #loading p{margin:0;color:#b3a68f;font-size:14px}
+#loading h1,#loading p{opacity:0;transition:opacity .35s}
+#loading.fonts h1,#loading.fonts p{opacity:1}
 #loading.gone{opacity:0;pointer-events:none}
 
 /* 대화상자 */
@@ -313,6 +315,11 @@ label.f textarea{resize:vertical;min-height:38px}
 <div id="fade"></div>
 <div class="toast" id="toast"></div>
 <div id="loading"><h1>공공의 미술관</h1><p id="loadMsg">전시장을 준비하고 있어요…</p></div>
+<script>
+// 로딩 화면 글씨가 기본 글꼴로 먼저 보였다가 바뀌지 않도록, 글꼴이 준비되면(최대 1.5초) 나타나게 한다
+(()=>{const el=document.getElementById("loading"),show=()=>el.classList.add("fonts");setTimeout(show,1500);
+  document.fonts.load('600 30px "Hahmlet"',"공공의 미술관").then(()=>document.fonts.load('400 14px "Pretendard Variable"',"전시장을 준비하고 있어요…")).then(show,show);})();
+</script>
 
 <!-- 그림 올리기 -->
 <dialog id="dlgUpload">
@@ -1847,13 +1854,17 @@ function rebuild(){
   // 새 제목·이름에 아직 받지 않은 글자가 있으면 글꼴을 받아 와서 벽 글씨를 다시 그린다
   loadCanvasFonts().then(changed=>{if(changed){build();curRoom=null;}});
 }
-/* 3D 벽 글씨(캔버스)는 글꼴이 다 받아진 뒤에 그려야 한다. 한글 웹글꼴은 글자 묶음별로 나눠 받으므로
-   벽에 쓰일 글자를 모아서 그 글자들이 든 묶음을 미리 받아 둔다. 새로 받은 묶음이 있으면 true. */
+/* 글꼴 미리 받기. 한글 웹글꼴은 글자 묶음별로 나눠 받으므로, 쓰일 글자를 모아 그 묶음을 먼저 받아 둔다.
+   - 3D 벽 글씨(캔버스)는 글꼴이 다 받아진 뒤에 그려야 한다.
+   - 화면 버튼·안내 글씨도 함께 받아 두어, 로딩 화면이 걷힌 뒤 글꼴이 바뀌어 보이지 않게 한다.
+   새로 받은 묶음이 있으면 true. */
 async function loadCanvasFonts(){
   const text=[state.name,...displayArts().flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
-    '로비 입구 작품 점 전시실 곳 아직 걸린 작품이 없어요 예시 곧 가족의 그림이 걸릴 거예요 지금은 오른쪽 위 그림 올리기를 눌러 보세요 제목 없음 이름 없는 화가 상설 전시 날짜 모름 년 월 일 0123456789 ·'].filter(Boolean).join(' ');
+    '로비 입구 작품 점 전시실 곳 아직 걸린 작품이 없어요 예시 곧 가족의 그림이 걸릴 거예요 지금은 오른쪽 위 그림 올리기를 눌러 보세요 제목 없음 이름 없는 화가 상설 전시 날짜 모름 년 월 일 0123456789 ·',
+    document.body.innerText].filter(Boolean).join(' ');
   const loaded=()=>[...document.fonts].filter(f=>f.status==='loaded').length,before=loaded();
-  try{await Promise.race([Promise.all([document.fonts.load('600 40px "Hahmlet"',text),document.fonts.load('500 20px "Pretendard Variable"',text),document.fonts.load('600 40px "Cormorant Garamond"',(state.nameEn||'A').toUpperCase())]),new Promise(r=>setTimeout(r,3000))]);}catch{}
+  try{await Promise.race([Promise.all([document.fonts.load('600 40px "Hahmlet"',text),document.fonts.load('500 40px "Hahmlet"',text),
+    document.fonts.load('500 20px "Pretendard Variable"',text),document.fonts.load('600 40px "Cormorant Garamond"',(state.nameEn||'A').toUpperCase())]),new Promise(r=>setTimeout(r,3000))]);}catch{}
   return loaded()!==before;
 }
 const clock=new THREE.Clock();
