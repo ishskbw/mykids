@@ -198,6 +198,8 @@ dialog::backdrop{background:rgba(10,8,6,.6)}
 .drop.over,.drop:hover{border-color:var(--gold)}
 .drop strong{font-size:16px}
 .drop span{color:var(--muted);font-size:13px}
+.other-app{display:block;margin:8px auto 0;width:max-content;max-width:100%;padding:8px 14px;border:1px solid var(--line);border-radius:999px;font-size:14px;cursor:pointer;text-align:center}
+.other-app:hover,.other-app:focus-within{border-color:var(--gold)}
 .common{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 label.f input,label.f select,label.f textarea{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink);min-width:0}
@@ -387,6 +389,11 @@ label.f textarea{resize:vertical;min-height:38px}
         <input type="file" id="fileInput" accept="image/*" multiple hidden>
         <strong>그림 사진 선택하기</strong>
         <span>여기에 끌어다 놓아도 돼요 · 여러 장 한꺼번에 가능</span>
+      </label>
+      <!-- 안드로이드 크롬은 image/* 를 받으면 휴대폰 사진만 보이는 시스템 사진 선택기를 연다.
+           파일 형식을 정하지 않은 입력은 앱 고르기 창을 열어 구글 포토·파일 앱에서 고를 수 있다. -->
+      <label class="other-app" id="otherApp" hidden>
+        <input type="file" id="fileInputAny" multiple hidden>구글 포토 등 다른 앱에서 고르기
       </label>
       <div class="common">
         <label class="f">그린 사람 (모든 그림에 적용)<input id="commonArtist" list="artistList" placeholder="이름을 쓰거나 아래에서 고르세요"><span class="kid-pick" id="kidPick"></span></label>
@@ -1878,7 +1885,8 @@ function renderPending(){
   $('btnSave').disabled=!pending.length;
 }
 async function addFiles(files){
-  const imgs=[...files].filter(f=>f.type.startsWith('image/'));if(!imgs.length)return;
+  const imgs=[...files].filter(f=>f.type.startsWith('image/')||/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name));
+  if(!imgs.length){if(files.length)toast('그림(사진) 파일만 올릴 수 있어요');return;}
   for(const f of imgs){try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
     pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
@@ -1886,6 +1894,8 @@ async function addFiles(files){
 }
 $('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').value=localStorage.getItem('kg-last-artist')||'';$('commonDate').value='';renderPending();markKid();$('dlgUpload').showModal();};
 $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+$('fileInputAny').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+if(/android/i.test(navigator.userAgent))$('otherApp').hidden=false;
 const drop=$('drop');
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
 ['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
