@@ -79,11 +79,10 @@ body.col .backzone{display:none}
 .hint .hi{white-space:nowrap}
 .hint{display:flex;flex-wrap:wrap;justify-content:center;column-gap:14px;row-gap:2px;line-height:1.6;width:max-content}
 /* 관람 방법 다시 보기: 왼쪽 아래 작은 반투명 탭 */
-.hint-tab{position:fixed;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:4;font:inherit;font-size:12px;line-height:1;padding:8px 11px;border:0;border-radius:999px;
+.hint-tab{position:fixed;left:16px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:4;font:inherit;font-size:12px;line-height:1;padding:8px 11px;border:0;border-radius:999px;
   background:var(--glass);color:var(--glass-ink);opacity:.38;cursor:pointer;transition:opacity .3s}
 .hint-tab:hover,.hint-tab:focus-visible,.hint-tab[aria-expanded="true"]{opacity:.9}
 .hint-tab:focus-visible{outline:2px solid #e8c77a;outline-offset:2px}
-.coarse .hint-tab{bottom:calc(12% - 6px);left:12px} /* 휴대폰: 여러 줄로 감싸지는 안내와 겹치지 않게 발자국 줄 왼쪽에 */
 body.col .hint-tab,body:has(.card.show) .hint-tab{opacity:0;pointer-events:none}
 .card{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:6;
   width:min(560px,calc(100% - 32px));background:var(--panel);color:var(--ink);border-radius:14px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .3s,transform .3s}
