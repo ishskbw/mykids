@@ -87,6 +87,23 @@ button{cursor:pointer}
 #viewer img{max-width:calc(100% - 20px);max-height:calc(100% - 20px);object-fit:contain;box-shadow:0 0 0 10px #fff,0 20px 60px rgba(0,0,0,.6);background:#fff;
   transform-origin:center;will-change:transform;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}
 #viewer img.anim{transition:transform .22s ease-out}
+#viewer .vinfo{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:min(720px,100%);padding:6px 14px;border:none;border-radius:10px;background:none;color:#efe7d8;text-align:center;cursor:pointer}
+#viewer .vinfo:hover,#viewer .vinfo:focus-visible{background:rgba(255,255,255,.07);outline:none}
+#viewer .vt{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.35}
+#viewer .vm{font-size:13px;color:#c9bda8}
+#viewer .vn{font-size:14px;line-height:1.55;color:#e6dccb;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
+#viewer .vn:empty{display:none}
+#viewer .vmore{font-size:12px;color:#e8c77a;margin-top:2px}
+#viewer .vdesc{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,8,6,.72)}
+#viewer .vdesc[hidden]{display:none}
+#viewer .vcard{text-align:left;position:relative;width:min(620px,100%);max-height:calc(100% - 32px);overflow:auto;background:#f8f4ea;color:#2a2219;border-radius:6px;padding:34px 32px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#viewer .vcard .x{position:absolute;top:10px;right:12px;color:#6f6352}
+#viewer .vcard p{color:#2a2219;text-align:left;font-family:var(--f-body)}
+#viewer .vcard .dk{margin:0;font-size:12px;letter-spacing:.2em;color:#a8812f;font-weight:600}
+#viewer .vcard h2{font-family:var(--f-display);font-weight:600;font-size:clamp(24px,5.5vw,34px);line-height:1.3;margin:6px 0 6px;text-wrap:balance}
+#viewer .vcard .dm{margin:0 0 20px;font-size:16px;color:#6f6352}
+#viewer .vcard .dn{margin:0;font-size:clamp(18px,4vw,21px);line-height:1.8;white-space:pre-wrap;word-break:keep-all}
+#viewer .vcard .dn.empty{color:#9a8d78;font-size:16px}
 #viewer p{color:#efe7d8;margin:0;font-family:var(--f-display);font-size:16px;text-align:center}
 #viewer .vbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 #viewer .vbar .zoom{min-width:40px;font-weight:600}
@@ -258,7 +275,23 @@ label.f textarea{resize:vertical;min-height:38px}
 
 <div id="viewer">
   <div class="vstage" id="vStage"><img id="vImg" alt="" draggable="false"></div>
-  <p id="vCap"></p>
+  <!-- 그림 아래 작품 정보: 누르면 설명을 크게 본다 -->
+  <button class="vinfo" id="vInfo" aria-label="작품 설명 크게 보기">
+    <span class="vt" id="vTitle"></span>
+    <span class="vm" id="vMeta"></span>
+    <span class="vn" id="vNote"></span>
+    <span class="vmore">설명 크게 보기 ›</span>
+  </button>
+  <!-- 작품 설명 크게 보기: 미술관 벽의 설명 카드처럼 -->
+  <div class="vdesc" id="vDesc" hidden>
+    <div class="vcard" role="dialog" aria-labelledby="dTitle">
+      <button class="x" id="vDescClose" aria-label="설명 닫기">×</button>
+      <p class="dk">작품 설명</p>
+      <h2 id="dTitle"></h2>
+      <p class="dm" id="dMeta"></p>
+      <p class="dn" id="dNote"></p>
+    </div>
+  </div>
   <div class="vbar">
     <button class="btn zoom" id="vZoomOut" aria-label="축소">－</button>
     <button class="btn zoom" id="vZoomIn" aria-label="확대">＋</button>
@@ -1302,7 +1335,7 @@ const dragK=(type="mouse")=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stag
 const endPtr=e=>{
   pointers.delete(e.pointerId);stage.classList.remove('dragging');
   if(pointers.size<2)pinch=null;
-  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')tap(e.clientX,e.clientY);
+  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')tap(e.clientX,e.clientY,e.pointerType);
   drag=null;
 };
 stage.addEventListener('pointerup',endPtr);stage.addEventListener('pointercancel',endPtr);
@@ -1315,7 +1348,10 @@ stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag)return
   ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(rayTargets,false)[0];stage.style.cursor=hit?.object.userData.art?'pointer':'';});
 
-function tap(x,y){
+// 휴대폰에서 화면 아래쪽(발치)을 톡 하면 뒤로 물러난다. 바로 앞 바닥이라 '그리로 걷기'로는 거의 안 움직이기 때문.
+const BACK_ZONE=.8, BACK_STEP=2.5;
+function tap(x,y,type){
+  if(type==='touch'&&y>stage.clientHeight*BACK_ZONE){closeCard();autoWalk=null;wheelPending=-BACK_STEP;return;}
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(rayTargets,false)[0];if(!hit)return;
   if(hit.object.userData.art){focusArt(hit.object.userData.art);return;}
@@ -1323,7 +1359,8 @@ function tap(x,y){
 }
 addEventListener('keydown',e=>{
   if(e.target.closest?.('input,textarea,select,dialog'))return;
-  if(e.code==='Escape'){if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
+  if(e.code==='Escape'){if(!vDesc.hidden)closeDesc();else if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
+  if(!vDesc.hidden)return; // 설명 카드를 보는 동안에는 다른 단축키를 쓰지 않는다
   if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);
     if(e.key==='+'||e.key==='=')$('vZoomIn').click();if(e.key==='-')$('vZoomOut').click();if(e.key==='0')zoomAt(...stageCenter(),1,true);return;}
   if(colOpen())return;
@@ -1346,25 +1383,25 @@ function viewPose(mesh){
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
 /* ───────────────────────── 뒤로가기 ─────────────────────────
-   그림 감상·크게 보기·작품 모아보기·대화상자를 '층'으로 쌓고, 브라우저 뒤로가기(휴대폰 뒤로 제스처)는
-   맨 위 층 하나만 닫는다. 열린 층이 있는 동안 기록을 딱 한 칸만 더 쌓아 두고(armed), 뒤로가기로 하나를
-   닫은 뒤에도 남은 층이 있으면 다시 한 칸 쌓는다. 화면 버튼으로 다 닫으면 쌓아 둔 한 칸을 조용히 되돌린다. */
-const layers=[],layerClose={};
-let armed=false,skipPop=false,backTimer=0;
-function openLayer(name){
-  if(layers.at(-1)!==name){const i=layers.indexOf(name);if(i>=0)layers.splice(i,1);layers.push(name);}
-  if(!armed){history.pushState({gallery:1},'');armed=true;}
+   사용자가 한 '단계'(그림 감상, 크게 보기, 설명 카드, 작품 모아보기, 대화상자, 전시실 안내로 방 이동)마다
+   브라우저 기록을 한 칸씩 쌓는다. 뒤로가기(휴대폰 뒤로 제스처)는 맨 위 단계 하나만 되돌린다.
+   화면 버튼(닫기·×)으로 이미 끝낸 단계는 '끝남'으로 표시해 두었다가, 뒤로가기 때 조용히 건너뛰어
+   늘 '직전 단계'로 돌아가게 한다. 걸어서 방을 옮기는 것은 단계로 치지 않는다. */
+const steps=[],layerClose={};
+let lastUndo={name:'',t:0};
+function openLayer(name,undo){
+  const s={name,undo:undo||(()=>layerClose[name]?.()),dead:false};
+  steps.push(s);history.pushState({gallery:steps.length},'');return s;
 }
-function syncClose(name){ // 화면 버튼으로 닫았을 때 기록 맞추기
-  const i=layers.lastIndexOf(name);if(i<0)return;layers.splice(i,1);
-  // 바로 다른 층이 열리는 경우(예: 관리 → 보러 가기)엔 쌓아 둔 한 칸을 그대로 쓰도록 잠깐 기다렸다가 되돌린다
-  if(!layers.length&&armed){clearTimeout(backTimer);backTimer=setTimeout(()=>{if(!layers.length&&armed){armed=false;skipPop=true;history.back();}},150);}
+function syncClose(name){ // 화면 버튼으로 닫음 → 그 단계는 뒤로가기 때 건너뛴다
+  if(lastUndo.name===name&&performance.now()-lastUndo.t<400)return; // 뒤로가기로 닫힌 직후의 닫힘 알림은 무시
+  for(let i=steps.length-1;i>=0;i--)if(steps[i].name===name&&!steps[i].dead){steps[i].dead=true;return;}
 }
 addEventListener('popstate',()=>{
-  if(skipPop){skipPop=false;return;}
-  armed=false;
-  const name=layers.pop();if(name)layerClose[name]();
-  if(layers.length){history.pushState({gallery:1},'');armed=true;}
+  const s=steps.pop();
+  if(!s){if(history.state?.gallery)history.back();return;} // 새로고침 전에 쌓였던 기록은 건너뛴다
+  if(s.dead){history.back();return;}
+  lastUndo={name:s.name,t:performance.now()};s.undo();
 });
 // instant: 화면을 어둡게 했다가 이동 / cut: 다른 화면(크게 보기)이 가리고 있을 때 어둡게 하지 않고 바로 이동
 function focusArt(a,{instant=false,cut=false}={}){
@@ -1404,13 +1441,26 @@ function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add(
 function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');resetZoom();
   smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
   img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
-  $('vCap').textContent=[a.title,byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
+  fillViewerInfo(a);
   $('vPrev').disabled=$('vNext').disabled=vList.length<2;
   // '전시실에서 보기'를 누를 때 벽에 바로 걸려 있도록 3D용 이미지를 미리 준비해 둔다
   artTexture(a).catch(()=>{});}
+// 그림 아래 정보와 '설명 크게 보기' 카드를 같은 작품으로 채운다
+function fillViewerInfo(a){
+  const meta=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
+  $('vTitle').textContent=a.title||'제목 없음';$('vMeta').textContent=meta;$('vNote').textContent=a.note||'';
+  $('dTitle').textContent=a.title||'제목 없음';$('dMeta').textContent=meta;
+  const dn=$('dNote');dn.textContent=a.note||'아직 적힌 설명이 없어요.';dn.classList.toggle('empty',!a.note);
+}
+const vDesc=$('vDesc');
+function openDesc(){vDesc.hidden=false;openLayer('desc');$('vDescClose').focus();}
+function closeDesc(){if(vDesc.hidden)return;vDesc.hidden=true;syncClose('desc');}
+layerClose.desc=()=>{vDesc.hidden=true;};
+$('vInfo').onclick=openDesc;$('vDescClose').onclick=closeDesc;
+vDesc.addEventListener('click',e=>{if(e.target===vDesc)closeDesc();});
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
-function closeViewer(){viewer.classList.remove('show');syncClose('viewer');}
-layerClose.viewer=()=>viewer.classList.remove('show');
+function closeViewer(){closeDesc();viewer.classList.remove('show');syncClose('viewer');}
+layerClose.viewer=()=>{if(!vDesc.hidden){vDesc.hidden=true;syncClose('desc');}viewer.classList.remove('show');};
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
 // 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
@@ -1480,8 +1530,8 @@ let colFilter='all';
 const colOpen=()=>!collection.hidden;
 function setTab(col){$('tabSpace').setAttribute('aria-selected',!col);$('tabCol').setAttribute('aria-selected',col);
   document.body.classList.toggle('col',col);collection.hidden=!col;keys.clear();}
-function showCollection(){closeCard();setTab(true);renderCollection();openLayer('collection');}
-function showSpace(){setTab(false);syncClose('collection');}
+function showCollection(){if(colOpen())return;closeCard();setTab(true);renderCollection();openLayer('collection');}
+function showSpace(){if(!colOpen())return;setTab(false);syncClose('collection');}
 layerClose.collection=()=>setTab(false);
 $('tabSpace').onclick=showSpace;$('tabCol').onclick=showCollection;
 function updateColCount(){$('colCount').textContent=state.arts.length||'';}
@@ -1526,13 +1576,16 @@ const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
 // 항목 하나는 한 줄 안에서 끊기지 않게 묶고, 줄은 항목 사이에서만 바뀐다 (항목은 간격으로 구분)
 hint.innerHTML=(coarse
-  ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤 이동']
+  ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤 이동','<b>아래쪽 톡</b>하면 뒤로']
   :['<b>드래그</b>로 둘러보기','<b>WASD·방향키</b>로 걷기','<b>Q E</b>로 돌기','<b>바닥 클릭</b>으로 이동','<b>그림 클릭</b>으로 감상'])
   .map(s=>`<span class="hi">${s}</span>`).join('');
 setTimeout(()=>hint.style.opacity=0,9000);
 
 /* ───────────────────────── 전시실 안내 ───────────────────────── */
 function enterRoom(rm){
+  // 방 이동도 한 단계: 뒤로가기하면 옮기기 전 자리와 방향으로 돌아간다
+  const prev={...player};
+  openLayer('move',()=>{closeCard();fadeJump(()=>{Object.assign(player,prev);autoWalk=null;tween=null;wheelPending=0;});});
   closeCard();fadeJump(()=>{
     // 방 가운데보다 조금 남쪽에서 북쪽 벽을 바라본다 (벤치를 피해서)
     Object.assign(player,{x:rm.cx,z:rm.cz+(rm.lobby?6.4:6.2),yaw:0,pitch:.05});autoWalk=null;tween=null;
