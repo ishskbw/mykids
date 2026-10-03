@@ -1255,37 +1255,32 @@ function showRoom(rm){roomNow.textContent=rm.title;roomNow.style.opacity=1;clear
 /* ───────────────────────── 포인터 조작 ───────────────────────── */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 const pointers=new Map();let drag=null;
+// 두 손가락 벌리기·오므리기: 마우스 휠처럼 앞뒤로 걷는다 (벌리면 앞으로)
+let pinch=null;
+const pinchDist=()=>{const[a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 stage.addEventListener('pointerdown',e=>{
-  stage.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  try{stage.setPointerCapture(e.pointerId);}catch{}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now(),moved:0};
-  else drag=null;
+  else{drag=null;pinch=pointers.size===2?{d:pinchDist()}:null;}
 });
 stage.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pointers.size===2){const d=pinchDist();if(!tween){autoWalk=null;wheelPending=Math.max(-2.5,Math.min(2.5,wheelPending+(d-pinch.d)*.012));}pinch.d=d;return;}
   if(!drag||tween)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
   drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.moved>6){stage.classList.add('dragging');autoWalk=null;}
-  // 끌어당긴 만큼만 돈다: 화면 1px = 시야각 1px 분량 → 손가락·커서 아래의 지점이 그대로 따라온다
-  const k=dragK();
+  // 끌어당긴 거리에 비례해 돈다 (마우스·손가락별 배수는 DRAG_SPEED)
+  const k=dragK(e.pointerType);
   player.yaw+=dx*k;player.pitch=Math.max(-1.1,Math.min(1.1,player.pitch+dy*k));
 });
-const dragK=()=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stage.clientHeight);
+// 회전 속도: 화면에서 끈 거리 × 배수. 휴대폰은 화면이 좁아 더 빠르게 돈다.
+const DRAG_SPEED={mouse:1.6,pen:1.6,touch:2.6};
+const dragK=(type="mouse")=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stage.clientHeight)*(DRAG_SPEED[type]||1.6);
 const endPtr=e=>{
   pointers.delete(e.pointerId);stage.classList.remove('dragging');
-  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')handleTap(e.clientX,e.clientY);
+  if(pointers.size<2)pinch=null;
+  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')tap(e.clientX,e.clientY);
   drag=null;
 };
-// 한 번 누름과 두 번 누름(더블클릭·더블탭)을 구분한다: 두 번째가 0.28초 안에 같은 자리에 오면 벽 정면 맞추기
-let lastTap=null,tapTimer=0;
-function handleTap(x,y){
-  const now=performance.now();
-  if(lastTap&&now-lastTap.t<280&&Math.hypot(x-lastTap.x,y-lastTap.y)<30){clearTimeout(tapTimer);lastTap=null;faceWall();return;}
-  lastTap={x,y,t:now};clearTimeout(tapTimer);tapTimer=setTimeout(()=>{lastTap=null;tap(x,y);},260);
-}
-// 바라보는 쪽에서 가장 가까운 벽을 정면으로: 방향을 90° 단위로 맞추고 고개를 수평으로
-function faceWall(){
-  const q=Math.PI/2;autoWalk=null;wheelPending=0;
-  tween={t:0,dur:.45,from:{...player},to:{x:player.x,z:player.z,yaw:Math.round(player.yaw/q)*q,pitch:0,eye:player.eye}};
-}
 stage.addEventListener('pointerup',endPtr);stage.addEventListener('pointercancel',endPtr);
 // 휠: 위아래 = 앞뒤로 걷기, 트랙패드 두 손가락 좌우 = 둘러보기. 마우스 휠 한 칸 ≈ 60cm.
 stage.addEventListener('wheel',e=>{e.preventDefault();if(tween)return;autoWalk=null;
@@ -1324,11 +1319,35 @@ function viewPose(mesh){
   const dist=Math.min(11,Math.max(3.3,half/Math.tan(hf)));return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:FOCUS_EYE};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
+
+/* ───────────────────────── 뒤로가기 ─────────────────────────
+   그림 감상·크게 보기·작품 모아보기·대화상자를 '층'으로 쌓고, 브라우저 뒤로가기(휴대폰 뒤로 제스처)는
+   맨 위 층 하나만 닫는다. 열린 층이 있는 동안 기록을 딱 한 칸만 더 쌓아 두고(armed), 뒤로가기로 하나를
+   닫은 뒤에도 남은 층이 있으면 다시 한 칸 쌓는다. 화면 버튼으로 다 닫으면 쌓아 둔 한 칸을 조용히 되돌린다. */
+const layers=[],layerClose={};
+let armed=false,skipPop=false,backTimer=0;
+function openLayer(name){
+  if(layers.at(-1)!==name){const i=layers.indexOf(name);if(i>=0)layers.splice(i,1);layers.push(name);}
+  if(!armed){history.pushState({gallery:1},'');armed=true;}
+}
+function syncClose(name){ // 화면 버튼으로 닫았을 때 기록 맞추기
+  const i=layers.lastIndexOf(name);if(i<0)return;layers.splice(i,1);
+  // 바로 다른 층이 열리는 경우(예: 관리 → 보러 가기)엔 쌓아 둔 한 칸을 그대로 쓰도록 잠깐 기다렸다가 되돌린다
+  if(!layers.length&&armed){clearTimeout(backTimer);backTimer=setTimeout(()=>{if(!layers.length&&armed){armed=false;skipPop=true;history.back();}},150);}
+}
+addEventListener('popstate',()=>{
+  if(skipPop){skipPop=false;return;}
+  armed=false;
+  const name=layers.pop();if(name)layerClose[name]();
+  if(layers.length){history.pushState({gallery:1},'');armed=true;}
+});
 // instant: 화면을 어둡게 했다가 이동 / cut: 다른 화면(크게 보기)이 가리고 있을 때 어둡게 하지 않고 바로 이동
 function focusArt(a,{instant=false,cut=false}={}){
   const e=artIndex.find(x=>x.art.id===a.id);if(!e)return;
+  // 처음 그림을 볼 때 서 있던 자리를 기억해 두었다가, 뒤로가기하면 그 자리로 돌아간다 (이전·다음으로 넘길 때는 그대로)
+  if(!focused){beforeFocus={...player};openLayer('focus');}
   autoWalk=null;focused=e;fillCard(e.art);
-  const to=viewPose(e.mesh);
+  const to=viewPose(e.mesh);lastFocusPose=to;
   if(cut){tween=null;Object.assign(player,to);}
   else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
   else tween={t:0,dur:.9,from:{...player},to};
@@ -1339,12 +1358,23 @@ function fillCard(a){
   $('cMeta').textContent=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
   $('cNote').textContent=a.note||'';$('cNote').hidden=!a.note;
 }
-function closeCard(){focused=null;card.classList.remove('show');}
+let beforeFocus=null,lastFocusPose=null;
+function hideCard(){focused=null;card.classList.remove('show');}
+function closeCard(){if(!focused)return;hideCard();syncClose('focus');}
+// 뒤로가기: 감상하던 자리에서 움직이지 않았다면 그림을 누르기 전 자리와 방향으로 돌아간다
+layerClose.focus=()=>{
+  if(!focused)return;hideCard();
+  const b=beforeFocus,p=lastFocusPose;beforeFocus=null;
+  if(!b||!p||Math.hypot(player.x-p.x,player.z-p.z)>.5)return;
+  autoWalk=null;wheelPending=0;
+  if(roomAt(b.x,b.z)!==roomAt(player.x,player.z)){tween=null;fadeJump(()=>Object.assign(player,b));}
+  else tween={t:0,dur:.7,from:{...player},to:b};
+};
 function step(d){if(!focused)return;const i=artIndex.indexOf(focused);focusArt(artIndex[(i+d+artIndex.length)%artIndex.length].art);}
 $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').onclick=closeCard;
 // 크게 보기: 목록(전시 순서 또는 모아보기 순서) 안에서 앞뒤로 넘긴다
 let vList=[],vIdx=0;
-function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');}
+function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');openLayer('viewer');}
 // 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다
 function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');
   smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
@@ -1354,7 +1384,8 @@ function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.
   // '전시실에서 보기'를 누를 때 벽에 바로 걸려 있도록 3D용 이미지를 미리 준비해 둔다
   artTexture(a).catch(()=>{});}
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
-function closeViewer(){viewer.classList.remove('show');}
+function closeViewer(){viewer.classList.remove('show');syncClose('viewer');}
+layerClose.viewer=()=>viewer.classList.remove('show');
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
 // 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
@@ -1369,8 +1400,9 @@ let colFilter='all';
 const colOpen=()=>!collection.hidden;
 function setTab(col){$('tabSpace').setAttribute('aria-selected',!col);$('tabCol').setAttribute('aria-selected',col);
   document.body.classList.toggle('col',col);collection.hidden=!col;keys.clear();}
-function showCollection(){closeCard();setTab(true);renderCollection();}
-function showSpace(){setTab(false);}
+function showCollection(){closeCard();setTab(true);renderCollection();openLayer('collection');}
+function showSpace(){setTab(false);syncClose('collection');}
+layerClose.collection=()=>setTab(false);
 $('tabSpace').onclick=showSpace;$('tabCol').onclick=showCollection;
 function updateColCount(){$('colCount').textContent=state.arts.length||'';}
 function renderCollection(){
@@ -1412,8 +1444,8 @@ $('colSort').onchange=renderCollection;
 /* ───────────────────────── 안내 문구 ───────────────────────── */
 const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
-hint.innerHTML=coarse?'<b>끌어서</b> 둘러보기 · <b>바닥을 톡</b> 눌러 걸어가기 · <b>그림을 톡</b> 눌러 감상 · <b>두 번 톡</b>하면 벽 정면'
-  :'<b>드래그</b>로 둘러보기 · <b>W A S D / 방향키</b>로 걷기 · <b>Q E</b>로 돌기 · <b>바닥 클릭</b>으로 이동 · <b>그림 클릭</b>으로 감상 · <b>더블클릭</b>하면 벽 정면';
+hint.innerHTML=coarse?'<b>끌어서</b> 둘러보기 · <b>바닥을 톡</b> 눌러 걸어가기 · <b>그림을 톡</b> 눌러 감상 · <b>두 손가락 벌리기</b>로 앞뒤 이동'
+  :'<b>드래그</b>로 둘러보기 · <b>W A S D / 방향키</b>로 걷기 · <b>Q E</b>로 돌기 · <b>바닥 클릭</b>으로 이동 · <b>그림 클릭</b>으로 감상';
 setTimeout(()=>hint.style.opacity=0,9000);
 
 /* ───────────────────────── 전시실 안내 ───────────────────────── */
@@ -1472,6 +1504,10 @@ function renderPlan(){
 $('btnRooms').onclick=()=>{renderPlan();$('dlgRooms').showModal();};
 document.querySelectorAll('dialog').forEach(d=>{
   d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close();});
+  // 대화상자도 뒤로가기로 닫히게: 열릴 때 층을 쌓고, 어떤 방법으로든 닫히면 기록을 맞춘다
+  const show=d.showModal.bind(d);d.showModal=()=>{show();openLayer(d.id);};
+  layerClose[d.id]=()=>d.close();
+  d.addEventListener('close',()=>syncClose(d.id));
 });
 
 /* ───────────────────────── 그림 올리기 ───────────────────────── */
