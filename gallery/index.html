@@ -232,6 +232,18 @@ label.f textarea{resize:vertical;min-height:38px}
 .lg-art{width:16px;height:4px;border-radius:2px;background:#b8914a;display:inline-block;margin-left:8px}
 .toast{position:fixed;top:calc(70px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:40;background:var(--panel);color:var(--ink);padding:10px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.show{opacity:1}
+/* 앱 설치 안내 창 */
+.install{position:fixed;inset:0;z-index:45;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(10,8,6,.5);opacity:0;pointer-events:none;transition:opacity .25s}
+.install.show{opacity:1;pointer-events:auto}
+.install .sheet{width:min(420px,100%);background:var(--panel);color:var(--ink);border-radius:16px;padding:20px 20px calc(16px + env(safe-area-inset-bottom));box-shadow:0 18px 50px rgba(0,0,0,.45);transform:translateY(16px);transition:transform .25s}
+.install.show .sheet{transform:none}
+.install .head{display:flex;gap:14px;align-items:center}
+.install img{width:56px;height:56px;border-radius:14px;flex:none}
+.install h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
+.install .head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.install .ios{margin:14px 0 0;font-size:14px;background:var(--panel-2);border-radius:10px;padding:10px 12px}
+.install .btns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.install .btns .btn{font-size:16px;padding:12px;border-radius:12px}
 </style>
 <script type="importmap">
 {"imports":{
@@ -319,6 +331,20 @@ label.f textarea{resize:vertical;min-height:38px}
 </div>
 <div id="fade"></div>
 <div class="toast" id="toast"></div>
+<!-- 앱 설치 안내: 설치할 수 있는 브라우저에서 한 번 물어본다 (답하면 30일 동안 다시 묻지 않음) -->
+<div class="install" id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+  <div class="sheet">
+    <div class="head">
+      <img src="/gallery/icon-192.png" alt="">
+      <div><h2 id="installTitle">앱을 설치하시겠어요?</h2><p>홈 화면에서 바로 열고, 전체 화면으로 미술관을 거닐 수 있어요.</p></div>
+    </div>
+    <p class="ios" id="installIos" hidden>Safari 아래쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.</p>
+    <div class="btns">
+      <button class="btn primary" id="installYes">네, 설치해 주세요</button>
+      <button class="btn" id="installNo">아니요, 지금 브라우저에서 볼게요</button>
+    </div>
+  </div>
+</div>
 <div id="loading"><h1>공공의 미술관</h1><p id="loadMsg">전시장을 준비하고 있어요…</p></div>
 <script>
 // 로딩 화면 글씨가 기본 글꼴로 먼저 보였다가 바뀌지 않도록, 글꼴이 준비되면(최대 1.5초) 나타나게 한다
@@ -1822,11 +1848,25 @@ function applyRole(){
   document.body.classList.toggle('remote',Store.remote);document.body.classList.toggle('editor',editor);
   $('btnLogin').hidden=!Store.remote||editor;
 }
-// 앱 설치: 브라우저가 설치할 수 있다고 알려 주면(안드로이드 크롬 등) '앱 설치' 버튼을 보여 준다
+// 앱 설치: 브라우저가 설치할 수 있다고 알려 주면(안드로이드 크롬 등) 위쪽 '앱 설치' 버튼을 보여 주고,
+// 처음 한 번은 아래에서 올라오는 안내 창으로 물어본다 (답하면 30일 동안 다시 묻지 않음).
+// 아이폰 사파리는 설치 창을 띄울 수 없어 '공유 → 홈 화면에 추가' 방법을 안내한다.
 let installEvt=null;
-addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('btnInstall').hidden=false;});
-addEventListener('appinstalled',()=>{installEvt=null;$('btnInstall').hidden=true;toast('홈 화면에 공공의 미술관을 설치했어요');});
-$('btnInstall').onclick=async()=>{if(!installEvt)return;installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;$('btnInstall').hidden=true;};
+const INSTALL_KEY='gallery-install-asked',INSTALL_WAIT=30*24*3600e3,installBox=$('install');
+const isStandalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+function shouldAskInstall(){if(isStandalone)return false;try{return Date.now()-(+localStorage.getItem(INSTALL_KEY)||0)>INSTALL_WAIT;}catch{return true;}}
+function openInstall(){installBox.classList.add('show');$('installYes').focus();}
+function closeInstall(){installBox.classList.remove('show');try{localStorage.setItem(INSTALL_KEY,String(Date.now()));}catch{}}
+async function runInstall(){if(!installEvt)return;installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;$('btnInstall').hidden=true;}
+// 로딩 화면이 걷힌 뒤 조금 있다가 띄운다
+const askInstallSoon=()=>{const t=setInterval(()=>{if($('loading').classList.contains('gone')){clearInterval(t);setTimeout(()=>{if(shouldAskInstall())openInstall();},1500);}},300);};
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('btnInstall').hidden=false;askInstallSoon();});
+addEventListener('appinstalled',()=>{installEvt=null;$('btnInstall').hidden=true;installBox.classList.remove('show');toast('홈 화면에 공공의 미술관을 설치했어요');});
+{const ua=navigator.userAgent;if(/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios|edgios/i.test(ua)){$('installIos').hidden=false;$('installYes').textContent='알겠어요';askInstallSoon();}}
+$('btnInstall').onclick=runInstall;
+$('installYes').onclick=async()=>{await runInstall();closeInstall();};
+$('installNo').onclick=closeInstall;
+installBox.addEventListener('click',e=>{if(e.target===installBox)closeInstall();});
 $('btnLogin').onclick=async()=>{
   const p=new F.au.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
   try{await F.au.signInWithPopup(F.auth,p);}

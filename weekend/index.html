@@ -532,5 +532,56 @@ fetch("/weekend/data.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw 0;return 
 }).catch(()=>{$("fresh").textContent="행사 자료를 불러오지 못했어요. 새로고침해 보세요.";});
 })();
 </script>
+<!-- 앱 설치 안내: 설치할 수 있는 브라우저에서 한 번 물어본다 (답하면 30일 동안 다시 묻지 않음) -->
+<style>
+.install{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(20,25,22,.45);opacity:0;pointer-events:none;transition:opacity .25s}
+.install.show{opacity:1;pointer-events:auto}
+.install .sheet{width:min(420px,100%);background:var(--surface);color:var(--ink);border-radius:16px;padding:20px 20px calc(16px + env(safe-area-inset-bottom));box-shadow:0 18px 50px rgba(0,0,0,.3);transform:translateY(16px);transition:transform .25s}
+.install.show .sheet{transform:none}
+.install .head{display:flex;gap:14px;align-items:center}
+.install img{width:56px;height:56px;border-radius:14px;flex:none}
+.install h2{font-family:var(--f-display);font-weight:400;font-size:22px;margin:0}
+.install .head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.install .ios{margin:14px 0 0;font-size:14px;background:var(--route-soft);border-radius:10px;padding:10px 12px}
+.install .btns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.install button{font:inherit;font-size:16px;border-radius:12px;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.install button.yes{background:var(--route);border-color:var(--route);color:#fff;font-weight:600}
+.install button:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+</style>
+<div class="install" id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+  <div class="sheet">
+    <div class="head">
+      <img src="/weekend/icon-192.png" alt="">
+      <div><h2 id="installTitle">앱을 설치하시겠어요?</h2><p>홈 화면에서 바로 열고, 전체 화면으로 볼 수 있어요.</p></div>
+    </div>
+    <p class="ios" id="installIos" hidden>Safari 아래쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.</p>
+    <div class="btns">
+      <button class="yes" id="installYes">네, 설치해 주세요</button>
+      <button id="installNo">아니요, 지금 브라우저에서 볼게요</button>
+    </div>
+  </div>
+</div>
+<script>
+(()=>{
+  const KEY='weekend-install-asked',WAIT=30*24*3600e3,box=document.getElementById('install');
+  const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  let asked=0;try{asked=+localStorage.getItem(KEY)||0;}catch{}
+  if(standalone||Date.now()-asked<WAIT)return;
+  const remember=()=>{try{localStorage.setItem(KEY,String(Date.now()));}catch{}};
+  const open=()=>{box.classList.add('show');document.getElementById('installYes').focus();};
+  const close=()=>{box.classList.remove('show');remember();};
+  let evt=null;
+  // 안드로이드 크롬 등: 브라우저가 설치 가능하다고 알려 주면 잠시 뒤 물어본다
+  addEventListener('beforeinstallprompt',e=>{e.preventDefault();evt=e;setTimeout(open,1500);});
+  // 아이폰 사파리는 설치 창을 띄울 수 없어 방법을 안내한다
+  const ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios|edgios/i.test(ua);
+  if(ios){document.getElementById('installIos').hidden=false;document.getElementById('installYes').textContent='알겠어요';setTimeout(open,1500);}
+  document.getElementById('installYes').onclick=async()=>{if(evt){evt.prompt();await evt.userChoice.catch(()=>{});evt=null;}close();};
+  document.getElementById('installNo').onclick=close;
+  box.addEventListener('click',e=>{if(e.target===box)close();});
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&box.classList.contains('show'))close();});
+  addEventListener('appinstalled',close);
+})();
+</script>
 </body>
 </html>
