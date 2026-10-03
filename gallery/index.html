@@ -8,15 +8,16 @@
 <meta name="theme-color" content="#1b1714">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 /* 화면 구성: 전체 화면 3D 전시장 위에 상단 바, 하단 안내/작품 카드, 그리고 업로드·관리·전시실 대화상자. */
 :root{
   --bg:#1b1714; --panel:#f6f1e7; --panel-2:#ece5d6; --ink:#2a2219; --muted:#6f6352; --line:#d9cfbd;
   --gold:#a8812f; --gold-ink:#fff; --accent:#7a2a2a; --danger:#a8461f;
   --glass:rgba(27,23,20,.72); --glass-ink:#f4ede0; --glass-muted:#c9bda8;
-  --f-display:"Nanum Myeongjo","Apple SD Gothic Neo","Malgun Gothic",serif;
-  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-display:"Hahmlet","Apple SD Gothic Neo","Malgun Gothic",serif;
+  --f-body:"Pretendard Variable","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --r:10px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -40,27 +41,29 @@ button{cursor:pointer}
 .brand{display:flex;flex-direction:column;min-width:0;margin-right:auto;color:var(--glass-ink);text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .brand a{color:var(--glass-muted);font-size:12px;text-decoration:none}
 .brand a:hover{color:var(--glass-ink)}
-.brand strong{font-family:var(--f-display);font-weight:800;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand strong{font-family:var(--f-display);font-weight:600;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip{background:var(--glass);color:var(--glass-ink);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:8px 14px;font-size:14px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .chip:hover,.chip:focus-visible{border-color:var(--gold);outline:none}
 .chip.primary{background:var(--gold);color:var(--gold-ink);border-color:transparent;font-weight:600}
 .room-now{position:fixed;top:calc(62px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:4;pointer-events:none;
-  font-family:var(--f-display);font-weight:700;color:var(--glass-ink);background:var(--glass);padding:6px 16px;border-radius:999px;font-size:14px;white-space:nowrap;transition:opacity .4s}
+  font-family:var(--f-display);font-weight:600;color:var(--glass-ink);background:var(--glass);padding:6px 16px;border-radius:999px;font-size:14px;white-space:nowrap;transition:opacity .4s}
 @media (max-width:640px){
   .top{flex-wrap:wrap}
   .brand{flex-basis:100%;margin-bottom:4px}
   .chip{padding:7px 12px;font-size:13px}
-  .room-now{top:calc(100px + env(safe-area-inset-top))}
+  .room-now{top:calc(162px + env(safe-area-inset-top))}
 }
 
 /* 하단 안내 & 작품 카드 */
 .hint{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;max-width:calc(100% - 32px);
   background:var(--glass);color:var(--glass-ink);padding:10px 16px;border-radius:12px;font-size:13px;text-align:center;pointer-events:none;transition:opacity .6s}
 .hint b{color:#e8c77a;font-weight:600}
+.hint .hi{white-space:nowrap}
+.hint{display:flex;flex-wrap:wrap;justify-content:center;column-gap:14px;row-gap:2px;line-height:1.6;width:max-content}
 .card{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:6;
   width:min(560px,calc(100% - 32px));background:var(--panel);color:var(--ink);border-radius:14px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .3s,transform .3s}
 .card.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-.card h3{font-family:var(--f-display);font-weight:800;font-size:21px;margin:0 0 2px;text-wrap:balance}
+.card h3{font-family:var(--f-display);font-weight:600;font-size:21px;margin:0 0 2px;text-wrap:balance}
 .card .meta{color:var(--muted);font-size:14px;margin:0}
 .card .note{margin:8px 0 0;font-size:14px;white-space:pre-wrap}
 .card .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -110,7 +113,7 @@ body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:
 #collection[hidden]{display:none}
 .col-wrap{max-width:1120px;margin:0 auto}
 .eyebrow{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:16px 0 0;font-weight:600}
-.col-head h1{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,4.5vw,40px);line-height:1.25;margin:6px 0 6px;text-wrap:balance}
+.col-head h1{font-family:var(--f-display);font-weight:600;font-size:clamp(26px,4.5vw,40px);line-height:1.25;margin:6px 0 6px;text-wrap:balance}
 .col-head p{color:var(--muted);margin:0}
 .col-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 4px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 .filters{display:flex;gap:8px;flex-wrap:wrap;flex:1}
@@ -120,7 +123,7 @@ body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:
 .filters .n{opacity:.65;margin-left:4px;font-size:12px}
 .sort{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
 .sort select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 8px;font-size:14px;color:var(--ink)}
-.year h2{font-family:var(--f-display);font-weight:800;font-size:22px;margin:32px 0 16px;display:flex;align-items:baseline;gap:10px}
+.year h2{font-family:var(--f-display);font-weight:600;font-size:22px;margin:32px 0 16px;display:flex;align-items:baseline;gap:10px}
 .year h2 span{font-family:var(--f-body);font-weight:400;font-size:13px;color:var(--muted)}
 .grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:32px 24px}
 @media (max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 14px}}
@@ -130,14 +133,14 @@ body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:
   box-shadow:0 0 0 4px #c9a04a,0 0 0 6px #8a6a2a,0 10px 22px rgba(0,0,0,.28);transition:transform .25s}
 .work:hover img,.work:focus-visible img{transform:translateY(-4px)}
 .work:focus-visible{outline:none}.work:focus-visible .wall{background:var(--line)}
-.work strong{display:block;font-family:var(--f-display);font-weight:700;font-size:16px;line-height:1.35}
+.work strong{display:block;font-family:var(--f-display);font-weight:600;font-size:16px;line-height:1.35}
 .work span{color:var(--muted);font-size:13px}
 .col-empty{color:var(--muted);text-align:center;padding:48px 0}
-@media (max-width:640px){#collection{padding-top:calc(140px + env(safe-area-inset-top))}.seg button{padding:6px 11px;font-size:13px}}
+@media (max-width:640px){#collection{padding-top:calc(166px + env(safe-area-inset-top))}.seg button{padding:6px 11px;font-size:13px}}
 
 /* 로딩 */
 #loading{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#efe7d8;transition:opacity .6s}
-#loading h1{font-family:var(--f-display);font-weight:800;font-size:30px;margin:0;text-align:center;padding-inline:16px}
+#loading h1{font-family:var(--f-display);font-weight:600;font-size:30px;margin:0;text-align:center;padding-inline:16px}
 #loading p{margin:0;color:#b3a68f;font-size:14px}
 #loading.gone{opacity:0;pointer-events:none}
 
@@ -146,7 +149,7 @@ dialog{border:none;border-radius:16px;padding:0;background:var(--panel);color:va
 dialog::backdrop{background:rgba(10,8,6,.6)}
 .dlg{display:flex;flex-direction:column;max-height:calc(100dvh - 32px)}
 .dlg header{display:flex;align-items:center;gap:8px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
-.dlg header h2{font-family:var(--f-display);font-weight:800;font-size:20px;margin:0;flex:1}
+.dlg header h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0;flex:1}
 .dlg .body{padding:16px 18px;overflow-y:auto;overflow-x:hidden}
 .dlg footer{display:flex;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
 .x{border:none;background:none;font-size:26px;line-height:1;padding:4px 8px;color:var(--muted)}
@@ -182,7 +185,7 @@ label.f textarea{resize:vertical;min-height:38px}
 .plan-room{cursor:pointer;outline:none}
 .plan-room rect{transition:fill-opacity .15s}
 .plan-room:hover rect,.plan-room:focus-visible rect{fill-opacity:.55}
-.plan-title{font-family:var(--f-display);font-weight:800;font-size:9px;text-anchor:middle;fill:var(--ink)}
+.plan-title{font-family:var(--f-display);font-weight:600;font-size:9px;text-anchor:middle;fill:var(--ink)}
 .plan-sub{font-size:6px;text-anchor:middle;fill:var(--muted)}
 .plan-walls line{stroke:var(--ink);stroke-width:2.6;stroke-linecap:square}
 .plan-art{cursor:pointer;outline:none}
@@ -297,6 +300,7 @@ label.f textarea{resize:vertical;min-height:38px}
     <div class="body">
       <div class="settings">
         <label class="f">미술관 이름<input id="setName" maxlength="30"></label>
+        <label class="f">영문 이름 (로비 벽)<input id="setNameEn" maxlength="40" placeholder="비우면 한글 이름만"></label>
         <label class="f">전시실 나누는 방법
           <select id="setGroup">
             <option value="artist">사람별로 (가족 전시실)</option>
@@ -444,7 +448,7 @@ const uid=()=>(crypto.randomUUID?.()||Date.now().toString(36)+Math.random().toSt
 const KIDS=[{name:'공유정',kid:true},{name:'공유빈',kid:true},{name:'아빠'},{name:'엄마'}];
 const kidOf=n=>KIDS.find(k=>k.name===(n||'').replace(/\s*\(예시\)$/,'').trim());
 const byline=a=>a.artist||'';
-const state={ arts:[], name:'공공의 미술관', groupBy:'artist', samples:null };
+const state={ arts:[], name:'공공의 미술관', nameEn:'The Kong Gallery', groupBy:'artist', samples:null };
 const $=id=>document.getElementById(id);
 const toastEl=$('toast'); let toastT;
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),2600);}
@@ -739,7 +743,7 @@ function makeSamples(){
       crayon(g,[[560,860],[540,720],[580,640],[550,560]],'#27ae60',14);crayon(g,[[90,860],[110,760],[80,680]],'#27ae60',14);}],
     ['우리 가족','공유빈',[960,700],(g,w,h)=>{paper(g,w,h);scribble(g,0,600,w,100,'#7dcf6f');crayon(g,circ(860,90,50),'#f3a712',12,true,'#ffd23f');
       [[180,1.25,'#2c3e50'],[380,1.15,'#8e44ad'],[580,.85,'#c0392b'],[760,.7,'#2980b9']].forEach(([x,s,c])=>person(g,x,560-150*s,s,c));
-      g.font='bold 64px "Nanum Myeongjo",serif';g.fillStyle='#e74c3c';g.globalAlpha=.8;g.fillText('사랑해요',330,110);g.globalAlpha=1;}],
+      g.font='600 64px "Hahmlet",serif';g.fillStyle='#e74c3c';g.globalAlpha=.8;g.fillText('사랑해요',330,110);g.globalAlpha=1;}],
     ['꽃밭에서','공유정',[860,860],(g,w,h)=>{paper(g,w,h,'#fffbe6');scribble(g,0,640,w,220,'#8fd27a');
       [[150,520,'#ff6b9d'],[330,440,'#ffb347'],[520,540,'#b084f5'],[700,460,'#ff5e5e'],[250,700,'#ffd23f'],[600,720,'#ff8fab']].forEach(([x,y,c])=>{
         crayon(g,[[x,y],[x+5,y+260]],'#3c9a3c',9);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;crayon(g,circ(x+Math.cos(a)*38,y+Math.sin(a)*38,28,16),c,6,true,c);}crayon(g,circ(x,y,22,16),'#c98a00',6,true,'#ffd23f');});
@@ -882,7 +886,7 @@ function buildDoorway(g,dest){
   const ey=1.2+shaftH; // 상인방 아래 높이. 맞닿는 면은 몇 mm씩 어긋나게 둬야 깜빡임(z-fighting)이 없다
   g.add(box(2*colX+1.1,.7,.95,M.marble,0,ey+.35,colZ-.05));
   g.add(box(2*colX+1.2,.08,1.02,M.gilt,0,ey+.03,colZ-.05));g.add(box(2*colX+1.3,.1,1.08,M.gilt,0,ey+.74,colZ-.05));
-  const sign=textPlane(3.8,.52,180,(x,w,h)=>{fitText(x,dest.title,'800 {s}px "Nanum Myeongjo",serif',w-40,64);x.fillStyle='#e9cf8c';x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=5;x.fillText(dest.title,w/2,h/2+4);});
+  const sign=textPlane(3.8,.52,180,(x,w,h)=>{fitText(x,dest.title,'600 {s}px "Hahmlet",serif',w-40,64);x.fillStyle='#e9cf8c';x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=5;x.fillText(dest.title,w/2,h/2+4);});
   sign.position.set(0,ey+.36,colZ+.45);g.add(sign);
   // 기둥은 부딪히는 물체
   g.updateMatrixWorld(true);const v=new THREE.Vector3();
@@ -972,8 +976,8 @@ function build(){
     const plainWall=['N','E','S','W'].find(k=>!hasDoor[k]);
     if(plainWall){
       const t=textPlane(4.6,1.5,160,(x,w,h)=>{x.textAlign='center';x.fillStyle='#ecd394';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=8;
-        fitText(x,rm.title,'800 {s}px "Nanum Myeongjo",serif',w-40,110);x.fillText(rm.title,w/2,h*.48);
-        x.font='500 44px "IBM Plex Sans KR",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
+        fitText(x,rm.title,'600 {s}px "Hahmlet",serif',w-40,110);x.fillText(rm.title,w/2,h*.48);
+        x.font='500 44px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
       t.position.set(0,2.6,.03);wallGroups[plainWall].add(t);
     }
     // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽
@@ -1179,22 +1183,33 @@ function hang(a,wall,x,rm){
   pickables.push(pic);rayTargets.push(pic);
   // 작품 설명 카드
   const label=textPlane(.5,.32,600,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.fillStyle='#2a2219';x.textBaseline='top';
-    fitText(x,a.title||'제목 없음','800 {s}px "Nanum Myeongjo",serif',cw-36,30);x.fillText(a.title||'제목 없음',18,18);
-    x.font='500 20px "IBM Plex Sans KR",sans-serif';x.fillStyle='#5a4d3c';x.fillText(byline(a),18,62);x.fillText(fmtDate(a.date),18,90);
-    x.font='400 16px "IBM Plex Sans KR",sans-serif';x.fillStyle='#7a6d5a';const n=(a.note||'').replace(/\s+/g,' ');let line='',y=124,lines=0;
+    fitText(x,a.title||'제목 없음','600 {s}px "Hahmlet",serif',cw-36,30);x.fillText(a.title||'제목 없음',18,18);
+    x.font='500 20px "Pretendard Variable",sans-serif';x.fillStyle='#5a4d3c';x.fillText(byline(a),18,62);x.fillText(fmtDate(a.date),18,90);
+    x.font='400 16px "Pretendard Variable",sans-serif';x.fillStyle='#7a6d5a';const n=(a.note||'').replace(/\s+/g,' ');let line='',y=124,lines=0;
     for(const ch of n){if(x.measureText(line+ch).width>cw-36){x.fillText(line,18,y);y+=22;line='';if(++lines>=2)break;}line+=ch;}if(lines<2&&line)x.fillText(line,18,y);
   },{transparent:false});
   label.position.set(W/2+.5,1.42,.02);g.add(label);
   artIndex.push({art:a,mesh:pic,room:rm});
 }
 
+// 자간을 벌려 한 글자씩 가운데 정렬로 쓴다 (track = 글자 크기 대비 간격)
+function spacedText(x,text,cx,y,track){
+  const size=parseFloat(x.font.match(/(\d+(?:\.\d+)?)px/)[1]),gap=size*track,chars=[...text];
+  const ws=chars.map(c=>x.measureText(c).width),total=ws.reduce((s,v)=>s+v,0)+gap*(chars.length-1);
+  const align=x.textAlign;x.textAlign='left';let px=cx-total/2;
+  chars.forEach((c,i)=>{x.fillText(c,px,y);px+=ws[i]+gap;});x.textAlign=align;
+}
 function buildLobby(rm,walls,hasDoor){
   const total=rooms.filter(r=>!r.lobby).reduce((s,r)=>s+r.arts.length,0);
   const t=textPlane(11,3.4,170,(x,w,h)=>{x.textAlign='center';x.shadowColor='rgba(60,40,10,.35)';x.shadowBlur=6;
-    // 미술관 이름과 작품 수만 (위쪽 이름 줄은 두지 않는다)
-    fitText(x,state.name,'800 {s}px "Nanum Myeongjo",serif',w-80,230);x.fillStyle='#5b3e10';x.fillText(state.name,w/2,h*.55);
-    x.font='500 60px "IBM Plex Sans KR",sans-serif';x.fillStyle='#6f5a3a';
-    x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요'),w/2,h*.88);});
+    // 미술관 입구에 새긴 듯한 영문 이름(넓은 자간의 대문자) + 그 아래 작은 한글 이름 + 작품 수
+    const en=(state.nameEn||'').toUpperCase(),track=.16;
+    x.fillStyle='#5b3e10';
+    if(en){fitText(x,en,'600 {s}px "Cormorant Garamond",serif',(w-120)/(1+track*.9),200);spacedText(x,en,w/2,h*.47,track);
+      x.font='500 64px "Hahmlet",serif';x.fillStyle='#7a5a2a';spacedText(x,state.name,w/2,h*.68,.12);}
+    else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',w-80,230);x.fillText(state.name,w/2,h*.55);}
+    x.font='500 50px "Pretendard Variable",sans-serif';x.fillStyle='#6f5a3a';
+    x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요'),w/2,h*.9);});
   t.position.set(0,3.6,.03);walls.N.add(t);
   // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
   const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
@@ -1509,8 +1524,11 @@ $('colSort').onchange=renderCollection;
 /* ───────────────────────── 안내 문구 ───────────────────────── */
 const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
-hint.innerHTML=coarse?'<b>끌어서</b> 둘러보기 · <b>바닥을 톡</b> 눌러 걸어가기 · <b>그림을 톡</b> 눌러 감상 · <b>두 손가락 벌리기</b>로 앞뒤 이동'
-  :'<b>드래그</b>로 둘러보기 · <b>W A S D / 방향키</b>로 걷기 · <b>Q E</b>로 돌기 · <b>바닥 클릭</b>으로 이동 · <b>그림 클릭</b>으로 감상';
+// 항목 하나는 한 줄 안에서 끊기지 않게 묶고, 줄은 항목 사이에서만 바뀐다 (항목은 간격으로 구분)
+hint.innerHTML=(coarse
+  ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤 이동']
+  :['<b>드래그</b>로 둘러보기','<b>WASD·방향키</b>로 걷기','<b>Q E</b>로 돌기','<b>바닥 클릭</b>으로 이동','<b>그림 클릭</b>으로 감상'])
+  .map(s=>`<span class="hi">${s}</span>`).join('');
 setTimeout(()=>hint.style.opacity=0,9000);
 
 /* ───────────────────────── 전시실 안내 ───────────────────────── */
@@ -1658,7 +1676,7 @@ $('btnSave').onclick=async()=>{
 /* ───────────────────────── 작품 관리 ───────────────────────── */
 let dirty=false;
 function renderManage(){
-  $('setName').value=state.name;$('setGroup').value=state.groupBy;$('setQuality').value=quality();
+  $('setName').value=state.name;$('setNameEn').value=state.nameEn||'';$('setGroup').value=state.groupBy;$('setQuality').value=quality();
   $('mCount').textContent=!state.arts.length?'아직 올린 그림이 없어요. 지금은 예시 작품이 걸려 있어요.'
     :Store.remote?`걸려 있는 작품 ${state.arts.length}점 · 온라인 미술관이라 링크를 아는 누구나 같은 그림을 볼 수 있어요.`
     :`걸려 있는 작품 ${state.arts.length}점 · 그림은 이 브라우저에만 저장돼요. 다른 기기로 옮기려면 백업 파일을 쓰세요.`;
@@ -1686,11 +1704,12 @@ function renderManage(){
 }
 $('btnManage').onclick=()=>{dirty=false;refreshArtistList();renderManage();$('dlgManage').showModal();};
 $('setName').onchange=e=>{state.name=e.target.value.trim()||'공공의 미술관';saveSettings();dirty=true;};
+$('setNameEn').onchange=e=>{state.nameEn=e.target.value.trim();saveSettings();dirty=true;};
 $('setGroup').onchange=e=>{state.groupBy=e.target.value;saveSettings();dirty=true;};
 $('setQuality').onchange=e=>{try{localStorage.setItem('kg-quality',e.target.value);}catch{}
   renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY_PR[quality()]));resize();streamTextures();};
 $('dlgManage').addEventListener('close',()=>{if(dirty)rebuild();});
-function saveSettings(){Store.setMeta('settings',{name:state.name,groupBy:state.groupBy}).catch(()=>{});$('brandName').textContent=state.name;document.title=state.name;}
+function saveSettings(){Store.setMeta('settings',{name:state.name,nameEn:state.nameEn,groupBy:state.groupBy}).catch(()=>{});$('brandName').textContent=state.name;document.title=state.name;}
 const blobToDataURL=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b);});
 $('btnExport').onclick=async()=>{
   if(!state.arts.length)return toast('백업할 작품이 아직 없어요');
@@ -1748,9 +1767,19 @@ function renderMigrate(){
 
 /* ───────────────────────── 시작 ───────────────────────── */
 function rebuild(){
-
   build();curRoom=null;updateColCount();if(colOpen())renderCollection();
   if(!roomAt(player.x,player.z))Object.assign(player,START);
+  // 새 제목·이름에 아직 받지 않은 글자가 있으면 글꼴을 받아 와서 벽 글씨를 다시 그린다
+  loadCanvasFonts().then(changed=>{if(changed){build();curRoom=null;}});
+}
+/* 3D 벽 글씨(캔버스)는 글꼴이 다 받아진 뒤에 그려야 한다. 한글 웹글꼴은 글자 묶음별로 나눠 받으므로
+   벽에 쓰일 글자를 모아서 그 글자들이 든 묶음을 미리 받아 둔다. 새로 받은 묶음이 있으면 true. */
+async function loadCanvasFonts(){
+  const text=[state.name,...displayArts().flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
+    '로비 입구 작품 점 전시실 곳 아직 걸린 작품이 없어요 예시 곧 가족의 그림이 걸릴 거예요 지금은 오른쪽 위 그림 올리기를 눌러 보세요 제목 없음 이름 없는 화가 상설 전시 날짜 모름 년 월 일 0123456789 ·'].filter(Boolean).join(' ');
+  const loaded=()=>[...document.fonts].filter(f=>f.status==='loaded').length,before=loaded();
+  try{await Promise.race([Promise.all([document.fonts.load('600 40px "Hahmlet"',text),document.fonts.load('500 20px "Pretendard Variable"',text),document.fonts.load('600 40px "Cormorant Garamond"',(state.nameEn||'A').toUpperCase())]),new Promise(r=>setTimeout(r,3000))]);}catch{}
+  return loaded()!==before;
 }
 const clock=new THREE.Clock();
 function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
@@ -1766,14 +1795,14 @@ function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   if(FIREBASE_CONFIG&&!Store.remote&&new URLSearchParams(location.search).has("local"))setTimeout(()=>toast("디자인 확인 모드 · 온라인 미술관이 아니라 예시 작품만 보여요"),1200);
   try{
     const [arts,settings]=await Promise.all([Store.all(),Store.getMeta('settings')]);
-    state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);if(settings){state.name=settings.name||state.name;state.groupBy=settings.groupBy||state.groupBy;}
+    state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;}
   }catch(err){console.warn(err);toast(Store.remote?'그림 목록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.':'이 브라우저에서는 그림을 저장할 수 없어요 (사생활 보호 모드인가요?)');}
   if(Store.remote){
     // 로그인 상태가 바뀔 때마다 가족 계정인지 확인해 올리기·관리 버튼을 보이거나 숨긴다
     F.au.onAuthStateChanged(F.auth,async()=>{editor=await checkEditor();applyRole();if(editor)await findLocalLeftovers();if(!state.arts.length)rebuild();});
   }
   $('brandName').textContent=state.name;document.title=state.name;$('loading').querySelector('h1').textContent=state.name;
-  try{await Promise.race([Promise.all([document.fonts.load('800 40px "Nanum Myeongjo"'),document.fonts.load('500 20px "IBM Plex Sans KR"')]),new Promise(r=>setTimeout(r,2500))]);}catch{}
+  await loadCanvasFonts();
   build();updateColCount();loop();
   setTimeout(()=>$('loading').classList.add('gone'),200);
 })();
