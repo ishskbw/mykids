@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "kong-gallery.vercel.app" }], "destination": "/gallery/", "permanent": false }
+  ]
+}
