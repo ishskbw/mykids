@@ -93,6 +93,10 @@ body.col .seg{background:var(--panel-2);border-color:var(--line)}
 body.col .seg button{color:var(--muted)}
 body.col .seg button[aria-selected="true"]{background:var(--ink);color:var(--panel)}
 body.col .room-now,body.col .hint,body.col .card,body.col #btnRooms{display:none}
+/* 온라인 미술관: 가족 계정으로 로그인해야 올리기·관리 버튼이 보인다 */
+body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:none}
+.migrate:not(:empty){display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:12px;border:1px solid var(--gold);border-radius:10px;background:var(--panel-2)}
+.migrate p{margin:0;flex:1;min-width:200px}
 
 /* 작품 모아보기 */
 #collection{position:fixed;inset:0;z-index:3;background:var(--panel);color:var(--ink);overflow-y:auto;padding:calc(84px + env(safe-area-inset-top)) 16px 56px}
@@ -192,6 +196,7 @@ label.f textarea{resize:vertical;min-height:38px}
     <button role="tab" id="tabCol" aria-selected="false">작품 모아보기<span class="n" id="colCount"></span></button>
   </div>
   <button class="chip" id="btnRooms">전시실 안내</button>
+  <button class="chip" id="btnLogin" hidden>가족 로그인</button>
   <button class="chip" id="btnManage">작품 관리</button>
   <button class="chip primary" id="btnUpload">그림 올리기</button>
 </div>
@@ -286,10 +291,12 @@ label.f textarea{resize:vertical;min-height:38px}
           </select>
         </label>
       </div>
+      <div id="migrate" class="migrate"></div>
       <p class="muted" id="mCount"></p>
       <ul class="items" id="mList"></ul>
     </div>
     <footer>
+      <button class="btn" id="btnLogout" hidden>로그아웃</button>
       <button class="btn" id="btnExport">백업 파일로 저장</button>
       <label class="btn" for="importInput">백업 불러오기</label><input type="file" id="importInput" accept="application/json,.json" hidden>
       <span class="spacer"></span><button class="btn primary" data-close>완료</button>
@@ -309,8 +316,27 @@ label.f textarea{resize:vertical;min-height:38px}
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-/* ───────────────────────── 저장소 (IndexedDB) ─────────────────────────
-   그림은 이 브라우저 안에만 저장된다. 다른 기기로 옮길 땐 백업 파일을 쓴다. */
+/* ───────────────────────── 저장소 ─────────────────────────
+   FIREBASE_CONFIG를 채우면 '온라인 미술관': 그림이 Firebase(Firestore)에 저장되어 누구나 같은 그림을 보고,
+   가족 구글 계정으로 로그인해야만 올리고 지울 수 있다(허용 계정은 Firestore 보안 규칙에만 적는다 → firestore.rules).
+   비워 두면 예전처럼 이 브라우저(IndexedDB)에만 저장한다.
+
+   Firestore 구성 (무료 요금제, 문서 하나 최대 1MB):
+     arts/{id}       제목·그린 사람·날짜 등 작품 정보 (목록을 빨리 받기 위해 이미지는 따로)
+     thumbs/{id}     3D 벽과 썸네일용 1024px JPEG
+     originals/{id}  '크게 보기'용 원본 JPEG (900KB 이하로 맞춰 저장)
+     settings/settings  미술관 이름·전시실 나누는 방법 */
+// Firebase 콘솔 > 설정 > 일반 > 내 앱(웹)의 firebaseConfig. 웹에 공개되는 값이며, 접근 제어는 보안 규칙이 맡는다.
+// null로 바꾸면 '이 기기에만 저장' 방식으로 돌아간다.
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyAYBnc86s4aCqiqKZx3oHxtCIsTynWAuEE",
+  authDomain:"kongkong-gallery.firebaseapp.com",
+  projectId:"kongkong-gallery",
+  storageBucket:"kongkong-gallery.firebasestorage.app",
+  messagingSenderId:"44297336840",
+  appId:"1:44297336840:web:bcf10b246541951764f9bd",
+};
+const FIREBASE_VERSION='12.4.0';
 let dbp;
 function openDb(){
   return dbp ||= new Promise((res,rej)=>{
@@ -326,13 +352,68 @@ async function tx(store,mode,fn){
     t.oncomplete=()=>res(req?.result); t.onerror=()=>rej(t.error);
   });
 }
-const Store={
+const LocalStore={
+  remote:false,
   all:()=>tx('art','readonly',s=>s.getAll()),
   put:a=>{const{url,surl,smallP,...rec}=a;return tx('art','readwrite',s=>s.put(rec));},
   del:id=>tx('art','readwrite',s=>s.delete(id)),
   getMeta:k=>tx('meta','readonly',s=>s.get(k)),
   setMeta:(k,v)=>tx('meta','readwrite',s=>s.put(v,k)),
+  original:async a=>a.blob,
+  // 예전에 올린 그림에 작은 사본이 없으면 처음 볼 때 만들어 저장해 둔다
+  small:async a=>{if(!a.small){a.small=await smallFromBlob(a.blob);LocalStore.put(a).catch(()=>{});}return a.small;},
 };
+// 원본은 Firestore 문서 한도(1MB) 안에 들어가도록 900KB 이하로 맞춘다
+const ORIGINAL_MAX_BYTES=900*1024;
+const canvasBlob=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
+async function fitCanvas(c){
+  for(let scale=1;;scale*=.85){
+    const cc=scale===1?c:drawRotated(c,0,Math.round(Math.max(c.width,c.height)*scale));
+    for(const q of [.88,.8,.72,.64]){const b=await canvasBlob(cc,q);if(b.size<=ORIGINAL_MAX_BYTES||scale<.3)return b;}
+  }
+}
+async function fitBlob(blob){
+  if(blob.size<=ORIGINAL_MAX_BYTES)return blob;
+  const src=await loadBitmap(blob);const c=drawRotated(src,0,2048);src.close?.();return fitCanvas(c);
+}
+async function smallFromBlob(blob){const src=await loadBitmap(blob),c=drawRotated(src,0,DISPLAY_MAX);src.close?.();return canvasBlob(c,.85);}
+
+let F=null; // Firebase 연결 (온라인 미술관일 때)
+async function connectFirebase(cfg){
+  const base=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [{initializeApp},fs,au]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js')]);
+  const app=initializeApp(cfg);
+  // 한 번 받은 그림은 기기에 캐시해 두어 다시 열 때 빠르고 무료 한도도 아낀다
+  let db;try{db=fs.initializeFirestore(app,{localCache:fs.persistentLocalCache({tabManager:fs.persistentMultipleTabManager()})});}catch{db=fs.getFirestore(app);}
+  return {fs,au,db,auth:au.getAuth(app)};
+}
+function remoteStore({fs,db}){
+  const d=(c,id)=>fs.doc(db,c,id);
+  const toBytes=async b=>fs.Bytes.fromUint8Array(new Uint8Array(await b.arrayBuffer()));
+  // 그림은 바뀌지 않으므로 캐시에 있으면 그것을 쓴다
+  const image=async(c,id)=>{let s;try{s=await fs.getDocFromCache(d(c,id));}catch{}
+    if(!s?.exists())s=await fs.getDoc(d(c,id));if(!s.exists())throw new Error('missing '+c+'/'+id);
+    return new Blob([s.data().data.toUint8Array()],{type:'image/jpeg'});};
+  return {
+    remote:true,
+    async all(){const q=await fs.getDocs(fs.collection(db,'arts'));return q.docs.map(x=>({id:x.id,...x.data()}));},
+    async put(a,{images=false}={}){
+      if(images){const orig=await fitBlob(a.blob),small=a.small||await smallFromBlob(orig);
+        await fs.setDoc(d('originals',a.id),{data:await toBytes(orig)});
+        await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
+        a.blob=orig;a.small=small;}
+      // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+    },
+    async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
+    async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
+    setMeta:(k,v)=>fs.setDoc(d('settings',k),v),
+    original:async a=>a.blob||image('originals',a.id),
+    small:async a=>a.small||image('thumbs',a.id),
+  };
+}
+let Store=LocalStore;
+let editor=true; // 올리기·관리 권한 (이 기기 저장 방식에서는 늘 true)
 const uid=()=>(crypto.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
 
 // 우리 가족: 이 순서대로 전시실이 열리고, 올리기 화면의 이름 버튼이 된다
@@ -658,17 +739,16 @@ function makeSamples(){
    - 지금 있는 방과 바로 옆방의 그림만 그래픽 메모리에 올리고, 멀어지면 내린다. */
 const DISPLAY_MAX=1024, PLACEHOLDER=0xd9d2c4;
 const texCache=new Map(); // id → {p: Promise<Texture>, t?: Texture}
-function artUrl(a){return a.url||(a.url=URL.createObjectURL(a.blob));}
-async function makeSmall(a){
-  const src=await loadBitmap(a.blob),c=drawRotated(src,0,DISPLAY_MAX);src.close?.();
-  a.small=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));
-  Store.put(a).catch(()=>{});
+// 원본·작은 사본의 주소. 온라인 미술관이면 필요할 때 받아 온다.
+async function artUrl(a){
+  if(a.url)return a.url;
+  return a.url=URL.createObjectURL(a.blob||await Store.original(a));
 }
 async function smallUrl(a){
   if(a.sample)return a.url;
   if(a.surl)return a.surl;
-  if(!a.small)await (a.smallP||=makeSmall(a));
-  return a.surl=URL.createObjectURL(a.small);
+  const b=await (a.smallP||=Store.small(a).catch(e=>{a.smallP=null;throw e;}));
+  return a.surl||=URL.createObjectURL(b);
 }
 function artTexture(a){
   if(texCache.has(a.id))return texCache.get(a.id).p;
@@ -913,7 +993,7 @@ function buildLobby(rm,walls,hasDoor){
     x.fillStyle='#7a5a1c';x.font='500 52px "IBM Plex Sans KR",sans-serif';x.fillText(KIDS.filter(k=>k.kid).map(k=>k.name).join(' · '),w/2,h*.2);
     fitText(x,state.name,'800 {s}px "Nanum Myeongjo",serif',w-80,230);x.fillStyle='#5b3e10';x.fillText(state.name,w/2,h*.6);
     x.font='500 60px "IBM Plex Sans KR",sans-serif';x.fillStyle='#6f5a3a';
-    x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요',w/2,h*.88);});
+    x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요'),w/2,h*.88);});
   t.position.set(0,3.6,.03);walls.N.add(t);
   // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
   const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
@@ -1054,7 +1134,10 @@ $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').oncli
 // 크게 보기: 목록(전시 순서 또는 모아보기 순서) 안에서 앞뒤로 넘긴다
 let vList=[],vIdx=0;
 function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');}
-function showViewer(){const a=vList[vIdx];$('vImg').src=artUrl(a);$('vImg').alt=a.title||'';
+// 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다
+function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');
+  smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
+  img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
   $('vCap').textContent=[a.title,byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
   $('vPrev').disabled=$('vNext').disabled=vList.length<2;}
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
@@ -1089,7 +1172,7 @@ function renderCollection(){
   const newest=$('colSort').value==='new';
   const list=all.filter(a=>colFilter==='all'||(a.artist||'이름 없는 화가')===colFilter)
     .sort((a,b)=>{const c=(a.date||'').localeCompare(b.date||'')||(a.created||0)-(b.created||0);return newest?-c:c;});
-  $('colLead').textContent=sample?'아직 올린 그림이 없어 예시 작품을 보여 드려요. ‘그림 올리기’로 첫 작품을 걸어 보세요.'
+  $('colLead').textContent=sample?(Store.remote&&!editor?'아직 걸린 그림이 없어 예시 작품을 보여 드려요.':'아직 올린 그림이 없어 예시 작품을 보여 드려요. ‘그림 올리기’로 첫 작품을 걸어 보세요.')
     :`${names.filter(n=>kidOf(n)).join(' · ')||state.name}의 그림 ${all.length}점이 모여 있어요.`;
   const body=$('colBody');body.replaceChildren();
   if(!list.length){body.innerHTML='<p class="col-empty">이 조건에 맞는 작품이 없어요.</p>';return;}
@@ -1196,19 +1279,24 @@ function markKid(){const v=$('commonArtist').value;kidPick.querySelectorAll('but
 $('commonDate').oninput=e=>{pending.forEach(p=>p.date=e.target.value);renderPending();};
 $('btnSave').onclick=async()=>{
   const btn=$('btnSave');btn.disabled=true;btn.textContent='거는 중…';
+  const saved=[];
   try{
-    const saved=[];const base=Date.now();
+    const base=Date.now();
     for(const[i,p]of pending.entries()){
-      const c=drawRotated(p.bitmap,p.rot,2048);const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.88));
-      const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await new Promise(r=>sc.toBlob(r,'image/jpeg',.85));
+      btn.textContent=`거는 중… ${i+1}/${pending.length}`;
+      const c=drawRotated(p.bitmap,p.rot,2048);const blob=await fitCanvas(c);
+      const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await canvasBlob(sc,.85);
       const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
-      await Store.put(a);saved.push(a);
+      await Store.put(a,{images:true});saved.push(a);
     }
     try{localStorage.setItem('kg-last-artist',pending.at(-1)?.artist||'');}catch{}
     state.arts.push(...saved);pending=[];$('dlgUpload').close();rebuild();
     toast(`${saved.length}점을 미술관에 걸었어요`);
     showSpace();setTimeout(()=>focusArt(saved[0],{instant:true}),50);
-  }catch(err){console.error(err);toast('저장하지 못했어요. 저장 공간을 확인해 주세요.');}
+  }catch(err){console.error(err);
+    if(saved.length){state.arts.push(...saved);rebuild();}
+    toast(err?.code==='permission-denied'?'이 계정은 그림을 올릴 수 없어요. 가족 계정으로 로그인해 주세요.'
+      :Store.remote?'올리지 못했어요. 인터넷 연결을 확인해 주세요.':'저장하지 못했어요. 저장 공간을 확인해 주세요.');}
   finally{btn.disabled=false;btn.textContent='미술관에 걸기';}
 };
 
@@ -1216,7 +1304,11 @@ $('btnSave').onclick=async()=>{
 let dirty=false;
 function renderManage(){
   $('setName').value=state.name;$('setGroup').value=state.groupBy;$('setQuality').value=quality();
-  $('mCount').textContent=state.arts.length?`걸려 있는 작품 ${state.arts.length}점 · 그림은 이 브라우저에만 저장돼요. 다른 기기로 옮기려면 백업 파일을 쓰세요.`:'아직 올린 그림이 없어요. 지금은 예시 작품이 걸려 있어요.';
+  $('mCount').textContent=!state.arts.length?'아직 올린 그림이 없어요. 지금은 예시 작품이 걸려 있어요.'
+    :Store.remote?`걸려 있는 작품 ${state.arts.length}점 · 온라인 미술관이라 링크를 아는 누구나 같은 그림을 볼 수 있어요.`
+    :`걸려 있는 작품 ${state.arts.length}점 · 그림은 이 브라우저에만 저장돼요. 다른 기기로 옮기려면 백업 파일을 쓰세요.`;
+  $('btnLogout').hidden=!Store.remote;
+  renderMigrate();
   const ul=$('mList');ul.replaceChildren();
   [...state.arts].sort((a,b)=>(b.created||0)-(a.created||0)).forEach(a=>{
     const li=document.createElement('li');li.className='item';
@@ -1225,10 +1317,11 @@ function renderManage(){
     const go=document.createElement('button');go.className='btn';go.textContent='보러 가기';go.onclick=()=>{$('dlgManage').close();showSpace();focusArt(a,{instant:true});};
     const del=document.createElement('button');del.className='btn danger';del.textContent='삭제';
     del.onclick=async()=>{if(!confirm(`‘${a.title}’을(를) 미술관에서 내릴까요? 되돌릴 수 없어요.`))return;
-      await Store.del(a.id);state.arts=state.arts.filter(x=>x!==a);if(a.url)URL.revokeObjectURL(a.url);if(a.surl)URL.revokeObjectURL(a.surl);dirty=true;renderManage();};
+      try{await Store.del(a.id);}catch(err){console.error(err);return toast('지우지 못했어요. 인터넷 연결이나 로그인을 확인해 주세요.');}
+      state.arts=state.arts.filter(x=>x!==a);if(a.url)URL.revokeObjectURL(a.url);if(a.surl)URL.revokeObjectURL(a.surl);dirty=true;renderManage();};
     row.append(go,del);th.append(row);
     const fs=document.createElement('div');fs.className='fields';
-    const save=()=>{dirty=true;Store.put(a);};
+    const save=()=>{dirty=true;Store.put(a).catch(err=>{console.error(err);toast('고친 내용을 저장하지 못했어요');});};
     const[l1,t]=field('작품 제목','text',a.title,'wide');t.onchange=()=>{a.title=t.value.trim()||'제목 없음';save();};
     const[l2,ar]=field('그린 사람','text',a.artist);ar.setAttribute('list','artistList');ar.onchange=()=>{a.artist=ar.value.trim();save();};
     const[l3,dt]=field('그린 날','date',a.date);dt.onchange=()=>{a.date=dt.value;save();};
@@ -1246,7 +1339,8 @@ function saveSettings(){Store.setMeta('settings',{name:state.name,groupBy:state.
 const blobToDataURL=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b);});
 $('btnExport').onclick=async()=>{
   if(!state.arts.length)return toast('백업할 작품이 아직 없어요');
-  const arts=[];for(const a of state.arts){const{blob,url,surl,small,smallP,...rest}=a;arts.push({...rest,data:await blobToDataURL(blob)});}
+  toast('백업 파일을 만드는 중이에요…');
+  const arts=[];for(const a of state.arts){const{blob,url,surl,small,smallP,...rest}=a;arts.push({...rest,data:await blobToDataURL(await Store.original(a))});}
   const file=new Blob([JSON.stringify({app:'kids-gallery',version:1,name:state.name,groupBy:state.groupBy,arts})],{type:'application/json'});
   const link=document.createElement('a');link.href=URL.createObjectURL(file);link.download=`${state.name}-백업-${today()}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),5000);
 };
@@ -1254,11 +1348,48 @@ $('importInput').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const d=JSON.parse(await f.text());if(d.app!=='kids-gallery')throw 0;
     const wasEmpty=!state.arts.length,have=new Set(state.arts.map(a=>a.id));let n=0;
-    for(const x of d.arts){if(have.has(x.id))continue;const{data,...rest}=x;const blob=await (await fetch(data)).blob();const a={...rest,blob};await Store.put(a);state.arts.push(a);n++;}
+    for(const x of d.arts){if(have.has(x.id))continue;const{data,...rest}=x;const blob=await (await fetch(data)).blob();const a={...rest,blob};await Store.put(a,{images:true});state.arts.push(a);n++;}
     if(wasEmpty&&d.name){state.name=d.name;state.groupBy=d.groupBy||state.groupBy;saveSettings();}
     dirty=true;renderManage();toast(`작품 ${n}점을 불러왔어요`);
   }catch{toast('백업 파일을 읽지 못했어요');}
 };
+
+/* ───────────────────────── 온라인 미술관: 가족 로그인 · 옮기기 ───────────────────────── */
+// 로그인한 계정이 가족인지는 보안 규칙이 정한다: 가족만 읽을 수 있는 private/check 를 읽어 보고 판단 (문서가 없어도 된다)
+async function checkEditor(){
+  if(!F.auth.currentUser)return false;
+  try{await F.fs.getDocFromServer(F.fs.doc(F.db,'private','check'));return true;}
+  catch(err){if(err?.code==='permission-denied'){toast('이 구글 계정은 그림을 올릴 수 없어요. 가족 계정으로 로그인해 주세요.');await F.au.signOut(F.auth);}
+    else console.warn(err);return false;}
+}
+function applyRole(){
+  document.body.classList.toggle('remote',Store.remote);document.body.classList.toggle('editor',editor);
+  $('btnLogin').hidden=!Store.remote||editor;
+}
+$('btnLogin').onclick=async()=>{
+  const p=new F.au.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+  try{await F.au.signInWithPopup(F.auth,p);}
+  catch(err){if(err?.code==='auth/popup-blocked'||err?.code==='auth/operation-not-supported-in-environment')await F.au.signInWithRedirect(F.auth,p);
+    else if(err?.code!=='auth/popup-closed-by-user'&&err?.code!=='auth/cancelled-popup-request'){console.error(err);toast('로그인하지 못했어요');}}
+};
+$('btnLogout').onclick=async()=>{await F.au.signOut(F.auth);$('dlgManage').close();toast('로그아웃했어요');};
+// 온라인 미술관으로 바꾸기 전에 이 기기에만 저장해 둔 그림이 있으면 옮길 수 있게 한다
+let localLeft=[];
+async function findLocalLeftovers(){try{localLeft=await LocalStore.all()||[];}catch{localLeft=[];}}
+function renderMigrate(){
+  const box=$('migrate');box.replaceChildren();
+  if(!Store.remote||!editor||!localLeft.length)return;
+  const p=document.createElement('p');p.className='muted';p.textContent=`이 기기에만 저장되어 있던 그림이 ${localLeft.length}점 있어요. 온라인 미술관으로 옮기면 누구나 볼 수 있어요.`;
+  const b=document.createElement('button');b.className='btn primary';b.textContent=`${localLeft.length}점 온라인으로 옮기기`;
+  b.onclick=async()=>{b.disabled=true;let n=0;
+    try{for(const x of [...localLeft]){b.textContent=`옮기는 중… ${n+1}/${localLeft.length}`;
+        const{url,surl,smallP,...rec}=x;const a={...rec};await Store.put(a,{images:true});await LocalStore.del(x.id);
+        localLeft=localLeft.filter(y=>y!==x);if(!state.arts.some(y=>y.id===a.id))state.arts.push(a);n++;}
+      toast(`${n}점을 온라인 미술관으로 옮겼어요`);}
+    catch(err){console.error(err);toast(`${n}점까지 옮겼어요. 나머지는 다시 시도해 주세요.`);}
+    dirty=true;renderManage();};
+  box.append(p,b);
+}
 
 /* ───────────────────────── 시작 ───────────────────────── */
 function rebuild(){
@@ -1271,10 +1402,19 @@ function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});
   if(!colOpen())renderer.render(scene,camera);requestAnimationFrame(loop);}
 (async()=>{
+  if(FIREBASE_CONFIG){
+    try{F=await connectFirebase(FIREBASE_CONFIG);Store=remoteStore(F);editor=false;}
+    catch(err){console.error(err);toast('온라인 미술관에 연결하지 못했어요. 잠시 후 다시 열어 주세요.');}
+  }
+  applyRole();
   try{
     const [arts,settings]=await Promise.all([Store.all(),Store.getMeta('settings')]);
     state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);if(settings){state.name=settings.name||state.name;state.groupBy=settings.groupBy||state.groupBy;}
-  }catch(err){console.warn(err);toast('이 브라우저에서는 그림을 저장할 수 없어요 (사생활 보호 모드인가요?)');}
+  }catch(err){console.warn(err);toast(Store.remote?'그림 목록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.':'이 브라우저에서는 그림을 저장할 수 없어요 (사생활 보호 모드인가요?)');}
+  if(Store.remote){
+    // 로그인 상태가 바뀔 때마다 가족 계정인지 확인해 올리기·관리 버튼을 보이거나 숨긴다
+    F.au.onAuthStateChanged(F.auth,async()=>{editor=await checkEditor();applyRole();if(editor)await findLocalLeftovers();if(!state.arts.length)rebuild();});
+  }
   $('brandName').textContent=state.name;document.title=state.name;$('loading').querySelector('h1').textContent=state.name;
   try{await Promise.race([Promise.all([document.fonts.load('800 40px "Nanum Myeongjo"'),document.fonts.load('500 20px "IBM Plex Sans KR"')]),new Promise(r=>setTimeout(r,2500))]);}catch{}
   build();updateColCount();loop();
