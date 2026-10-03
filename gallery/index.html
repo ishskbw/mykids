@@ -774,7 +774,7 @@ function streamTextures(){
 }
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
-const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, TILE=1.4, PER_ROOM=8, SLOT_X=4.4;
+const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 function groupKey(a){
   if(state.groupBy==='artist')return (a.artist||'').replace(/\s*\(예시\)$/,'').trim()||'이름 없는 화가';
@@ -958,23 +958,200 @@ function build(){
   }
 }
 
+/* ───────────────────────── 액자 ─────────────────────────
+   내셔널 갤러리의 옛 액자처럼: 단면(몰딩)을 그림 둘레로 돌려 입체 액자를 만들고,
+   조각 무늬는 높이 그림 → 요철(normal map)로 새긴다. 튀어나온 곳은 광낸 금박,
+   오목한 곳은 금박 아래 붉은 밑칠(볼)이 비치게 어둡게.
+   양식은 작품 id로 정해 늘 같은 그림엔 같은 액자가 걸린다.
+
+   profile: [바깥쪽 거리 d, 앞으로 나온 높이 z] — 그림 가장자리(d=0)에서 바깥으로.
+   bands:   [시작 점, 끝 점, 무늬, 재료] — 해당 구간에 새길 무늬. 재료: gilt 금박 · black 흑단 · linen 리넨 · panel 칠한 판 */
+const FRAME_STYLES=[
+  { name:'louis', tile:.32, decal:'cartouche',
+    profile:[[-.012,.03],[0,.058],[.016,.07],[.032,.058],[.042,.072],[.08,.112],[.13,.13],[.18,.116],[.21,.086],[.226,.09],[.246,.11],[.27,.104],[.29,.07],[.3,.03],[.3,0]],
+    bands:[[0,1,'plain','gilt'],[1,3,'beads','gilt',16],[3,4,'plain','gilt'],[4,8,'acanthus','gilt',2],[8,9,'plain','gilt'],[9,12,'eggdart','gilt',6],[12,14,'plain','gilt']] },
+  { name:'dutch', tile:.12,
+    profile:[[-.012,.03],[0,.05],[.012,.056],[.022,.046],[.03,.05],[.06,.072],[.1,.086],[.14,.08],[.17,.06],[.19,.066],[.21,.05],[.22,.02],[.22,0]],
+    bands:[[0,3,'plain','gilt'],[3,8,'ripple','black',14],[8,10,'ripple','black',22],[10,12,'plain','black']] },
+  { name:'cassetta', tile:.4,
+    profile:[[-.012,.03],[0,.056],[.018,.066],[.035,.05],[.04,.046],[.2,.046],[.205,.062],[.23,.078],[.255,.062],[.26,.02],[.26,0]],
+    bands:[[0,1,'plain','gilt'],[1,3,'beads','gilt',18],[3,4,'plain','gilt'],[4,5,'sgraffito','panel',2],[5,6,'plain','gilt'],[6,8,'rope','gilt',14],[8,10,'plain','gilt']] },
+  { name:'laurel', tile:.3,
+    profile:[[-.012,.03],[0,.032],[.035,.034],[.04,.05],[.05,.062],[.09,.096],[.14,.1],[.18,.08],[.2,.086],[.215,.07],[.22,.02],[.22,0]],
+    bands:[[0,2,'plain','linen'],[2,4,'plain','gilt'],[4,7,'laurel','gilt',7],[7,9,'beads','gilt',22],[9,11,'plain','gilt']] },
+  { name:'reeded', tile:.24, decal:'rosette',
+    profile:[[-.012,.03],[0,.05],[.015,.056],[.025,.05],[.03,.07],[.15,.07],[.155,.08],[.178,.086],[.2,.06],[.2,.02],[.2,0]],
+    bands:[[0,3,'beads','gilt',14],[3,4,'plain','gilt'],[4,5,'flutes','gilt',7],[5,8,'eggdart','gilt',5],[8,10,'plain','gilt']] },
+];
+const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
+const hashStr=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
+
+// 높이 그림(흑백) → 요철 지도(normal map). 가로는 이어지게(반복), 세로는 끝에서 멈춘다.
+function heightToNormal(src,strength){
+  const w=src.width,h=src.height,d=src.getContext('2d').getImageData(0,0,w,h).data;
+  const out=document.createElement('canvas');out.width=w;out.height=h;const og=out.getContext('2d'),od=og.createImageData(w,h);
+  const H=(x,y)=>d[(Math.min(h-1,Math.max(0,y))*w+((x+w)%w))*4]/255;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength,dy=(H(x,y+1)-H(x,y-1))*strength,l=Math.hypot(dx,dy,1),i=(y*w+x)*4;
+    od.data[i]=(-dx/l*.5+.5)*255;od.data[i+1]=(dy/l*.5+.5)*255;od.data[i+2]=(1/l*.5+.5)*255;od.data[i+3]=255;}
+  og.putImageData(od,0,0);return out;
+}
+// 무늬 그리기 (흰색 = 높음). 띠 영역 (0,y0)–(W,y0+bh), n = 한 반복 길이 안의 개수. 가로로 이어지도록 양옆에도 한 번 더 그린다.
+const PATTERNS={
+  plain(g,W,y0,bh){g.fillStyle='rgb(140,140,140)';g.fillRect(0,y0,W,bh);},
+  beads(g,W,y0,bh,n){g.fillStyle='rgb(90,90,90)';g.fillRect(0,y0,W,bh);const s=W/n;
+    for(let i=-1;i<=n;i++){const cx=(i+.5)*s,cy=y0+bh/2,r=Math.min(s*.42,bh*.46);
+      const gr=g.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);gr.addColorStop(0,'#fff');gr.addColorStop(.7,'#bbb');gr.addColorStop(1,'#555');
+      g.fillStyle=gr;g.beginPath();g.ellipse(cx,cy,r*.8,r,0,0,Math.PI*2);g.fill();}},
+  eggdart(g,W,y0,bh,n){g.fillStyle='rgb(70,70,70)';g.fillRect(0,y0,W,bh);const s=W/n;
+    for(let i=-1;i<=n;i++){const cx=(i+.5)*s,cy=y0+bh*.55;
+      g.fillStyle='#2a2a2a';g.beginPath();g.ellipse(cx,cy,s*.4,bh*.42,0,0,Math.PI*2);g.fill();
+      const gr=g.createRadialGradient(cx,cy-bh*.12,0,cx,cy,bh*.4);gr.addColorStop(0,'#fff');gr.addColorStop(1,'#999');
+      g.fillStyle=gr;g.beginPath();g.ellipse(cx,cy,s*.31,bh*.34,0,0,Math.PI*2);g.fill();
+      g.fillStyle='#ddd';g.beginPath();g.moveTo(cx+s/2,y0+bh*.12);g.lineTo(cx+s/2-s*.05,y0+bh*.7);g.lineTo(cx+s/2,y0+bh*.95);g.lineTo(cx+s/2+s*.05,y0+bh*.7);g.closePath();g.fill();}
+    g.fillStyle='#bbb';g.fillRect(0,y0,W,bh*.1);},
+  acanthus(g,W,y0,bh,n){const lg=g.createLinearGradient(0,y0,0,y0+bh);lg.addColorStop(0,'#666');lg.addColorStop(.5,'#888');lg.addColorStop(1,'#666');g.fillStyle=lg;g.fillRect(0,y0,W,bh);
+    const s=W/n;
+    for(let i=-1;i<=n;i++){const x=i*s;
+      // 휘어지는 큰 잎: 바깥 잎맥을 따라 둥근 잎조각 여러 개
+      for(let k=0;k<7;k++){const t=k/6,lx=x+s*(.1+t*.8),ly=y0+bh*(.5+.32*Math.sin(t*Math.PI*1.6-.6)),r=bh*(.26-.1*Math.abs(t-.45));
+        const gr=g.createRadialGradient(lx-r*.25,ly-r*.25,0,lx,ly,r);gr.addColorStop(0,'#fff');gr.addColorStop(.75,'#c8c8c8');gr.addColorStop(1,'rgba(90,90,90,0)');
+        g.fillStyle=gr;g.beginPath();g.ellipse(lx,ly,r*1.25,r,t*1.4-.6,0,Math.PI*2);g.fill();}
+      // 잎맥(오목한 홈)과 소용돌이
+      g.strokeStyle='#3a3a3a';g.lineWidth=bh*.035;g.lineCap='round';
+      g.beginPath();g.moveTo(x+s*.08,y0+bh*.42);g.bezierCurveTo(x+s*.35,y0+bh*.95,x+s*.6,y0+bh*.05,x+s*.92,y0+bh*.55);g.stroke();
+      g.lineWidth=bh*.05;g.strokeStyle='#eee';g.beginPath();g.arc(x+s*.92,y0+bh*.48,bh*.14,Math.PI*.2,Math.PI*1.9);g.stroke();
+      g.strokeStyle='#444';g.lineWidth=bh*.02;for(let k=0;k<5;k++){const t=.15+k*.17;g.beginPath();g.moveTo(x+s*t,y0+bh*(.5+.3*Math.sin(t*5)));g.lineTo(x+s*(t+.06),y0+bh*(.5+.3*Math.sin(t*5)+.18));g.stroke();}}},
+  laurel(g,W,y0,bh,n){g.fillStyle='rgb(80,80,80)';g.fillRect(0,y0,W,bh);const s=W/n;
+    for(let i=-1;i<=n+1;i++)for(const side of [-1,1]){const cx=i*s+(side>0?s*.5:0),cy=y0+bh*(.5+side*.16);
+      g.save();g.translate(cx,cy);g.rotate(side*.45);const r=bh*.34;
+      const gr=g.createLinearGradient(0,-r*.4,0,r*.4);gr.addColorStop(0,'#fff');gr.addColorStop(1,'#999');g.fillStyle=gr;
+      g.beginPath();g.ellipse(0,0,s*.55,r*.42,0,0,Math.PI*2);g.fill();g.strokeStyle='#555';g.lineWidth=2;g.beginPath();g.moveTo(-s*.45,0);g.lineTo(s*.45,0);g.stroke();g.restore();}
+    g.fillStyle='#aaa';g.fillRect(0,y0+bh*.47,W,bh*.06);},
+  ripple(g,W,y0,bh,n){const im=g.getImageData(0,y0|0,W,Math.ceil(bh)),p=W/n;
+    for(let y=0;y<im.height;y++)for(let x=0;x<W;x++){const v=.5+.5*Math.sin(2*Math.PI*(x/p)+1.3*Math.sin(2*Math.PI*y/Math.max(8,bh*.5)));const c=60+v*170,i=(y*W+x)*4;im.data[i]=im.data[i+1]=im.data[i+2]=c;im.data[i+3]=255;}
+    g.putImageData(im,0,y0|0);},
+  flutes(g,W,y0,bh,n){const k=n,im=g.getImageData(0,y0|0,W,Math.ceil(bh));
+    for(let y=0;y<im.height;y++){const v=.5+.5*Math.cos(2*Math.PI*y/(im.height/k));const c=70+v*170;for(let x=0;x<W;x++){const i=(y*W+x)*4;im.data[i]=im.data[i+1]=im.data[i+2]=c;im.data[i+3]=255;}}
+    g.putImageData(im,0,y0|0);},
+  rope(g,W,y0,bh,n){const im=g.getImageData(0,y0|0,W,Math.ceil(bh)),p=W/n;
+    for(let y=0;y<im.height;y++){const across=Math.sin(Math.PI*y/im.height);for(let x=0;x<W;x++){const t=((x+y*1.2)%p+p)%p/p;const v=Math.sin(Math.PI*t)*across;const c=50+v*200,i=(y*W+x)*4;im.data[i]=im.data[i+1]=im.data[i+2]=c;im.data[i+3]=255;}}
+    g.putImageData(im,0,y0|0);},
+  sgraffito(g,W,y0,bh){g.fillStyle='rgb(120,120,120)';g.fillRect(0,y0,W,bh);},
+};
+// 색: 재료별로 높이에 따라 섞는다. 금박은 높은 곳 밝게, 낮은 곳은 붉은 밑칠.
+function frameColor(mat,h,x,y){
+  if(mat==='gilt'){const lo=[96,52,30],mid=[196,156,86],hi=[246,222,160];const t=h;return t<.5?lo.map((c,i)=>c+(mid[i]-c)*(t*2)):mid.map((c,i)=>c+(hi[i]-c)*((t-.5)*2));}
+  if(mat==='black')return [18+h*40,16+h*36,14+h*32];
+  if(mat==='linen'){const n=((x*7+y*13)%5)/5*10;return [222-n,210-n,184-n];}
+  return [34,26,22]; // panel
+}
+const frameTexCache=new Map();
+function frameTextures(style){
+  if(frameTexCache.has(style.name))return frameTexCache.get(style.name);
+  const W=1024,Hc=512,hc=document.createElement('canvas');hc.width=W;hc.height=Hc;const g=hc.getContext('2d');
+  // 단면 길이를 따라 v(0~1)를 매기고, 띠마다 해당 높이 구간에 무늬를 그린다 (캔버스 위쪽 = v 1)
+  const P=style.profile,len=[0];for(let i=1;i<P.length;i++)len.push(len[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));
+  const total=len.at(-1),vOf=i=>len[i]/total;style.v=P.map((_,i)=>vOf(i));
+  const bandRows=style.bands.map(([a,b,pat,mat,n])=>{const y0=Math.floor((1-vOf(b))*Hc),y1=Math.ceil((1-vOf(a))*Hc);return{y0,bh:Math.max(1,y1-y0),pat,mat,n};});
+  for(const r of bandRows)PATTERNS[r.pat](g,W,r.y0,r.bh,r.n||4);
+  // 미세한 거칠기(오래 쓴 표면)
+  const hd=g.getImageData(0,0,W,Hc);for(let i=0;i<hd.data.length;i+=4){const n=(Math.random()-.5)*10;hd.data[i]+=n;hd.data[i+1]+=n;hd.data[i+2]+=n;}g.putImageData(hd,0,0);
+  const nrm=heightToNormal(hc,6);
+  // 색과 거칠기·금속성 지도
+  const cc=document.createElement('canvas');cc.width=W;cc.height=Hc;const cg=cc.getContext('2d'),cd=cg.createImageData(W,Hc);
+  const oc=document.createElement('canvas');oc.width=W;oc.height=Hc;const og=oc.getContext('2d'),od=og.createImageData(W,Hc);
+  const matAt=new Array(Hc);for(const r of bandRows)for(let y=r.y0;y<Math.min(Hc,r.y0+r.bh);y++)matAt[y]=r.mat;
+  const hdat=g.getImageData(0,0,W,Hc).data;
+  for(let y=0;y<Hc;y++){const mat=matAt[y]||'gilt';for(let x=0;x<W;x++){const i=(y*W+x)*4,h=hdat[i]/255;
+    const [r,gg,b]=frameColor(mat,h,x,y);cd.data[i]=r;cd.data[i+1]=gg;cd.data[i+2]=b;cd.data[i+3]=255;
+    const rough=mat==='gilt'?.62-h*.4:mat==='black'?.4-h*.1:mat==='linen'?.92:.65,metal=mat==='gilt'?.65+h*.35:0;
+    od.data[i]=255;od.data[i+1]=rough*255;od.data[i+2]=metal*255;od.data[i+3]=255;}}
+  cg.putImageData(cd,0,0);og.putImageData(od,0,0);
+  // 칠한 판(카세타): 어두운 판 위에 금빛 덩굴 문양을 긁어낸 듯 그린다
+  const pr=bandRows.find(r=>r.pat==='sgraffito');
+  if(pr){const s=W/2;cg.strokeStyle='#b8914a';cg.lineWidth=3;og.strokeStyle='rgb(255,90,255)';og.lineWidth=3;
+    for(const ctx of [cg,og])for(let i=-1;i<=2;i++){const x=i*s,y=pr.y0,h=pr.bh;
+      ctx.beginPath();ctx.moveTo(x,y+h/2);ctx.bezierCurveTo(x+s*.25,y+h*.05,x+s*.25,y+h*.95,x+s*.5,y+h/2);ctx.bezierCurveTo(x+s*.75,y+h*.05,x+s*.75,y+h*.95,x+s,y+h/2);ctx.stroke();
+      for(const t of [.25,.75]){ctx.beginPath();ctx.arc(x+s*t,y+h*(t<.5?.28:.72),h*.12,0,Math.PI*2);ctx.stroke();}}}
+  const mk=(c,srgb)=>{const t=new THREE.CanvasTexture(c);t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.ClampToEdgeWrapping;t.anisotropy=maxAniso;if(srgb)t.colorSpace=THREE.SRGBColorSpace;return t;};
+  const tex={map:mk(cc,true),normalMap:mk(nrm),orm:mk(oc)};
+  frameTexCache.set(style.name,tex);return tex;
+}
+const frameMatCache=new Map();
+function frameMaterial(style,tone){
+  const k=style.name+tone;if(frameMatCache.has(k))return frameMatCache.get(k);
+  const t=frameTextures(style),c=FRAME_TONES[tone];
+  const m=new THREE.MeshStandardMaterial({map:t.map,normalMap:t.normalMap,normalScale:new THREE.Vector2(1.2,1.2),roughnessMap:t.orm,metalnessMap:t.orm,
+    roughness:1,metalness:1,color:new THREE.Color(c[0],c[1],c[2]),envMapIntensity:1.15,side:THREE.DoubleSide});
+  frameMatCache.set(k,m);return m;
+}
+// 단면을 그림 네 변을 따라 돌린 액자 형태. 변마다 따로 만들어 모서리에 실제 액자처럼 45° 이음매가 생긴다.
+function frameGeometry(hw,hh,style){
+  const P=style.profile,V=style.v,pos=[],uv=[],idx=[];
+  const sides=[ // 각 변: 시작/끝 모서리 방향과, 변을 따라가는 좌표
+    {c0:[-1,-1],c1:[1,-1],along:'x'},{c0:[1,-1],c1:[1,1],along:'y'},{c0:[1,1],c1:[-1,1],along:'x'},{c0:[-1,1],c1:[-1,-1],along:'y'}];
+  for(const sd of sides){const base=pos.length/3;
+    for(let i=0;i<P.length;i++){const[d,z]=P[i],ex=hw+d,ey=hh+d;
+      for(const c of [sd.c0,sd.c1]){const x=c[0]*ex,y=c[1]*ey;pos.push(x,y,z);uv.push((sd.along==='x'?x:y)/style.tile,V[i]);}}
+    for(let i=0;i<P.length-1;i++){const a=base+i*2,b=a+1,c=a+2,d=a+3;idx.push(a,b,c,b,d,c);}}
+  return geom(pos,uv,idx);
+}
+// 모서리·가운데 장식(조개 카르투슈, 장미 블록): 높이 그림을 요철로 바꾼 오려낸 판
+const decalCache=new Map();
+function decalMaterial(kind){
+  if(decalCache.has(kind))return decalCache.get(kind);
+  const N=256,hc=document.createElement('canvas');hc.width=hc.height=N;const g=hc.getContext('2d');g.fillStyle='#000';g.fillRect(0,0,N,N);
+  const blob=(x,y,rx,ry,rot)=>{const gr=g.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));gr.addColorStop(0,'#fff');gr.addColorStop(.8,'#aaa');gr.addColorStop(1,'#666');g.fillStyle=gr;g.beginPath();g.ellipse(x,y,rx,ry,rot,0,Math.PI*2);g.fill();};
+  if(kind==='cartouche'){
+    // 아래쪽 중심에서 부채꼴로 퍼지는 조개 + 양옆 C자 소용돌이
+    const cx=N/2,cy=N*.78;for(let k=0;k<9;k++){const a=Math.PI*(1.1+k*.1);blob(cx+Math.cos(a)*N*.22,cy+Math.sin(a)*N*.3,N*.07,N*.2,a+Math.PI/2);}
+    g.strokeStyle='#000';g.lineWidth=3;for(let k=0;k<9;k++){const a=Math.PI*(1.1+k*.1);g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+Math.cos(a)*N*.42,cy+Math.sin(a)*N*.5);g.stroke();}
+    g.lineCap='round';for(const s of [-1,1]){g.strokeStyle='#ddd';g.lineWidth=N*.06;g.beginPath();g.arc(cx+s*N*.3,cy-N*.05,N*.12,s>0?Math.PI*.9:Math.PI*.1,s>0?Math.PI*2.2:-Math.PI*1.2,s<0);g.stroke();}
+    blob(cx,cy,N*.1,N*.07,0);
+  }else{ // rosette: 네모 블록 + 여덟 꽃잎
+    g.fillStyle='#777';g.fillRect(N*.04,N*.04,N*.92,N*.92);g.strokeStyle='#444';g.lineWidth=6;g.strokeRect(N*.12,N*.12,N*.76,N*.76);
+    for(let k=0;k<8;k++){const a=k*Math.PI/4;blob(N/2+Math.cos(a)*N*.2,N/2+Math.sin(a)*N*.2,N*.13,N*.07,a);}blob(N/2,N/2,N*.1,N*.1,0);
+  }
+  const hd=g.getImageData(0,0,N,N).data,cc=document.createElement('canvas');cc.width=cc.height=N;const cg=cc.getContext('2d'),cd=cg.createImageData(N,N);
+  for(let i=0;i<hd.length;i+=4){const h=hd[i]/255,[r,gg,b]=frameColor('gilt',h);cd.data[i]=r;cd.data[i+1]=gg;cd.data[i+2]=b;cd.data[i+3]=h>.18?255:0;}
+  cg.putImageData(cd,0,0);
+  const map=new THREE.CanvasTexture(cc);map.colorSpace=THREE.SRGBColorSpace;const nm=new THREE.CanvasTexture(heightToNormal(hc,5));
+  const m=new THREE.MeshStandardMaterial({map,normalMap:nm,alphaTest:.5,metalness:.9,roughness:.38,envMapIntensity:1.15,side:THREE.DoubleSide});
+  decalCache.set(kind,m);return m;
+}
+function buildFrame(g,a,w,h,cy){
+  const hs=hashStr(a.id),style=FRAME_STYLES[hs%FRAME_STYLES.length],tone=(hs>>>8)%FRAME_TONES.length;
+  frameTextures(style); // style.v 계산
+  const fr=new THREE.Mesh(frameGeometry(w/2,h/2,style),frameMaterial(style,tone));fr.position.set(0,cy,0);g.add(fr);
+  fr.userData.art=a;rayTargets.push(fr); // 액자를 눌러도 그림을 감상한다
+  const fw=style.profile.at(-1)[0];
+  if(style.decal){const dm=decalMaterial(style.decal),top=Math.max(...style.profile.map(p=>p[1]));
+    const put=(x,y,rot,size)=>{const pg=new THREE.PlaneGeometry(size,size);disposables.push(pg);const d=new THREE.Mesh(pg,dm);d.position.set(x,cy+y,top+.012);d.rotation.z=rot;g.add(d);};
+    const ex=w/2+fw*.55,ey=h/2+fw*.55;
+    if(style.decal==='cartouche'){const s=fw*1.5;
+      for(const[sx,sy]of[[-1,-1],[1,-1],[1,1],[-1,1]])put(sx*ex,sy*ey,Math.atan2(sy,sx)-Math.PI/2,s);
+      put(0,ey,0,s*.9);put(0,-ey,Math.PI,s*.9);}
+    else{const s=fw*.95;for(const[sx,sy]of[[-1,-1],[1,-1],[1,1],[-1,1]])put(sx*(w/2+fw/2),sy*(h/2+fw/2),0,s);}
+  }
+  return fw;
+}
+
 function hang(a,wall,x,rm){
-  const ar=(a.w||1)/(a.h||1),maxW=2.5,maxH=2.1;
+  const ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
   let w=maxW,h=w/ar;if(h>maxH){h=maxH;w=h*ar;}
-  const cy=2.45,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
+  const cy=ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
   const glowG=new THREE.PlaneGeometry(w+2.4,h+2.6);disposables.push(glowG);
-  const glow=new THREE.Mesh(glowG,M.glow);glow.position.set(0,cy+.35,.01);g.add(glow);
-  const pad=.16,fw=.13,fd=.12;
-  g.add(box(w+pad*2,h+pad*2,.02,M.mat,0,cy,.07));
-  const W=w+pad*2+fw*2,Hh=h+pad*2+fw*2;
-  g.add(box(W,fw,fd,M.gold,0,cy+Hh/2-fw/2,.08));g.add(box(W,fw,fd,M.gold,0,cy-Hh/2+fw/2,.08));
-  g.add(box(fw,Hh-fw*2,fd,M.gold,-W/2+fw/2,cy,.08));g.add(box(fw,Hh-fw*2,fd,M.gold,W/2-fw/2,cy,.08));
+  const glow=new THREE.Mesh(glowG,M.glow);glow.position.set(0,cy+.35,.005);g.add(glow);
+  // 옛 액자 (양식은 작품마다 다름). 그림은 액자 안쪽 턱 바로 뒤에 놓인다.
+  const fw=buildFrame(g,a,w,h,cy);
+  const W=w+fw*2,Hh=h+fw*2;
   // 그림 조명
   g.add(box(Math.min(W*.6,1.2),.06,.06,M.brass,0,cy+Hh/2+.22,.32));g.add(box(.04,.04,.3,M.brass,0,cy+Hh/2+.18,.17));
   const pg=new THREE.PlaneGeometry(w,h);disposables.push(pg);
   const pm=new THREE.MeshBasicMaterial({toneMapped:false,color:PLACEHOLDER});disposables.push(pm);
   (rm.pics||=[]).push({art:a,mat:pm});
-  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,.085);pic.userData.art=a;pic.userData.w=w;g.add(pic);
+  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,.026);pic.userData.art=a;pic.userData.w=W;g.add(pic);
   pickables.push(pic);rayTargets.push(pic);
   // 작품 설명 카드
   const label=textPlane(.5,.32,600,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.fillStyle='#2a2219';x.textBaseline='top';
@@ -1004,7 +1181,7 @@ function buildLobby(rm,walls,hasDoor){
 }
 
 /* ───────────────────────── 이동 & 충돌 ───────────────────────── */
-const START={x:S,z:6.4,yaw:0,pitch:.12};
+const START={x:S,z:6.4,yaw:0,pitch:.12,eye:EYE};
 const player={...START};
 const R=.38,keys=new Set();
 let autoWalk=null, tween=null, focused=null;
@@ -1026,13 +1203,13 @@ const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 
 function update(dt){
   if(tween){tween.t=Math.min(1,tween.t+dt/tween.dur);const k=ease(tween.t),f=tween.from,to=tween.to;
-    player.x=f.x+(to.x-f.x)*k;player.z=f.z+(to.z-f.z)*k;player.yaw=f.yaw+angDiff(f.yaw,to.yaw)*k;player.pitch=f.pitch+(to.pitch-f.pitch)*k;
+    player.x=f.x+(to.x-f.x)*k;player.z=f.z+(to.z-f.z)*k;player.yaw=f.yaw+angDiff(f.yaw,to.yaw)*k;player.pitch=f.pitch+(to.pitch-f.pitch)*k;player.eye=f.eye+(to.eye-f.eye)*k;
     if(tween.t>=1){const done=tween.done;tween=null;done?.();}}
   else{
     let fwd=0,str=0,turn=0;
     if(keys.has('KeyW')||keys.has('ArrowUp'))fwd++;if(keys.has('KeyS')||keys.has('ArrowDown'))fwd--;
-    if(keys.has('KeyD'))str++;if(keys.has('KeyA'))str--;
-    if(keys.has('ArrowLeft')||keys.has('KeyQ'))turn++;if(keys.has('ArrowRight')||keys.has('KeyE'))turn--;
+    if(keys.has('KeyD')||keys.has('ArrowRight'))str++;if(keys.has('KeyA')||keys.has('ArrowLeft'))str--;
+    if(keys.has('KeyQ'))turn++;if(keys.has('KeyE'))turn--; // 좌우 방향키는 옆걸음, Q·E로 제자리 회전
     const run=keys.has('ShiftLeft')||keys.has('ShiftRight')?2:1,sp=3.2*run;
     player.yaw+=turn*1.8*dt;
     const sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
@@ -1048,8 +1225,11 @@ function update(dt){
     collide();
     // 안전장치: 어떤 이유로든 건물 밖에 있으면 마지막으로 안전했던 자리로 돌려 놓는다
     if(roomAt(player.x,player.z))lastSafe={x:player.x,z:player.z};else{player.x=lastSafe.x;player.z=lastSafe.z;wheelPending=0;autoWalk=null;}
+    // 그림 감상이 끝나거나 다시 걷기 시작하면 눈높이를 사람 키로 천천히 되돌린다
+    const walking=fwd||str||autoWalk||Math.abs(wheelPending)>.005;
+    if((!focused||walking)&&player.eye!==EYE){player.eye+=(EYE-player.eye)*Math.min(1,dt*3);if(Math.abs(player.eye-EYE)<.005)player.eye=EYE;}
   }
-  camera.position.set(player.x,EYE,player.z);camera.rotation.set(player.pitch,player.yaw,0);
+  camera.position.set(player.x,player.eye,player.z);camera.rotation.set(player.pitch,player.yaw,0);
   const rm=roomAt(player.x,player.z);if(rm&&rm!==curRoom){curRoom=rm;showRoom(rm);streamTextures();}
 }
 let curRoom=null;
@@ -1069,20 +1249,34 @@ stage.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(!drag||tween)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
   drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.moved>6){stage.classList.add('dragging');autoWalk=null;}
-  const k=e.pointerType==='touch'?.006:.0035;
+  // 끌어당긴 만큼만 돈다: 화면 1px = 시야각 1px 분량 → 손가락·커서 아래의 지점이 그대로 따라온다
+  const k=dragK();
   player.yaw+=dx*k;player.pitch=Math.max(-1.1,Math.min(1.1,player.pitch+dy*k));
 });
+const dragK=()=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stage.clientHeight);
 const endPtr=e=>{
   pointers.delete(e.pointerId);stage.classList.remove('dragging');
-  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')tap(e.clientX,e.clientY);
+  if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')handleTap(e.clientX,e.clientY);
   drag=null;
 };
+// 한 번 누름과 두 번 누름(더블클릭·더블탭)을 구분한다: 두 번째가 0.28초 안에 같은 자리에 오면 벽 정면 맞추기
+let lastTap=null,tapTimer=0;
+function handleTap(x,y){
+  const now=performance.now();
+  if(lastTap&&now-lastTap.t<280&&Math.hypot(x-lastTap.x,y-lastTap.y)<30){clearTimeout(tapTimer);lastTap=null;faceWall();return;}
+  lastTap={x,y,t:now};clearTimeout(tapTimer);tapTimer=setTimeout(()=>{lastTap=null;tap(x,y);},260);
+}
+// 바라보는 쪽에서 가장 가까운 벽을 정면으로: 방향을 90° 단위로 맞추고 고개를 수평으로
+function faceWall(){
+  const q=Math.PI/2;autoWalk=null;wheelPending=0;
+  tween={t:0,dur:.45,from:{...player},to:{x:player.x,z:player.z,yaw:Math.round(player.yaw/q)*q,pitch:0,eye:player.eye}};
+}
 stage.addEventListener('pointerup',endPtr);stage.addEventListener('pointercancel',endPtr);
 // 휠: 위아래 = 앞뒤로 걷기, 트랙패드 두 손가락 좌우 = 둘러보기. 마우스 휠 한 칸 ≈ 60cm.
 stage.addEventListener('wheel',e=>{e.preventDefault();if(tween)return;autoWalk=null;
   const unit=e.deltaMode===1?16:e.deltaMode===2?400:1;
   wheelPending=Math.max(-2.5,Math.min(2.5,wheelPending-e.deltaY*unit*.006));
-  if(!e.ctrlKey)player.yaw-=e.deltaX*unit*.003;},{passive:false});
+  if(!e.ctrlKey)player.yaw-=e.deltaX*unit*dragK();},{passive:false});
 stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag)return;
   ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(rayTargets,false)[0];stage.style.cursor=hit?.object.userData.art?'pointer':'';});
@@ -1101,7 +1295,7 @@ addEventListener('keydown',e=>{
   if(focused&&(e.code==='BracketRight'||e.code==='KeyN'))return step(1);
   if(focused&&(e.code==='BracketLeft'||e.code==='KeyP'))return step(-1);
   keys.add(e.code);if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
-  if(/Key[WASD]|Arrow(Up|Down)/.test(e.code)){tween=null;}
+  if(/Key[WASD]|Arrow(Up|Down|Left|Right)/.test(e.code)){tween=null;}
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -1112,14 +1306,16 @@ const wp=new THREE.Vector3(),wn=new THREE.Vector3(),wq=new THREE.Quaternion();
 function viewPose(mesh){
   mesh.getWorldPosition(wp);mesh.getWorldQuaternion(wq);wn.set(0,0,1).applyQuaternion(wq);
   const half=(mesh.userData.w+1.4)/2,hf=Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect);
-  const dist=Math.min(11,Math.max(3.3,half/Math.tan(hf)));return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:Math.atan2(2.45-EYE,dist)};
+  const dist=Math.min(11,Math.max(3.3,half/Math.tan(hf)));return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:FOCUS_EYE};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
-function focusArt(a,{instant=false}={}){
+// instant: 화면을 어둡게 했다가 이동 / cut: 다른 화면(크게 보기)이 가리고 있을 때 어둡게 하지 않고 바로 이동
+function focusArt(a,{instant=false,cut=false}={}){
   const e=artIndex.find(x=>x.art.id===a.id);if(!e)return;
   autoWalk=null;focused=e;fillCard(e.art);
   const to=viewPose(e.mesh);
-  if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
+  if(cut){tween=null;Object.assign(player,to);}
+  else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
   else tween={t:0,dur:.9,from:{...player},to};
   card.classList.add('show');hint.style.opacity=0;
 }
@@ -1139,12 +1335,17 @@ function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.
   smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
   img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
   $('vCap').textContent=[a.title,byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
-  $('vPrev').disabled=$('vNext').disabled=vList.length<2;}
+  $('vPrev').disabled=$('vNext').disabled=vList.length<2;
+  // '전시실에서 보기'를 누를 때 벽에 바로 걸려 있도록 3D용 이미지를 미리 준비해 둔다
+  artTexture(a).catch(()=>{});}
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
 function closeViewer(){viewer.classList.remove('show');}
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
-$('vGo').onclick=()=>{const a=vList[vIdx];closeViewer();showSpace();focusArt(a,{instant:true});};
+// 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
+$('vGo').onclick=async()=>{const a=vList[vIdx];showSpace();focusArt(a,{cut:true});
+  await Promise.race([artTexture(a).catch(()=>{}),new Promise(r=>setTimeout(r,500))]);
+  requestAnimationFrame(()=>requestAnimationFrame(closeViewer));};
 viewer.onclick=e=>{if(e.target===viewer)closeViewer();};
 
 /* ───────────────────────── 작품 모아보기 ───────────────────────── */
@@ -1196,8 +1397,8 @@ $('colSort').onchange=renderCollection;
 /* ───────────────────────── 안내 문구 ───────────────────────── */
 const hint=$('hint');
 const coarse=matchMedia('(pointer:coarse)').matches;
-hint.innerHTML=coarse?'<b>끌어서</b> 둘러보기 · <b>바닥을 톡</b> 눌러 걸어가기 · <b>그림을 톡</b> 눌러 감상하기'
-  :'<b>드래그</b>로 둘러보기 · <b>W A S D / 방향키</b>로 걷기 · <b>바닥 클릭</b>으로 이동 · <b>그림 클릭</b>으로 감상';
+hint.innerHTML=coarse?'<b>끌어서</b> 둘러보기 · <b>바닥을 톡</b> 눌러 걸어가기 · <b>그림을 톡</b> 눌러 감상 · <b>두 번 톡</b>하면 벽 정면'
+  :'<b>드래그</b>로 둘러보기 · <b>W A S D / 방향키</b>로 걷기 · <b>Q E</b>로 돌기 · <b>바닥 클릭</b>으로 이동 · <b>그림 클릭</b>으로 감상 · <b>더블클릭</b>하면 벽 정면';
 setTimeout(()=>hint.style.opacity=0,9000);
 
 /* ───────────────────────── 전시실 안내 ───────────────────────── */
@@ -1402,7 +1603,8 @@ function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});
   if(!colOpen())renderer.render(scene,camera);requestAnimationFrame(loop);}
 (async()=>{
-  if(FIREBASE_CONFIG){
+  // 주소 끝에 ?local 을 붙이면 온라인 미술관 대신 이 기기 저장 방식(예시 작품)으로 연다 — 디자인 확인용
+  if(FIREBASE_CONFIG&&!new URLSearchParams(location.search).has("local")){
     try{F=await connectFirebase(FIREBASE_CONFIG);Store=remoteStore(F);editor=false;}
     catch(err){console.error(err);toast('온라인 미술관에 연결하지 못했어요. 잠시 후 다시 열어 주세요.');}
   }
