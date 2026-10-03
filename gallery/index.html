@@ -1314,7 +1314,8 @@ function showRoom(rm){roomNow.textContent=rm.title;roomNow.style.opacity=1;clear
 /* ───────────────────────── 포인터 조작 ───────────────────────── */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 const pointers=new Map();let drag=null;
-// 두 손가락: 함께 끌면 그 방향으로 걷고(위=앞, 아래=뒤, 좌우=옆걸음), 벌리고 오므리면 앞뒤로 걷는다
+// 두 손가락: 바닥을 잡아당기듯 걷는다(아래로 끌면 앞, 위로 끌면 뒤, 왼쪽으로 끌면 오른쪽 옆걸음).
+// 한 손가락 둘러보기처럼 화면이 손가락을 따라오는 방식. 벌리고 오므리면 앞뒤로 걷는다.
 let pinch=null;
 const pinchDist=()=>{const[a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 const pinchMid=()=>{const[a,b]=[...pointers.values()];return{mx:(a.x+b.x)/2,my:(a.y+b.y)/2};};
@@ -1328,7 +1329,7 @@ stage.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid();
     if(!tween){autoWalk=null;const k=.012; // 화면 1px당 0.012m
-      wheelPending=clampMove(wheelPending+(d-pinch.d)*k-(my-pinch.my)*k);strafePending=clampMove(strafePending+(mx-pinch.mx)*k);}
+      wheelPending=clampMove(wheelPending+(d-pinch.d)*k+(my-pinch.my)*k);strafePending=clampMove(strafePending-(mx-pinch.mx)*k);}
     Object.assign(pinch,{d,mx,my});return;}
   if(!drag||tween)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
   drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.moved>6){stage.classList.add('dragging');autoWalk=null;}
