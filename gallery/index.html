@@ -543,6 +543,10 @@ function remoteStore({fs,db}){
   return {
     remote:true,
     async all(){const q=await fs.getDocs(fs.collection(db,'arts'));return q.docs.map(x=>({id:x.id,...x.data()}));},
+    // 지난번에 받아 둔 목록 (기기 캐시). 없으면 null
+    async cached(){try{const q=await fs.getDocsFromCache(fs.collection(db,'arts'));if(!q.size)return null;
+      let s;try{s=await fs.getDocFromCache(d('settings','settings'));}catch{}
+      return [q.docs.map(x=>({id:x.id,...x.data()})),s?.exists()?s.data():undefined];}catch{return null;}},
     async put(a,{images=false}={}){
       if(images){const orig=await fitBlob(a.blob),small=a.small||await smallFromBlob(orig);
         await fs.setDoc(d('originals',a.id),{data:await toBytes(orig)});
@@ -2043,8 +2047,8 @@ function rebuild(){
    - 3D 벽 글씨(캔버스)는 글꼴이 다 받아진 뒤에 그려야 한다.
    - 화면 버튼·안내 글씨도 함께 받아 두어, 로딩 화면이 걷힌 뒤 글꼴이 바뀌어 보이지 않게 한다.
    새로 받은 묶음이 있으면 true. */
-async function loadCanvasFonts(){
-  const text=[state.name,...displayArts().flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.medium,sizeText(a),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
+async function loadCanvasFonts(withArts=true){
+  const text=[state.name,...(withArts?displayArts():[]).flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.medium,sizeText(a),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
     '로비 입구 작품 점 전시실 곳 아직 걸린 작품이 없어요 예시 곧 가족의 그림이 걸릴 거예요 지금은 오른쪽 위 그림 올리기를 눌러 보세요 제목 없음 이름 없는 화가 상설 전시 날짜 모름 년 월 일 0123456789 ·',
     document.body.innerText].filter(Boolean).join(' ');
   const loaded=()=>[...document.fonts].filter(f=>f.status==='loaded').length,before=loaded();
@@ -2056,6 +2060,8 @@ const clock=new THREE.Clock();
 function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});
   if(!colOpen())renderer.render(scene,camera);requestAnimationFrame(loop);}
+// 화면 글자용 글꼴은 Firebase 연결·목록 받기와 동시에 받기 시작한다
+const fontsEarly=loadCanvasFonts(false);
 (async()=>{
   // 주소 끝에 ?local 을 붙이면 온라인 미술관 대신 이 기기 저장 방식(예시 작품)으로 연다 — 디자인 확인용
   if(FIREBASE_CONFIG&&!new URLSearchParams(location.search).has("local")){
@@ -2064,18 +2070,24 @@ function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   }
   applyRole();
   if(FIREBASE_CONFIG&&!Store.remote&&new URLSearchParams(location.search).has("local"))setTimeout(()=>toast("디자인 확인 모드 · 온라인 미술관이 아니라 예시 작품만 보여요"),1200);
-  try{
-    const [arts,settings]=await Promise.all([Store.all(),Store.getMeta('settings')]);
-    state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;}
+  const apply=([arts,settings])=>{state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);
+    if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;}};
+  const snap=()=>JSON.stringify([state.arts.map(a=>JSON.stringify(Object.entries(a).filter(([k])=>!['blob','small'].includes(k)).sort())).sort(),state.name,state.nameEn,state.groupBy]);
+  // 다시 열 때는 기기에 받아 둔 목록으로 바로 열고, 서버의 새 목록은 뒤에서 받아 바뀐 것이 있을 때만 다시 건다
+  const cached=Store.remote?await Store.cached():null;let fresh=null;
+  if(cached){apply(cached);fresh=Promise.all([Store.all(),Store.getMeta('settings')]);}
+  else try{
+    apply(await Promise.all([Store.all(),Store.getMeta('settings')]));
   }catch(err){console.warn(err);toast(Store.remote?'그림 목록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.':'이 브라우저에서는 그림을 저장할 수 없어요 (사생활 보호 모드인가요?)');}
   if(Store.remote){
     // 로그인 상태가 바뀔 때마다 가족 계정인지 확인해 올리기·관리 버튼을 보이거나 숨긴다
     F.au.onAuthStateChanged(F.auth,async()=>{editor=await checkEditor();applyRole();if(editor)await findLocalLeftovers();if(!state.arts.length)rebuild();});
   }
   $('brandName').textContent=state.name;document.title=state.name;$('loading').querySelector('h1').textContent=state.name;
-  await loadCanvasFonts();
+  await fontsEarly;await loadCanvasFonts(); // 작품 글자 중 아직 받지 않은 것만 더 받는다
   build();updateColCount();loop();
   setTimeout(()=>$('loading').classList.add('gone'),200);
+  fresh?.then(data=>{const before=snap();apply(data);if(snap()!==before){$('brandName').textContent=document.title=state.name;rebuild();}}).catch(err=>console.warn(err));
 })();
 </script>
 </body>
