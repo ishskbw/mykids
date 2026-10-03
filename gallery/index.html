@@ -77,9 +77,16 @@ button{cursor:pointer}
 /* 큰 그림 보기 */
 #viewer{position:fixed;inset:0;z-index:20;background:rgba(10,8,6,.94);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px;gap:12px}
 #viewer.show{display:flex}
-#viewer img{max-width:calc(100% - 20px);max-height:calc(100% - 140px);object-fit:contain;box-shadow:0 0 0 10px #fff,0 20px 60px rgba(0,0,0,.6);background:#fff}
-#viewer p{color:#efe7d8;margin:8px 0 0;font-family:var(--f-display);font-size:16px;text-align:center}
+/* 그림이 놓이는 무대: 확대하면 이 안에서만 움직이고, 넘치는 부분은 잘린다 */
+#viewer .vstage{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in}
+#viewer .vstage.zoomed{cursor:grab}
+#viewer .vstage.panning{cursor:grabbing}
+#viewer img{max-width:calc(100% - 20px);max-height:calc(100% - 20px);object-fit:contain;box-shadow:0 0 0 10px #fff,0 20px 60px rgba(0,0,0,.6);background:#fff;
+  transform-origin:center;will-change:transform;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}
+#viewer img.anim{transition:transform .22s ease-out}
+#viewer p{color:#efe7d8;margin:0;font-family:var(--f-display);font-size:16px;text-align:center}
 #viewer .vbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#viewer .vbar .zoom{min-width:40px;font-weight:600}
 
 /* 탭: 공간 둘러보기 / 작품 모아보기 */
 .seg{display:flex;background:var(--glass);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:3px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -247,9 +254,11 @@ label.f textarea{resize:vertical;min-height:38px}
 </section>
 
 <div id="viewer">
-  <img id="vImg" alt="">
+  <div class="vstage" id="vStage"><img id="vImg" alt="" draggable="false"></div>
   <p id="vCap"></p>
   <div class="vbar">
+    <button class="btn zoom" id="vZoomOut" aria-label="축소">－</button>
+    <button class="btn zoom" id="vZoomIn" aria-label="확대">＋</button>
     <button class="btn" id="vPrev" aria-label="이전 작품">◀</button>
     <button class="btn primary" id="vGo">전시실에서 보기</button>
     <button class="btn" id="vNext" aria-label="다음 작품">▶</button>
@@ -1273,7 +1282,7 @@ stage.addEventListener('pointermove',e=>{
   player.yaw+=dx*k;player.pitch=Math.max(-1.1,Math.min(1.1,player.pitch+dy*k));
 });
 // 회전 속도: 화면에서 끈 거리 × 배수. 휴대폰은 화면이 좁아 더 빠르게 돈다.
-const DRAG_SPEED={mouse:1.6,pen:1.6,touch:2.6};
+const DRAG_SPEED={mouse:1.6,pen:1.6,touch:2.1};
 const dragK=(type="mouse")=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stage.clientHeight)*(DRAG_SPEED[type]||1.6);
 const endPtr=e=>{
   pointers.delete(e.pointerId);stage.classList.remove('dragging');
@@ -1300,7 +1309,8 @@ function tap(x,y){
 addEventListener('keydown',e=>{
   if(e.target.closest?.('input,textarea,select,dialog'))return;
   if(e.code==='Escape'){if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
-  if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);return;}
+  if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);
+    if(e.key==='+'||e.key==='=')$('vZoomIn').click();if(e.key==='-')$('vZoomOut').click();if(e.key==='0')zoomAt(...stageCenter(),1,true);return;}
   if(colOpen())return;
   if(focused&&(e.code==='BracketRight'||e.code==='KeyN'))return step(1);
   if(focused&&(e.code==='BracketLeft'||e.code==='KeyP'))return step(-1);
@@ -1376,7 +1386,7 @@ $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').oncli
 let vList=[],vIdx=0;
 function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');openLayer('viewer');}
 // 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다
-function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');
+function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');resetZoom();
   smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
   img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
   $('vCap').textContent=[a.title,byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
@@ -1393,6 +1403,61 @@ $('vGo').onclick=async()=>{const a=vList[vIdx];showSpace();focusArt(a,{cut:true}
   await Promise.race([artTexture(a).catch(()=>{}),new Promise(r=>setTimeout(r,500))]);
   requestAnimationFrame(()=>requestAnimationFrame(closeViewer));};
 viewer.onclick=e=>{if(e.target===viewer)closeViewer();};
+
+/* 크게 보기 확대·축소
+   PC: 휠로 커서 위치를 중심으로 확대, 확대한 채로 끌어서 이동, 더블클릭으로 2.5배 ↔ 맞춤
+   휴대폰: 두 손가락 벌리기·오므리기, 한 손가락으로 이동, 두 번 톡으로 2.5배 ↔ 맞춤
+   변환은 translate(tx,ty) scale(s), 기준점은 그림 가운데. */
+const vStage=$('vStage'),vImg=$('vImg'),ZMIN=1,ZMAX=6;
+let zs=1,ztx=0,zty=0;
+function applyZoom(anim=false){
+  // 확대한 만큼만 움직일 수 있게: 그림 가장자리가 화면 안쪽으로 들어오지 않도록 이동 범위를 제한
+  const w=vImg.offsetWidth,h=vImg.offsetHeight,mx=Math.max(0,(w*zs-vStage.clientWidth)/2),my=Math.max(0,(h*zs-vStage.clientHeight)/2);
+  ztx=Math.max(-mx,Math.min(mx,ztx));zty=Math.max(-my,Math.min(my,zty));
+  vImg.classList.toggle('anim',anim);vImg.style.transform=`translate(${ztx}px,${zty}px) scale(${zs})`;
+  vStage.classList.toggle('zoomed',zs>1.01);
+  $('vZoomOut').disabled=zs<=ZMIN+.01;$('vZoomIn').disabled=zs>=ZMAX-.01;
+}
+function resetZoom(){zs=1;ztx=zty=0;applyZoom();}
+// 화면 위 (px,py) 지점을 고정한 채로 배율을 s로 바꾼다
+function zoomAt(px,py,s,anim=false){
+  s=Math.max(ZMIN,Math.min(ZMAX,s));
+  const r=vStage.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const qx=(px-cx-ztx)/zs,qy=(py-cy-zty)/zs;
+  zs=s;ztx=px-cx-s*qx;zty=py-cy-s*qy;applyZoom(anim);
+}
+const stageCenter=()=>{const r=vStage.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2];};
+$('vZoomIn').onclick=()=>zoomAt(...stageCenter(),zs*1.6,true);
+$('vZoomOut').onclick=()=>zoomAt(...stageCenter(),zs/1.6,true);
+vStage.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,zs*Math.exp(-e.deltaY*(e.deltaMode===1?.05:.0018)));},{passive:false});
+const vPtr=new Map();let vPan=null,vPinch=null,vLastTap=null;
+vStage.addEventListener('pointerdown',e=>{
+  try{vStage.setPointerCapture(e.pointerId);}catch{}vPtr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(vPtr.size===1)vPan={x:e.clientX,y:e.clientY,moved:0,t:performance.now()};
+  else if(vPtr.size===2){const[a,b]=[...vPtr.values()];vPinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2};vPan=null;}
+});
+vStage.addEventListener('pointermove',e=>{
+  if(!vPtr.has(e.pointerId))return;vPtr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(vPinch&&vPtr.size===2){const[a,b]=[...vPtr.values()],d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    ztx+=mx-vPinch.mx;zty+=my-vPinch.my;zoomAt(mx,my,zs*d/vPinch.d);vPinch={d,mx,my};return;}
+  if(vPan){const dx=e.clientX-vPan.x,dy=e.clientY-vPan.y;vPan.x=e.clientX;vPan.y=e.clientY;vPan.moved+=Math.abs(dx)+Math.abs(dy);
+    if(zs>1.01){ztx+=dx;zty+=dy;applyZoom();vStage.classList.add('panning');}}
+});
+const vEnd=e=>{
+  vPtr.delete(e.pointerId);vStage.classList.remove('panning');
+  if(vPtr.size<2)vPinch=null;
+  if(vPan&&e.type==='pointerup'&&vPan.moved<8&&performance.now()-vPan.t<400){
+    const now=performance.now(),x=e.clientX,y=e.clientY;
+    // 두 번 누르면 2.5배 ↔ 맞춤
+    if(vLastTap&&now-vLastTap.t<300&&Math.hypot(x-vLastTap.x,y-vLastTap.y)<30){vLastTap=null;zs>1.01?zoomAt(x,y,1,true):zoomAt(x,y,2.5,true);}
+    else{vLastTap={x,y,t:now};
+      // 확대하지 않은 상태에서 그림 바깥 빈 곳을 한 번 누르면 닫는다
+      if(e.target===vStage&&zs<=1.01)setTimeout(()=>{if(vLastTap&&vLastTap.t===now)closeViewer();},300);}
+  }
+  if(!vPtr.size)vPan=null;
+};
+vStage.addEventListener('pointerup',vEnd);vStage.addEventListener('pointercancel',vEnd);
+addEventListener('resize',()=>{if(viewer.classList.contains('show'))applyZoom();});
 
 /* ───────────────────────── 작품 모아보기 ───────────────────────── */
 const collection=$('collection');

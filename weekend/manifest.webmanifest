@@ -1,8 +1,9 @@
 {
   "name": "Yooniverse 주말 나들이",
   "short_name": "주말 나들이",
+  "id": "/weekend/",
   "start_url": "/weekend/",
-  "scope": "/weekend/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#F3F4EE",
   "theme_color": "#6B3A1E",
