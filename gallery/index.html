@@ -78,6 +78,13 @@ body.col .backzone{display:none}
 .hint b{color:#e8c77a;font-weight:600}
 .hint .hi{white-space:nowrap}
 .hint{display:flex;flex-wrap:wrap;justify-content:center;column-gap:14px;row-gap:2px;line-height:1.6;width:max-content}
+/* 관람 방법 다시 보기: 왼쪽 아래 작은 반투명 탭 */
+.hint-tab{position:fixed;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:4;font:inherit;font-size:12px;line-height:1;padding:8px 11px;border:0;border-radius:999px;
+  background:var(--glass);color:var(--glass-ink);opacity:.38;cursor:pointer;transition:opacity .3s}
+.hint-tab:hover,.hint-tab:focus-visible,.hint-tab[aria-expanded="true"]{opacity:.9}
+.hint-tab:focus-visible{outline:2px solid #e8c77a;outline-offset:2px}
+.coarse .hint-tab{bottom:calc(12% - 6px);left:12px} /* 휴대폰: 여러 줄로 감싸지는 안내와 겹치지 않게 발자국 줄 왼쪽에 */
+body.col .hint-tab,body:has(.card.show) .hint-tab{opacity:0;pointer-events:none}
 .card{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:6;
   width:min(560px,calc(100% - 32px));background:var(--panel);color:var(--ink);border-radius:14px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .3s,transform .3s}
 .card.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
@@ -272,6 +279,7 @@ label.f textarea{resize:vertical;min-height:38px}
 </div>
 <div class="room-now" id="roomNow">로비</div>
 <div class="hint" id="hint"></div>
+<button type="button" class="hint-tab" id="hintTab" aria-controls="hint" aria-expanded="true">관람 방법</button>
 <!-- 휴대폰: 화면 맨 아래 '뒤로 물러나기' 영역 표시 (흐린 기준선 + 뒤를 향한 발자국) -->
 <div class="backzone" id="backzone" aria-hidden="true">
   <!-- 구두 발자국 한 쌍(앞창 + 뒷굽), 발끝이 앞(위)을 향한다 -->
@@ -541,7 +549,7 @@ function remoteStore({fs,db}){
         await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
         a.blob=orig;a.small=small;}
       // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
-      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
     },
     async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
     async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
@@ -555,8 +563,11 @@ let editor=true; // 올리기·관리 권한 (이 기기 저장 방식에서는 
 const uid=()=>(crypto.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
 
 // 우리 가족: 이 순서대로 전시실이 열리고, 올리기 화면의 이름 버튼이 된다
-const KIDS=[{name:'공유정',kid:true},{name:'공유빈',kid:true},{name:'아빠'},{name:'엄마'}];
-const kidOf=n=>KIDS.find(k=>k.name===(n||'').replace(/\s*\(예시\)$/,'').trim());
+// artist: 작품에 적는 실제 이름 (그 이름으로 올린 작품은 이 전시실에 걸린다)
+const KIDS=[{name:'공유정',kid:true},{name:'공유빈',kid:true},{name:'아빠',artist:'공병욱'},{name:'엄마',artist:'조은비'}];
+const bareName=n=>(n||'').replace(/\s*\(예시\)$/,'').trim();
+const kidOf=n=>{const b=bareName(n);return KIDS.find(k=>k.name===b||k.artist===b);};
+const artistOf=k=>k.artist||k.name;
 const byline=a=>a.artist||'';
 const state={ arts:[], name:'공공의 미술관', nameEn:'The Kong Gallery', groupBy:'artist', samples:null };
 const $=id=>document.getElementById(id);
@@ -920,7 +931,7 @@ function streamTextures(){
 const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 function groupKey(a){
-  if(state.groupBy==='artist')return (a.artist||'').replace(/\s*\(예시\)$/,'').trim()||'이름 없는 화가';
+  if(state.groupBy==='artist'){const b=bareName(a.artist);return kidOf(b)?.name||b||'이름 없는 화가';}
   if(state.groupBy==='year')return a.date?a.date.slice(0,4)+'년':'날짜 모름';
   return '상설 전시';
 }
@@ -1038,7 +1049,7 @@ function drawWrapped(x,text,left,top,width,lh,maxY){
   if(line)lines.push(line);
   const fit=Math.max(1,Math.floor((maxY-top)/lh));
   if(lines.length>fit){lines.length=fit;let l=lines[fit-1];while(l&&x.measureText(l+"…").width>width)l=l.slice(0,-1);lines[fit-1]=l+"…";}
-  lines.forEach((l,i)=>x.fillText(l,left,top+i*lh));
+  lines.forEach((l,i)=>x.fillText(l,left,top+i*lh));return lines.length;
 }
 
 function build(){
@@ -1333,7 +1344,8 @@ function hang(a,wall,x,rm){
     fitText(x,a.title||'제목 없음','700 {s}px '+F,cw-P*2,28);x.fillStyle='#1e1a15';x.fillText(a.title||'제목 없음',P,y);y+=40;
     x.font='600 19px '+F;x.fillStyle='#2a2219';if(byline(a)){x.fillText(byline(a),P,y);y+=27;}
     x.font='400 17px '+F;x.fillStyle='#4d4336';
-    for(const s of [yearOf(a),mediumLine(a)])if(s){fitText(x,s,"400 {s}px "+F,cw-P*2,17);x.fillText(s,P,y);y+=25;}
+    if(yearOf(a)){x.fillText(yearOf(a),P,y);y+=25;}
+    if(mediumLine(a))y+=25*drawWrapped(x,mediumLine(a),P,y,cw-P*2,25,y+50);
     if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
       x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
@@ -1553,7 +1565,7 @@ function focusArt(a,{instant=false,cut=false}={}){
   if(cut){tween=null;Object.assign(player,to);}
   else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
   else tween={t:0,dur:.9,from:{...player},to};
-  card.classList.add('show');hint.style.opacity=0;
+  card.classList.add('show');showHint(false);
 }
 function fillCard(a){
   $('cTitle').textContent=a.title||'제목 없음';
@@ -1725,7 +1737,11 @@ hint.innerHTML=(coarse
   ?['<b>끌어서</b> 둘러보기','<b>바닥을 톡</b> 눌러 걸어가기','<b>그림을 톡</b> 눌러 감상','<b>두 손가락</b>으로 앞뒤·옆 이동','<b>아래쪽 톡</b>하면 뒤로']
   :['<b>드래그</b>로 둘러보기','<b>WASD·방향키</b>로 걷기','<b>Q E</b>로 돌기','<b>바닥 클릭</b>으로 이동','<b>그림 클릭</b>으로 감상'])
   .map(s=>`<span class="hi">${s}</span>`).join('');
-setTimeout(()=>hint.style.opacity=0,9000);
+// 처음에 잠깐 보여 주고 사라진다. 왼쪽 아래 '관람 방법' 탭으로 다시 열고 닫는다.
+const hintTab=$('hintTab');let hintTimer;
+function showHint(on){clearTimeout(hintTimer);hint.style.opacity=on?1:0;hintTab.setAttribute('aria-expanded',on);if(on)hintTimer=setTimeout(()=>showHint(false),9000);}
+hintTab.onclick=e=>{e.stopPropagation();showHint(hint.style.opacity==='0');};
+showHint(true);
 
 /* ───────────────────────── 전시실 안내 ───────────────────────── */
 function enterRoom(rm){
@@ -1805,9 +1821,35 @@ function drawRotated(src,rot,max,type='image/jpeg'){
   return c;
 }
 const today=()=>new Date().toISOString().slice(0,10);
+/* 사진의 EXIF에서 카메라·렌즈 기종과 찍은 날을 읽는다 (JPEG만. 캔버스로 다시 저장하면 EXIF가 사라지므로 원본 파일에서 읽는다) */
+async function readExif(file){
+  try{
+    const v=new DataView(await file.slice(0,256*1024).arrayBuffer());if(v.getUint16(0)!==0xFFD8)return null;
+    let o=2;while(o+4<v.byteLength){const m=v.getUint16(o),len=v.getUint16(o+2);
+      if(m===0xFFE1&&v.getUint32(o+4)===0x45786966)break; // "Exif"
+      if((m&0xFF00)!==0xFF00||m===0xFFDA)return null;o+=2+len;}
+    if(o+4>=v.byteLength)return null;
+    const T=o+10,le=v.getUint16(T)===0x4949,u16=i=>v.getUint16(i,le),u32=i=>v.getUint32(i,le);
+    const str=(e)=>{const n=u32(e+4),at=n>4?T+u32(e+8):e+8;let s='';for(let i=0;i<n&&at+i<v.byteLength;i++){const c=v.getUint8(at+i);if(!c)break;s+=String.fromCharCode(c);}return s.trim();};
+    const out={},ifd=(at,tags)=>{const n=u16(at);for(let i=0;i<n;i++){const e=at+2+i*12,tag=u16(e);if(tags[tag])tags[tag](e);}};
+    ifd(T+u32(T+4),{0x010F:e=>out.make=str(e),0x0110:e=>out.model=str(e),0x8769:e=>ifd(T+u32(e+8),{
+      0xA433:e=>out.lensMake=str(e),0xA434:e=>out.lens=str(e),0x9003:e=>out.taken=str(e)})});
+    // 제조사 이름 다듬기: 'NIKON CORPORATION' → 'NIKON', 모델명에 이미 들어 있으면 생략
+    let make=(out.make||'').replace(/\s*(corporation|corp\.?|co\.,?\s*ltd\.?|imaging|electronics|optical|camera)\b.*$/i,'').trim();
+    if(make===make.toLowerCase())make=make.replace(/\b\w/g,c=>c.toUpperCase()); // 'samsung' → 'Samsung'
+    let camera=out.model||'';if(make&&!camera.toLowerCase().includes(make.toLowerCase().split(' ')[0]))camera=(make+' '+camera).trim();
+    let lens=out.lens||'';if(out.model&&lens.toLowerCase().startsWith(out.model.toLowerCase()))lens=lens.slice(out.model.length).trim(); // 휴대폰: 'iPhone 15 Pro back camera …'
+    if(lens==='----'||/^\d+(\.\d+)?\s*mm$/i.test(lens)&&!camera)lens='';
+    const m=/^(\d{4}):(\d\d):(\d\d)/.exec(out.taken||'');
+    return {gear:[camera,lens].filter(Boolean).join(' · '),date:m?`${m[1]}-${m[2]}-${m[3]}`:''};
+  }catch{return null;}
+}
+// '사진'을 고르면 카메라·렌즈 기종을 함께 적는다
+const isPhoto=s=>(s||'').trim()==='사진';
+const photoMedium=gear=>gear?`사진 (${gear})`:'사진';
 const fileDate=f=>f.lastModified?new Date(f.lastModified-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10):today();
 function refreshArtistList(){const dl=$('artistList');dl.replaceChildren();
-  [...new Set([...KIDS.map(k=>k.name),...state.arts.map(a=>a.artist).filter(Boolean)])].forEach(n=>{const o=document.createElement('option');o.value=n;dl.append(o);});}
+  [...new Set([...KIDS.map(artistOf),...state.arts.map(a=>a.artist).filter(Boolean)])].forEach(n=>{const o=document.createElement('option');o.value=n;dl.append(o);});}
 function field(label,type,value,cls=''){const l=document.createElement('label');l.className='f '+cls;l.textContent=label;
   const i=document.createElement(type==='textarea'?'textarea':'input');if(type!=='textarea')i.type=type;i.value=value||'';l.append(i);return[l,i];}
 function renderPending(){
@@ -1824,7 +1866,7 @@ function renderPending(){
     const[l1,t]=field('작품 제목','text',p.title,'wide');t.placeholder='예: 우리 집 강아지';t.oninput=()=>p.title=t.value;
     const[l2,ar]=field('그린 사람','text',p.artist);ar.setAttribute('list','artistList');ar.oninput=()=>p.artist=ar.value;
     const[l3,dt]=field('그린 날','date',p.date);dt.oninput=()=>p.date=dt.value;
-    const[l5,md]=field('재료·기법','text',p.medium);md.setAttribute('list','mediumList');md.placeholder='예: 도화지에 크레파스';md.oninput=()=>p.medium=md.value;
+    const[l5,md]=field('재료·기법','text',p.medium);md.setAttribute('list','mediumList');md.placeholder='예: 도화지에 크레파스';md.oninput=()=>{p.medium=md.value;if(isPhoto(md.value)&&p.gear)md.value=p.medium=photoMedium(p.gear);};
     const[l6,sz]=field('크기 (가로×세로 cm)','text',p.size);sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';sz.oninput=()=>p.size=sz.value;
     const[l4,nt]=field('작품 설명 (선택)','textarea',p.note,'wide');nt.rows=2;nt.placeholder='아이가 들려준 그림 이야기';nt.oninput=()=>p.note=nt.value;
     fs.append(l1,l2,l3,l5,l6,l4);li.append(th,fs);ul.append(li);
@@ -1834,8 +1876,8 @@ function renderPending(){
 }
 async function addFiles(files){
   const imgs=[...files].filter(f=>f.type.startsWith('image/'));if(!imgs.length)return;
-  for(const f of imgs){try{const bitmap=await loadBitmap(f);
-    pending.push({bitmap,rot:0,title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||fileDate(f),medium:$("commonMedium").value,size:$("commonSize").value,note:""});}
+  for(const f of imgs){try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
+    pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
   renderPending();
 }
@@ -1847,11 +1889,11 @@ const drop=$('drop');
 drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
 $('commonArtist').oninput=e=>{pending.forEach(p=>p.artist=e.target.value);renderPending();markKid();};
 const kidPick=$('kidPick');
-for(const k of KIDS){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=k.name;
-  b.onclick=e=>{e.preventDefault();const i=$('commonArtist');i.value=k.name;i.dispatchEvent(new Event('input'));};kidPick.append(b);}
+for(const k of KIDS){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=artistOf(k);
+  b.onclick=e=>{e.preventDefault();const i=$('commonArtist');i.value=artistOf(k);i.dispatchEvent(new Event('input'));};kidPick.append(b);}
 function markKid(){const v=$('commonArtist').value;kidPick.querySelectorAll('button').forEach(b=>b.classList.toggle('primary',b.textContent===v));}
 $('commonDate').oninput=e=>{pending.forEach(p=>p.date=e.target.value);renderPending();};
-$('commonMedium').oninput=e=>{pending.forEach(p=>p.medium=e.target.value);renderPending();};
+$('commonMedium').oninput=e=>{const v=e.target.value;pending.forEach(p=>p.medium=isPhoto(v)?photoMedium(p.gear):v);renderPending();};
 $('commonSize').oninput=e=>{pending.forEach(p=>p.size=e.target.value);renderPending();};
 $('btnSave').onclick=async()=>{
   const btn=$('btnSave');btn.disabled=true;btn.textContent='거는 중…';
@@ -1862,7 +1904,7 @@ $('btnSave').onclick=async()=>{
       btn.textContent=`거는 중… ${i+1}/${pending.length}`;
       const c=drawRotated(p.bitmap,p.rot,2048);const blob=await fitCanvas(c);
       const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await canvasBlob(sc,.85);
-      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
+      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),gear:p.gear||'',...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
       await Store.put(a,{images:true});saved.push(a);
     }
     try{localStorage.setItem('kg-last-artist',pending.at(-1)?.artist||'');}catch{}
@@ -1901,7 +1943,7 @@ function renderManage(){
     const[l1,t]=field('작품 제목','text',a.title,'wide');t.onchange=()=>{a.title=t.value.trim()||'제목 없음';save();};
     const[l2,ar]=field('그린 사람','text',a.artist);ar.setAttribute('list','artistList');ar.onchange=()=>{a.artist=ar.value.trim();save();};
     const[l3,dt]=field('그린 날','date',a.date);dt.onchange=()=>{a.date=dt.value;save();};
-    const[l5,md]=field('재료·기법','text',a.medium);md.setAttribute('list','mediumList');md.onchange=()=>{a.medium=md.value.trim();save();};
+    const[l5,md]=field('재료·기법','text',a.medium);md.setAttribute('list','mediumList');md.onchange=()=>{a.medium=isPhoto(md.value)?photoMedium(a.gear):md.value.trim();md.value=a.medium;save();};
     const[l6,sz]=field('크기 (가로×세로 cm)','text',sizeText(a));sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';
     sz.onchange=()=>{const d=sizeForImage(parseSize(sz.value),a.w||1,a.h||1);if(d)Object.assign(a,d);else{a.widthCm=0;a.heightCm=0;}sz.value=sizeText(a);save();};
     const[l4,nt]=field('작품 설명','textarea',a.note,'wide');nt.rows=2;nt.onchange=()=>{a.note=nt.value.trim();save();};
