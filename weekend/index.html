@@ -105,6 +105,9 @@ input[type=range]{width:100%;accent-color:var(--route)}
 .body p{margin:0;max-width:68ch}
 .tip{font-size:13px;color:var(--muted)}
 .tip::before{content:"팁 · ";font-weight:600;color:var(--sign)}
+.together{background:var(--hi-soft);border-radius:8px;padding:8px 12px;font-size:13.5px}
+.together b{color:var(--sign);font-weight:600}
+.together ul{margin:4px 0 0;padding-left:18px}
 .scorebar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .bar{flex:0 0 120px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--route)}
@@ -443,6 +446,7 @@ function card({ev,d,s},i){
     <div class="body">
       ${ev.highlights?`<p>${esc(ev.highlights)}</p>`:""}
       ${ev.tips?`<div class="tip">${esc(ev.tips)}</div>`:""}
+      ${(ev.together||[]).length?`<div class="together"><b>같은 곳에서 함께 열려요</b><ul>${ev.together.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}
       <div class="scorebar"><span>아이 만족도 ${esc(ev.kidScore)}/10</span><span class="bar"><i style="width:${Math.min(100,s)}%"></i></span><span>추천 점수 ${s}</span></div>
       <div class="links">${ev.url?`<a href="${esc(ev.url)}" target="_blank" rel="noopener">행사 안내 ↗</a>`:""}<a href="${esc(naver)}" target="_blank" rel="noopener">네이버지도 길찾기 ↗</a></div>
     </div>
