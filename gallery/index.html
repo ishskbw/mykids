@@ -553,7 +553,10 @@ const sun=new THREE.DirectionalLight(0xfff0d8,1.1); sun.position.set(0.3,1,0.25)
 const camera=new THREE.PerspectiveCamera(68,1,0.05,200);
 camera.rotation.order='YXZ';
 const maxAniso=renderer.capabilities.getMaxAnisotropy();
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+// 화면을 돌려 세로↔가로가 바뀌면 로비 이름판(한 줄·두 줄)을 다시 그린다
+var lobbyNarrow=null;
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+  if(lobbyNarrow!==null&&(camera.aspect<.85)!==lobbyNarrow){build();curRoom=null;}} // lobbyNarrow는 로비를 처음 그린 뒤에야 정해진다
 addEventListener('resize',resize); resize();
 
 /* ───────────────────────── 절차적 텍스처 ───────────────────────── */
@@ -1281,15 +1284,22 @@ function spacedText(x,text,cx,y,track){
 }
 function buildLobby(rm,walls,hasDoor){
   const total=rooms.filter(r=>!r.lobby).reduce((s,r)=>s+r.arts.length,0);
-  const t=textPlane(11,3.4,170,(x,w,h)=>{x.textAlign='center';x.shadowColor='rgba(60,40,10,.35)';x.shadowBlur=6;
+  // 세로 휴대폰처럼 좁은 화면에서는 입구에서 벽 폭 전체가 보이지 않으므로, 영문 이름을 두 줄로 쌓고 글씨 폭을 줄인다
+  const narrow=lobbyNarrow=camera.aspect<.85;
+  const t=textPlane(11,narrow?4.4:3.4,170,(x,w,h)=>{x.textAlign='center';x.shadowColor='rgba(60,40,10,.35)';x.shadowBlur=6;
     // 미술관 입구에 새긴 듯한 영문 이름(넓은 자간의 대문자) + 그 아래 작은 한글 이름 + 작품 수
-    const en=(state.nameEn||'').toUpperCase(),track=.16;
+    const en=(state.nameEn||'').toUpperCase(),track=.16,maxW=narrow?w*.52:w-120;
+    // 두 줄일 때는 가운데에 가까운 띄어쓰기에서 나눈다 (THE KONG / GALLERY)
+    let lines=[en];
+    if(narrow&&en.includes(' ')){const sp=[...en.matchAll(/ /g)].map(m=>m.index),mid=en.length/2,cut=sp.reduce((a,b)=>Math.abs(b-mid)<Math.abs(a-mid)?b:a);lines=[en.slice(0,cut),en.slice(cut+1)];}
+    const longest=lines.reduce((a,b)=>b.length>a.length?b:a,'');
     x.fillStyle='#5b3e10';
-    if(en){fitText(x,en,'600 {s}px "Cormorant Garamond",serif',(w-120)/(1+track*.9),200);spacedText(x,en,w/2,h*.47,track);
-      x.font='500 64px "Hahmlet",serif';x.fillStyle='#7a5a2a';spacedText(x,state.name,w/2,h*.68,.12);}
-    else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',w-80,230);x.fillText(state.name,w/2,h*.55);}
-    x.font='500 50px "Pretendard Variable",sans-serif';x.fillStyle='#6f5a3a';
-    x.fillText(state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요'),w/2,h*.9);});
+    if(en){fitText(x,longest,'600 {s}px "Cormorant Garamond",serif',maxW/(1+track*.9),narrow?190:200);
+      const ys=lines.length>1?[h*.3,h*.52]:[h*.47];lines.forEach((l,i)=>spacedText(x,l,w/2,ys[i],track));
+      x.font='500 64px "Hahmlet",serif';x.fillStyle='#7a5a2a';spacedText(x,state.name,w/2,lines.length>1?h*.7:h*.68,.12);}
+    else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',maxW,230);x.fillText(state.name,w/2,h*.55);}
+    const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
+    fitText(x,msg,'500 {s}px "Pretendard Variable",sans-serif',maxW,50);x.fillStyle='#6f5a3a';x.fillText(msg,w/2,h*.9);});
   t.position.set(0,3.6,.03);walls.N.add(t);
   // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
   const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
