@@ -115,9 +115,11 @@ body.col .backzone{display:none}
 .labelview[hidden]{display:none}
 .wlabel{position:relative;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;background:#f8f5ee;color:#2a2219;border-radius:2px;padding:34px 34px 30px;box-shadow:0 2px 0 rgba(0,0,0,.08),0 24px 60px rgba(0,0,0,.45)}
 .wlabel .x{position:absolute;top:8px;right:10px;color:#8a7d6a}
-.wlabel h2{font-family:var(--f-display);font-weight:600;font-size:clamp(26px,6.5vw,38px);line-height:1.25;margin:0 0 14px;color:#2a2219;text-wrap:balance}
-.wlabel .lb{margin:0;font-size:clamp(17px,4vw,20px);font-weight:500;color:#5a4d3c;line-height:1.6}
-.wlabel .ln{margin:18px 0 0;font-size:clamp(17px,4vw,19px);line-height:1.75;color:#7a6d5a;white-space:pre-wrap;word-break:keep-all}
+.wlabel h2{font-family:var(--f-body);font-weight:700;font-size:clamp(26px,6.5vw,36px);line-height:1.3;margin:0 0 10px;color:#1e1a15;letter-spacing:-.01em;text-wrap:balance}
+.wlabel .la{margin:0 0 4px;font-size:clamp(18px,4.4vw,21px);font-weight:600;color:#2a2219;line-height:1.5}
+.wlabel .lm{margin:0;font-size:clamp(16px,4vw,19px);font-weight:400;color:#4d4336;line-height:1.6}
+.wlabel .ln{margin:20px 0 0;padding-top:18px;position:relative;font-size:clamp(16px,4vw,18px);line-height:1.8;color:#5c5142;white-space:pre-wrap;word-break:keep-all}
+.wlabel .ln::before{content:"";position:absolute;top:0;left:0;width:44px;height:2px;background:#c9bfae}
 #viewer p{color:#efe7d8;margin:0;font-family:var(--f-display);font-size:16px;text-align:center}
 #viewer .vbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 #viewer .vbar .zoom{min-width:40px;font-weight:600}
@@ -340,8 +342,9 @@ label.f textarea{resize:vertical;min-height:38px}
   <div class="wlabel" role="dialog" aria-labelledby="lTitle">
     <button class="x" id="labelClose" aria-label="설명 닫기">×</button>
     <h2 id="lTitle"></h2>
-    <p class="lb" id="lBy"></p>
-    <p class="lb" id="lDate"></p>
+    <p class="la" id="lBy"></p>
+    <p class="lm" id="lYear"></p>
+    <p class="lm" id="lMedium"></p>
     <p class="ln" id="lNote"></p>
   </div>
 </div>
@@ -381,6 +384,8 @@ label.f textarea{resize:vertical;min-height:38px}
       <div class="common">
         <label class="f">그린 사람 (모든 그림에 적용)<input id="commonArtist" list="artistList" placeholder="이름을 쓰거나 아래에서 고르세요"><span class="kid-pick" id="kidPick"></span></label>
         <label class="f">그린 날 (모든 그림에 적용)<input id="commonDate" type="date"></label>
+        <label class="f">재료·기법 (모든 그림에 적용)<input id="commonMedium" list="mediumList" placeholder="예: 도화지에 크레파스"></label>
+        <label class="f">크기 (모든 그림에 적용)<input id="commonSize" list="sizeList" placeholder="예: 8절 또는 39×27"></label>
       </div>
       <ul class="items" id="pending"></ul>
     </div>
@@ -388,6 +393,15 @@ label.f textarea{resize:vertical;min-height:38px}
   </div>
 </dialog>
 <datalist id="artistList"></datalist>
+<!-- 작품 설명 패널의 재료·기법: 목록에서 고르거나 직접 쓴다 -->
+<datalist id="sizeList">
+  <option value="8절 (39.4 × 27.2 cm)"><option value="4절 (54.5 × 39.4 cm)"><option value="16절 (27.2 × 19.7 cm)"><option value="2절 (78.8 × 54.5 cm)"><option value="A4 (29.7 × 21 cm)"><option value="A3 (42 × 29.7 cm)">
+</datalist>
+<datalist id="mediumList">
+  <option value="도화지에 크레파스"><option value="도화지에 색연필"><option value="도화지에 오일파스텔"><option value="도화지에 수채화">
+  <option value="도화지에 사인펜"><option value="도화지에 연필"><option value="도화지에 물감"><option value="도화지에 혼합 재료">
+  <option value="캔버스에 유화"><option value="캔버스에 아크릴"><option value="종이에 콜라주"><option value="점토"><option value="사진"><option value="디지털 그림">
+</datalist>
 
 <!-- 작품 관리 -->
 <dialog id="dlgManage">
@@ -527,7 +541,7 @@ function remoteStore({fs,db}){
         await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
         a.blob=orig;a.small=small;}
       // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
-      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
     },
     async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
     async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
@@ -854,9 +868,11 @@ function makeSamples(){
       crayon(g,[[300,640],[350,820],[400,640]],'#f39c12',14,true,'#f1c40f');}],
   ];
   const months=['2026-03-02','2026-04-18','2026-05-05','2026-05-08','2026-06-21','2026-08-15'];
+  const media=['도화지에 크레파스','도화지에 오일파스텔','도화지에 수채화','도화지에 색연필','도화지에 크레파스','도화지에 물감'];
+  const papers=['8절','8절','4절','8절','16절','8절'];
   return defs.map(([title,artist,[w,h],draw],i)=>{
     const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);
-    return {id:'sample-'+i,title,artist:artist+' (예시)',date:months[i],note:'예시 작품이에요. ‘그림 올리기’로 우리 아이 그림을 걸어 보세요.',url:c.toDataURL('image/jpeg',.9),w,h,sample:true};
+    return {id:'sample-'+i,title,artist:artist+' (예시)',date:months[i],medium:media[i],...sizeForImage(PAPER_SIZES[papers[i]],w,h),note:'예시 작품이에요. ‘그림 올리기’로 우리 아이 그림을 걸어 보세요.',url:c.toDataURL('image/jpeg',.9),w,h,sample:true};
   });
 }
 
@@ -998,6 +1014,32 @@ function textPlane(w,h,px,draw,opts={}){
 }
 function fitText(g,text,font,maxW,size){let s=size;do{g.font=font.replace('{s}',s);s-=2;}while(g.measureText(text).width>maxW&&s>10);}
 function fmtDate(d){if(!d)return '';const[y,m,dd]=d.split('-');return `${y}년 ${+m}월${dd?` ${+dd}일`:''}`;}
+// 작품 설명 패널의 연도 줄 (그린 날의 해만)
+const yearOf=a=>a.date?a.date.slice(0,4):"";
+/* 그림 크기(cm). 미술관 캡션처럼 '재료, 가로 × 세로 cm'로 적고, 크기가 있으면 실제 크기로 건다.
+   자주 쓰는 종이 크기는 이름으로도 고를 수 있다. */
+const PAPER_SIZES={'8절':[39.4,27.2],'4절':[54.5,39.4],'16절':[27.2,19.7],'2절':[78.8,54.5],'A4':[29.7,21],'A3':[42,29.7]};
+function parseSize(s){
+  s=(s||'').trim();if(!s)return null;
+  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:[x×*X]|\s)\s*(\d+(?:\.\d+)?)/);
+  if(m)return [+m[1],+m[2]];
+  for(const k in PAPER_SIZES)if(s.toUpperCase().startsWith(k.toUpperCase()))return PAPER_SIZES[k].slice();
+  return null;
+}
+const num=v=>String(Math.round(v*10)/10);
+const sizeText=a=>a.widthCm&&a.heightCm?`${num(a.widthCm)} × ${num(a.heightCm)} cm`:'';
+const mediumLine=a=>[a.medium,sizeText(a)].filter(Boolean).join(', ');
+// 그림 방향(가로·세로)에 맞게 가로·세로 길이를 정한다
+function sizeForImage(sz,w,h){if(!sz)return null;let[a,b]=sz;if((a>=b)!==(w>=h))[a,b]=[b,a];return{widthCm:a,heightCm:b};}
+// 정해진 폭으로 글자 단위 줄바꿈, 아래 끝(maxY)을 넘으면 마지막 줄을 …로 줄인다
+function drawWrapped(x,text,left,top,width,lh,maxY){
+  const lines=[];let line="";
+  for(const ch of text){if(x.measureText(line+ch).width>width){lines.push(line);line=ch===" "?"":ch;}else line+=ch;}
+  if(line)lines.push(line);
+  const fit=Math.max(1,Math.floor((maxY-top)/lh));
+  if(lines.length>fit){lines.length=fit;let l=lines[fit-1];while(l&&x.measureText(l+"…").width>width)l=l.slice(0,-1);lines[fit-1]=l+"…";}
+  lines.forEach((l,i)=>x.fillText(l,left,top+i*lh));
+}
 
 function build(){
   if(world){scene.remove(world);disposables.forEach(d=>d.dispose());}
@@ -1214,13 +1256,13 @@ function frameMaterial(style,tone){
   frameMatCache.set(k,m);return m;
 }
 // 단면을 그림 네 변을 따라 돌린 액자 형태. 변마다 따로 만들어 모서리에 실제 액자처럼 45° 이음매가 생긴다.
-function frameGeometry(hw,hh,style){
+function frameGeometry(hw,hh,style,s=1){
   const P=style.profile,V=style.v,pos=[],uv=[],idx=[];
   const sides=[ // 각 변: 시작/끝 모서리 방향과, 변을 따라가는 좌표
     {c0:[-1,-1],c1:[1,-1],along:'x'},{c0:[1,-1],c1:[1,1],along:'y'},{c0:[1,1],c1:[-1,1],along:'x'},{c0:[-1,1],c1:[-1,-1],along:'y'}];
   for(const sd of sides){const base=pos.length/3;
-    for(let i=0;i<P.length;i++){const[d,z]=P[i],ex=hw+d,ey=hh+d;
-      for(const c of [sd.c0,sd.c1]){const x=c[0]*ex,y=c[1]*ey;pos.push(x,y,z);uv.push((sd.along==='x'?x:y)/style.tile,V[i]);}}
+    for(let i=0;i<P.length;i++){const d=P[i][0]*s,z=P[i][1]*s,ex=hw+d,ey=hh+d;
+      for(const c of [sd.c0,sd.c1]){const x=c[0]*ex,y=c[1]*ey;pos.push(x,y,z);uv.push((sd.along==='x'?x:y)/(style.tile*s),V[i]);}}
     for(let i=0;i<P.length-1;i++){const a=base+i*2,b=a+1,c=a+2,d=a+3;idx.push(a,b,c,b,d,c);}}
   return geom(pos,uv,idx);
 }
@@ -1247,14 +1289,14 @@ function decalMaterial(kind){
   const m=new THREE.MeshStandardMaterial({map,normalMap:nm,alphaTest:.5,metalness:.9,roughness:.38,envMapIntensity:1.15,side:THREE.DoubleSide});
   decalCache.set(kind,m);return m;
 }
-function buildFrame(g,a,w,h,cy){
+function buildFrame(g,a,w,h,cy,s=1){ // s: 작은 실물 크기 작품은 액자 폭·두께도 줄인다
   const hs=hashStr(a.id),style=FRAME_STYLES[hs%FRAME_STYLES.length],tone=(hs>>>8)%FRAME_TONES.length;
   frameTextures(style); // style.v 계산
-  const fr=new THREE.Mesh(frameGeometry(w/2,h/2,style),frameMaterial(style,tone));fr.position.set(0,cy,0);g.add(fr);
+  const fr=new THREE.Mesh(frameGeometry(w/2,h/2,style,s),frameMaterial(style,tone));fr.position.set(0,cy,0);g.add(fr);
   fr.userData.art=a;rayTargets.push(fr); // 액자를 눌러도 그림을 감상한다
-  const fw=style.profile.at(-1)[0];
-  if(style.decal){const dm=decalMaterial(style.decal),top=Math.max(...style.profile.map(p=>p[1]));
-    const put=(x,y,rot,size)=>{const pg=new THREE.PlaneGeometry(size,size);disposables.push(pg);const d=new THREE.Mesh(pg,dm);d.position.set(x,cy+y,top+.012);d.rotation.z=rot;g.add(d);};
+  const fw=style.profile.at(-1)[0]*s;
+  if(style.decal){const dm=decalMaterial(style.decal),top=Math.max(...style.profile.map(p=>p[1]))*s;
+    const put=(x,y,rot,size)=>{const pg=new THREE.PlaneGeometry(size,size);disposables.push(pg);const d=new THREE.Mesh(pg,dm);d.position.set(x,cy+y,top+.012*s);d.rotation.z=rot;g.add(d);};
     const ex=w/2+fw*.55,ey=h/2+fw*.55;
     if(style.decal==='cartouche'){const s=fw*1.5;
       for(const[sx,sy]of[[-1,-1],[1,-1],[1,1],[-1,1]])put(sx*ex,sy*ey,Math.atan2(sy,sx)-Math.PI/2,s);
@@ -1265,29 +1307,37 @@ function buildFrame(g,a,w,h,cy){
 }
 
 function hang(a,wall,x,rm){
-  const ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
-  let w=maxW,h=w/ar;if(h>maxH){h=maxH;w=h*ar;}
-  const cy=ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
-  const glowG=new THREE.PlaneGeometry(w+2.4,h+2.6);disposables.push(glowG);
-  const glow=new THREE.Mesh(glowG,M.glow);glow.position.set(0,cy+.35,.005);g.add(glow);
+  // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다. 작을수록 액자도 얇게, 눈높이 가까이 낮게 건다.
+  const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
+  let w,h;if(real){w=a.widthCm/100;h=a.heightCm/100;}else{w=maxW;h=w/ar;if(h>maxH){h=maxH;w=h*ar;}}
+  const s=real?THREE.MathUtils.clamp(Math.max(w,h)/1.6,.3,1):1;
+  const cy=real?THREE.MathUtils.clamp(1.5+h*.35,1.5,ART_Y):ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
+  const glowG=new THREE.PlaneGeometry(w+2.4*s,h+2.6*s);disposables.push(glowG);
+  const glow=new THREE.Mesh(glowG,M.glow);glow.position.set(0,cy+.35*s,.005);g.add(glow);
   // 옛 액자 (양식은 작품마다 다름). 그림은 액자 안쪽 턱 바로 뒤에 놓인다.
-  const fw=buildFrame(g,a,w,h,cy);
+  const fw=buildFrame(g,a,w,h,cy,s);
   const W=w+fw*2,Hh=h+fw*2;
   // 그림 조명
-  g.add(box(Math.min(W*.6,1.2),.06,.06,M.brass,0,cy+Hh/2+.22,.32));g.add(box(.04,.04,.3,M.brass,0,cy+Hh/2+.18,.17));
+  const ls=Math.max(s,.45),lamp=new THREE.Group();lamp.position.y=cy+Hh/2;lamp.scale.setScalar(ls);g.add(lamp); // 작은 작품은 조명도 작게
+  lamp.add(box(Math.min(W*.6,1.2)/ls,.06,.06,M.brass,0,.22,.32));lamp.add(box(.04,.04,.3,M.brass,0,.18,.17));
   const pg=new THREE.PlaneGeometry(w,h);disposables.push(pg);
   const pm=new THREE.MeshBasicMaterial({toneMapped:false,color:PLACEHOLDER});disposables.push(pm);
   (rm.pics||=[]).push({art:a,mat:pm});
-  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,.026);pic.userData.art=a;pic.userData.w=W;g.add(pic);
+  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,Math.max(.008,.026*s));pic.userData.art=a;pic.userData.w=W;pic.userData.h=Hh;pic.userData.s=s;g.add(pic);
   pickables.push(pic);rayTargets.push(pic);
   // 작품 설명 카드
-  const label=textPlane(.5,.32,600,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.fillStyle='#2a2219';x.textBaseline='top';
-    fitText(x,a.title||'제목 없음','600 {s}px "Hahmlet",serif',cw-36,30);x.fillText(a.title||'제목 없음',18,18);
-    x.font='500 20px "Pretendard Variable",sans-serif';x.fillStyle='#5a4d3c';x.fillText(byline(a),18,62);x.fillText(fmtDate(a.date),18,90);
-    x.font='400 16px "Pretendard Variable",sans-serif';x.fillStyle='#7a6d5a';const n=(a.note||'').replace(/\s+/g,' ');let line='',y=124,lines=0;
-    for(const ch of n){if(x.measureText(line+ch).width>cw-36){x.fillText(line,18,y);y+=22;line='';if(++lines>=2)break;}line+=ch;}if(lines<2&&line)x.fillText(line,18,y);
+  // 작품 설명 패널: 실제 미술관 벽 캡션처럼 산세리프 한 가지 글꼴에 굵기로만 위계를 둔다
+  //   작품명(굵게) / 작가 / 연도 / 재료·기법 / 짧은 선 / 작품 설명
+  const label=textPlane(.56,.44,800,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.textBaseline='top';
+    const P=26,F='"Pretendard Variable",sans-serif';let y=P;
+    fitText(x,a.title||'제목 없음','700 {s}px '+F,cw-P*2,28);x.fillStyle='#1e1a15';x.fillText(a.title||'제목 없음',P,y);y+=40;
+    x.font='600 19px '+F;x.fillStyle='#2a2219';if(byline(a)){x.fillText(byline(a),P,y);y+=27;}
+    x.font='400 17px '+F;x.fillStyle='#4d4336';
+    for(const s of [yearOf(a),mediumLine(a)])if(s){fitText(x,s,"400 {s}px "+F,cw-P*2,17);x.fillText(s,P,y);y+=25;}
+    if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
+      x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
-  label.position.set(W/2+.5,1.42,.02);g.add(label);
+  label.position.set(W/2+(real?.3:.5),1.42,.02);if(real)label.scale.setScalar(.6);g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
   label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
   artIndex.push({art:a,mesh:pic,room:rm});
 }
@@ -1463,8 +1513,12 @@ const card=$('card'),viewer=$('viewer'),fade=$('fade');
 const wp=new THREE.Vector3(),wn=new THREE.Vector3(),wq=new THREE.Quaternion();
 function viewPose(mesh){
   mesh.getWorldPosition(wp);mesh.getWorldQuaternion(wq);wn.set(0,0,1).applyQuaternion(wq);
-  const half=(mesh.userData.w+1.4)/2,hf=Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect);
-  const dist=Math.min(11,Math.max(3.3,half/Math.tan(hf)));return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:FOCUS_EYE};
+  // 작은 실물 크기 작품(s<1)은 더 가까이 다가가고, 눈높이도 작품 가운데보다 조금 낮게 맞춘다
+  const s=mesh.userData.s||1,vf=THREE.MathUtils.degToRad(camera.fov/2),hf=Math.atan(Math.tan(vf)*camera.aspect);
+  const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
+  const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
+  const dist=Math.min(11,Math.max(minD,need));
+  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:s<1?Math.max(1.1,wp.y-.3*s):FOCUS_EYE};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
@@ -1503,7 +1557,7 @@ function focusArt(a,{instant=false,cut=false}={}){
 }
 function fillCard(a){
   $('cTitle').textContent=a.title||'제목 없음';
-  $('cMeta').textContent=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
+  $('cMeta').textContent=[byline(a),fmtDate(a.date),mediumLine(a)].filter(Boolean).join(' · ');
   $('cNote').textContent=a.note||'';$('cNote').hidden=!a.note;
 }
 let beforeFocus=null,lastFocusPose=null;
@@ -1534,14 +1588,15 @@ function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.
 // 그림 아래 작품 정보
 function fillViewerInfo(a){
   $('vTitle').textContent=a.title||'제목 없음';
-  $('vMeta').textContent=[byline(a),fmtDate(a.date)].filter(Boolean).join(' · ');
+  $('vMeta').textContent=[byline(a),fmtDate(a.date),mediumLine(a)].filter(Boolean).join(' · ');
   $('vNote').textContent=a.note||'';
 }
 // 전시실 벽의 작품 설명 카드를 누르면, 같은 모양 그대로 크게 보여 준다 (글이 길어도 다 보인다)
 const labelView=$('labelView');
 function openLabel(a){
-  $('lTitle').textContent=a.title||'제목 없음';$('lBy').textContent=byline(a);$('lDate').textContent=fmtDate(a.date);
-  $('lNote').textContent=a.note||'';$('lNote').hidden=!a.note;
+  // 작품명 / 작가 / 연도 / 재료·기법, 크기 / 작품 설명 — 빈 줄은 숨긴다
+  const set=(id,v)=>{$(id).textContent=v||'';$(id).hidden=!v;};
+  set('lTitle',a.title||'제목 없음');set('lBy',byline(a));set('lYear',yearOf(a));set('lMedium',mediumLine(a));set('lNote',a.note);
   labelView.hidden=false;openLayer('label');$('labelClose').focus();
 }
 function closeLabel(){if(labelView.hidden)return;labelView.hidden=true;syncClose('label');}
@@ -1769,8 +1824,10 @@ function renderPending(){
     const[l1,t]=field('작품 제목','text',p.title,'wide');t.placeholder='예: 우리 집 강아지';t.oninput=()=>p.title=t.value;
     const[l2,ar]=field('그린 사람','text',p.artist);ar.setAttribute('list','artistList');ar.oninput=()=>p.artist=ar.value;
     const[l3,dt]=field('그린 날','date',p.date);dt.oninput=()=>p.date=dt.value;
-    const[l4,nt]=field('한마디 (선택)','textarea',p.note,'wide');nt.rows=1;nt.placeholder='아이가 들려준 그림 이야기';nt.oninput=()=>p.note=nt.value;
-    fs.append(l1,l2,l3,l4);li.append(th,fs);ul.append(li);
+    const[l5,md]=field('재료·기법','text',p.medium);md.setAttribute('list','mediumList');md.placeholder='예: 도화지에 크레파스';md.oninput=()=>p.medium=md.value;
+    const[l6,sz]=field('크기 (가로×세로 cm)','text',p.size);sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';sz.oninput=()=>p.size=sz.value;
+    const[l4,nt]=field('작품 설명 (선택)','textarea',p.note,'wide');nt.rows=2;nt.placeholder='아이가 들려준 그림 이야기';nt.oninput=()=>p.note=nt.value;
+    fs.append(l1,l2,l3,l5,l6,l4);li.append(th,fs);ul.append(li);
   });
   $('upCount').textContent=pending.length?`${pending.length}점 준비됨`:'선택한 그림이 없어요';
   $('btnSave').disabled=!pending.length;
@@ -1778,7 +1835,7 @@ function renderPending(){
 async function addFiles(files){
   const imgs=[...files].filter(f=>f.type.startsWith('image/'));if(!imgs.length)return;
   for(const f of imgs){try{const bitmap=await loadBitmap(f);
-    pending.push({bitmap,rot:0,title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||fileDate(f),note:''});}
+    pending.push({bitmap,rot:0,title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||fileDate(f),medium:$("commonMedium").value,size:$("commonSize").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
   renderPending();
 }
@@ -1794,6 +1851,8 @@ for(const k of KIDS){const b=document.createElement('button');b.type='button';b.
   b.onclick=e=>{e.preventDefault();const i=$('commonArtist');i.value=k.name;i.dispatchEvent(new Event('input'));};kidPick.append(b);}
 function markKid(){const v=$('commonArtist').value;kidPick.querySelectorAll('button').forEach(b=>b.classList.toggle('primary',b.textContent===v));}
 $('commonDate').oninput=e=>{pending.forEach(p=>p.date=e.target.value);renderPending();};
+$('commonMedium').oninput=e=>{pending.forEach(p=>p.medium=e.target.value);renderPending();};
+$('commonSize').oninput=e=>{pending.forEach(p=>p.size=e.target.value);renderPending();};
 $('btnSave').onclick=async()=>{
   const btn=$('btnSave');btn.disabled=true;btn.textContent='거는 중…';
   const saved=[];
@@ -1803,7 +1862,7 @@ $('btnSave').onclick=async()=>{
       btn.textContent=`거는 중… ${i+1}/${pending.length}`;
       const c=drawRotated(p.bitmap,p.rot,2048);const blob=await fitCanvas(c);
       const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await canvasBlob(sc,.85);
-      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
+      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
       await Store.put(a,{images:true});saved.push(a);
     }
     try{localStorage.setItem('kg-last-artist',pending.at(-1)?.artist||'');}catch{}
@@ -1842,8 +1901,11 @@ function renderManage(){
     const[l1,t]=field('작품 제목','text',a.title,'wide');t.onchange=()=>{a.title=t.value.trim()||'제목 없음';save();};
     const[l2,ar]=field('그린 사람','text',a.artist);ar.setAttribute('list','artistList');ar.onchange=()=>{a.artist=ar.value.trim();save();};
     const[l3,dt]=field('그린 날','date',a.date);dt.onchange=()=>{a.date=dt.value;save();};
-    const[l4,nt]=field('한마디','textarea',a.note,'wide');nt.rows=1;nt.onchange=()=>{a.note=nt.value.trim();save();};
-    fs.append(l1,l2,l3,l4);li.append(th,fs);ul.append(li);
+    const[l5,md]=field('재료·기법','text',a.medium);md.setAttribute('list','mediumList');md.onchange=()=>{a.medium=md.value.trim();save();};
+    const[l6,sz]=field('크기 (가로×세로 cm)','text',sizeText(a));sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';
+    sz.onchange=()=>{const d=sizeForImage(parseSize(sz.value),a.w||1,a.h||1);if(d)Object.assign(a,d);else{a.widthCm=0;a.heightCm=0;}sz.value=sizeText(a);save();};
+    const[l4,nt]=field('작품 설명','textarea',a.note,'wide');nt.rows=2;nt.onchange=()=>{a.note=nt.value.trim();save();};
+    fs.append(l1,l2,l3,l5,l6,l4);li.append(th,fs);ul.append(li);
   });
 }
 $('btnManage').onclick=()=>{dirty=false;refreshArtistList();renderManage();$('dlgManage').showModal();};
@@ -1940,7 +2002,7 @@ function rebuild(){
    - 화면 버튼·안내 글씨도 함께 받아 두어, 로딩 화면이 걷힌 뒤 글꼴이 바뀌어 보이지 않게 한다.
    새로 받은 묶음이 있으면 true. */
 async function loadCanvasFonts(){
-  const text=[state.name,...displayArts().flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
+  const text=[state.name,...displayArts().flatMap(a=>[a.title,a.artist,fmtDate(a.date),a.medium,sizeText(a),a.note]),...KIDS.map(k=>k.name+'의 전시실'),
     '로비 입구 작품 점 전시실 곳 아직 걸린 작품이 없어요 예시 곧 가족의 그림이 걸릴 거예요 지금은 오른쪽 위 그림 올리기를 눌러 보세요 제목 없음 이름 없는 화가 상설 전시 날짜 모름 년 월 일 0123456789 ·',
     document.body.innerText].filter(Boolean).join(' ');
   const loaded=()=>[...document.fonts].filter(f=>f.status==='loaded').length,before=loaded();
