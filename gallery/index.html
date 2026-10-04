@@ -986,7 +986,7 @@ function streamTextures(){
   for(const id of [...texCache.keys()])if(!wanted.has(id))releaseTexture(id);
   for(const rm of rooms)for(const pp of rm.people||[]){
     if(!near.has(rm)||pp.loaded)continue;pp.loaded=true;
-    personModel(pp.file).then(s=>{if(!pp.holder.parent)return;const o=s.clone(true);o.scale.setScalar(pp.h/(s.userData.h||1.75));pp.holder.add(o);}).catch(err=>{pp.loaded=false;console.warn(err);});
+    personModel(pp.file).then(async s=>{if(!pp.holder.parent)return;const o=(await skelUtils).clone(s);posePerson(o,pp.pose);o.scale.setScalar(pp.h/(s.userData.h||1.75));pp.holder.add(o);}).catch(err=>{pp.loaded=false;console.warn(err);});
   }
   for(const rm of rooms)for(const m of rm.models||[]){
     if(near.has(rm)){if(!m.want){m.want=true;artModel(m.art).then(w=>{if(!m.want||m.holder.children.length)return;
@@ -1194,7 +1194,7 @@ function build(){
     }
     if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);
       // 로비에도 이름판을 바라보는 관람객 세 명
-      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.76,0x10,rm);addVisitor(rm.cx-.95,rm.cz-1.05,Math.PI-.15,1.64,0x08,rm);addVisitor(rm.cx+1.4,rm.cz-.5,Math.PI+.25,1.72,0x18,rm);continue;}
+      addVisitor(rm.cx-1.7,rm.cz-1.2,Math.PI-.55,1.76,80,rm);addVisitor(rm.cx-.85,rm.cz-1.0,Math.PI+.2,1.64,104,rm);addVisitor(rm.cx+1.5,rm.cz-.5,Math.PI+.6,1.72,56,rm);continue;}
     // 가운데 벤치(남북으로 길게)와 그 양옆의 바닥 통풍 그릴 한 쌍
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
@@ -1203,16 +1203,13 @@ function build(){
     for(const s of [-1,1])world.add(box(.95,.008,4.6,grilleMat,cx+s*2.3,.004,cz));
     // 벽 그림이 8점을 넘으면 '촘촘히' 건다: 벽 한쪽에 두 점까지 (방 이름은 그림과 겹치지 않게 위로)
     const flat=rm.arts.filter(a=>!a.model);
-    // 문이 없는 첫 벽 위쪽(처마 띠 바로 아래)에 방 이름을 한 줄로
+    // 문이 없는 첫 벽, 그림(과 조명) 바로 위에 방 이름 (원래처럼 큰 글씨 + 작품 수 두 줄)
     const plainWall=['N','E','S','W'].find(k=>!hasDoor[k]);
     if(plainWall){
-      const t=textPlane(5,.62,200,(x,w,h)=>{x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=6;
-        const sub=rm.arts.length?`  ·  작품 ${rm.arts.length}점`:'  ·  아직 비어 있어요';
-        x.font='600 76px "Hahmlet",serif';const tw=x.measureText(rm.title).width;x.font='500 40px "Pretendard Variable",sans-serif';const sw=x.measureText(sub).width;
-        const sc=Math.min(1,(w-40)/(tw+sw)),x0=(w-(tw+sw)*sc)/2;x.save();x.translate(x0,h/2);x.scale(sc,sc);x.textAlign='left';
-        x.font='600 76px "Hahmlet",serif';x.fillStyle='#ecd394';x.fillText(rm.title,0,0);
-        x.font='500 40px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.8)';x.fillText(sub,tw,4);x.restore();});
-      t.position.set(0,H-1.25,.03);wallGroups[plainWall].add(t);
+      const t=textPlane(4.6,1.5,160,(x,w,h)=>{x.textAlign='center';x.fillStyle='#ecd394';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=8;
+        fitText(x,rm.title,'600 {s}px "Hahmlet",serif',w-40,110);x.fillText(rm.title,w/2,h*.48);
+        x.font='500 44px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
+      t.position.set(0,ART_Y+1.95,.03);wallGroups[plainWall].add(t);
     }
     // 작품 걸기: 자리마다 [벽, 왼쪽 끝 x, 오른쪽 끝 x]. 액자+설명판 묶음을 자리 가운데에 건다.
     // 문 있는 벽은 문 기둥 바깥(HANG_IN)부터 벽 끝(HANG_OUT)까지 양쪽(한쪽 두 점까지),
@@ -1256,11 +1253,25 @@ const FRAME_STYLES=[
 ];
 const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
 /* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명 ── */
-// 사람 모델: Microsoft Rocketbox 아바타(MIT)를 서 있는 자세로 바꾸고 가볍게 줄인 GLB (gallery/people/, LICENSE.txt 참고)
+// 사람 모델: Microsoft Rocketbox 아바타(MIT)를 뼈대째 가볍게 줄인 GLB (gallery/people/, LICENSE.txt 참고). 자세는 불러온 뒤 사람마다 잡는다.
 const PEOPLE_ADULT=['female_adult_02','female_adult_15','male_adult_03','male_adult_14'];
+// 자세: 뼈마다 기본 자세에서 더 돌릴 각도(쿼터니언). curl: [왼손, 오른손] 손가락 굽힘. 모든 모델이 같은 뼈대(Bip01)라 함께 쓴다.
+const PERSON_POSES={
+  relaxed:{b:{R_UpperArm:[0,-.389,0,.921],R_Forearm:[0,0,-.125,.992],L_UpperArm:[0,.389,0,.921],L_Forearm:[0,0,-.125,.992]},curl:[.3,.3]},
+  cross:{b:{R_UpperArm:[-.344,-.215,-.428,.808],R_Forearm:[0,0,-.443,.896],R_Hand:[0,0,.435,.9],L_UpperArm:[.4,.201,-.436,.78],L_Forearm:[0,0,-.42,.908],L_Hand:[0,0,.435,.9]},curl:[.35,.35]}, // 팔짱
+  chin:{b:{R_UpperArm:[-.125,-.34,-.501,.786],R_Forearm:[0,0,-.737,.676],R_Hand:[0,-.435,0,.9],L_UpperArm:[.433,.234,-.41,.768],L_Forearm:[0,0,-.398,.918],L_Hand:[0,0,.343,.939]},curl:[.4,.6]}, // 턱 괴기
+  back:{b:{R_UpperArm:[-.714,-.329,-.18,.592],R_Forearm:[0,0,-.29,.957],L_UpperArm:[.683,.341,-.168,.624],L_Forearm:[0,0,-.27,.963]},curl:[.5,.5]}}; // 뒷짐
+const POSE_NAMES=Object.keys(PERSON_POSES);
+function posePerson(o,name){
+  const P=PERSON_POSES[name],q=new THREE.Quaternion(),Z=new THREE.Vector3(0,0,1);
+  o.traverse(b=>{if(!b.isBone)return;const k=b.name.replace(/^Bip0\d_/,'');
+    if(P.b[k])b.quaternion.multiply(q.set(...P.b[k]));
+    const f=/^([LR])_Finger[1-4]\d?$/.exec(k);if(f)b.rotateOnAxis(Z,P.curl[f[1]==='L'?0:1]);});
+}
+let skelUtils=null;
 const peopleCache=new Map();
 function personModel(file){
-  if(!peopleCache.has(file))peopleCache.set(file,gltfLoader().then(l=>l.loadAsync(`/gallery/people/${file}.glb`)).then(gl=>{
+  if(!peopleCache.has(file))peopleCache.set(file,Promise.all([gltfLoader(),skelUtils||=import('three/addons/utils/SkeletonUtils.js')]).then(([l])=>l.loadAsync(`/gallery/people/${file}.glb`)).then(gl=>{
     const s=gl.scene,bb=new THREE.Box3().setFromObject(s);s.userData.h=bb.max.y-bb.min.y;
     s.traverse(o=>{if(o.isMesh)for(const m of [].concat(o.material))if(m.map)m.map.anisotropy=maxAniso;});return s;})
     .catch(err=>{peopleCache.delete(file);throw err;}));
@@ -1280,17 +1291,18 @@ function addVisitor(x,z,yaw,h,v,rm){
   const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
   const S2=visitorShadowMat(),sh=new THREE.Mesh(S2.geo,S2.mat);sh.rotation.x=-Math.PI/2;sh.position.y=.004;sh.scale.set(.62,.46,1);sh.renderOrder=1;g.add(sh);
   colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24});
-  (rm.people||=[]).push({holder:g,file,h});
+  (rm.people||=[]).push({holder:g,file,h,pose:POSE_NAMES[(v>>>5)%POSE_NAMES.length]});
 }
-// 방의 벽 그림 몇 점 앞에, 그림 정면을 살짝 비켜 서서 그림을 바라보게 한다 (감상 시점을 가리지 않게)
+// 방의 벽 그림 몇 점을 방 안쪽(벽에서 3.6m 남짓)에서 바라보게 세운다.
+// 그림을 눌러 감상할 때 카메라는 이보다 벽 가까이 서므로, 어느 그림을 보든 사람이 앞을 가리지 않는다.
 function placeVisitors(rm){
   const mine=artIndex.filter(e=>e.room===rm&&!e.art.model);if(!mine.length)return;
   const hs=hashStr(rm.title),n=mine.length>=5?2:1,lim=S/2-T/2-.6;
   const p=new THREE.Vector3(),q=new THREE.Quaternion(),nrm=new THREE.Vector3();
   for(let i=0;i<n;i++){
     const e=mine[(hs+i*Math.ceil(mine.length/2))%mine.length];e.mesh.getWorldPosition(p);e.mesh.getWorldQuaternion(q);nrm.set(0,0,1).applyQuaternion(q);
-    const side=((hs>>(i+3))&1)?1:-1,d=1.5+((hs>>(i+5))&3)*.15;
-    let x=p.x+nrm.x*d+nrm.z*side*1.05,z=p.z+nrm.z*d-nrm.x*side*1.05;
+    const side=((hs>>(i+3))&1)?1:-1,d=3.6+((hs>>(i+5))&3)*.15;
+    let x=p.x+nrm.x*d+nrm.z*side*.3,z=p.z+nrm.z*d-nrm.x*side*.3;
     x=THREE.MathUtils.clamp(x,rm.cx-lim,rm.cx+lim);z=THREE.MathUtils.clamp(z,rm.cz-lim,rm.cz+lim);
     const yaw=Math.atan2(p.x-x,p.z-z);
     addVisitor(x,z,yaw,1.64+((hs>>>(i*2))&3)*.03,(hs>>>(i*4))+i*8,rm);}
@@ -1823,7 +1835,7 @@ function focusArt(a,{instant=false,cut=false}={}){
   // 처음 그림을 볼 때 서 있던 자리를 기억해 두었다가, 뒤로가기하면 그 자리로 돌아간다 (이전·다음으로 넘길 때는 그대로)
   if(!focused){beforeFocus={...player};openLayer('focus');}
   autoWalk=null;focused=e;fillCard(e.art);
-  const to=viewPose(e.mesh);lastFocusPose=to;
+  const to=viewPose(e.mesh);lastFocusPose=to;clearSightline(to,e.mesh);
   if(cut){tween=null;Object.assign(player,to);}
   else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
   else tween={t:0,dur:.9,from:{...player},to};
@@ -1835,7 +1847,14 @@ function fillCard(a){
   $('cNote').textContent=a.note||'';$('cNote').hidden=!a.note;
 }
 let beforeFocus=null,lastFocusPose=null;
-function hideCard(){focused=null;card.classList.remove('show');}
+function hideCard(){focused=null;card.classList.remove('show');clearSightline();}
+// 그림을 감상하는 동안, 감상 자리와 그림 사이에 선 관람객은 잠시 숨긴다 (to 가 없으면 모두 다시 보인다)
+function clearSightline(to,mesh){
+  const p=new THREE.Vector3();if(mesh)mesh.getWorldPosition(p);
+  for(const rm of rooms)for(const pp of rm.people||[]){const h=pp.holder;if(!to){h.visible=true;continue;}
+    const ax=to.x,az=to.z,bx=p.x-ax,bz=p.z-az,L=bx*bx+bz*bz||1,t=Math.max(0,Math.min(1,((h.position.x-ax)*bx+(h.position.z-az)*bz)/L));
+    h.visible=Math.hypot(h.position.x-(ax+bx*t),h.position.z-(az+bz*t))>.7;}
+}
 function closeCard(){if(!focused)return;hideCard();syncClose('focus');}
 // 뒤로가기: 감상하던 자리에서 움직이지 않았다면 그림을 누르기 전 자리와 방향으로 돌아간다
 layerClose.focus=()=>{
