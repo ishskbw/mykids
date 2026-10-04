@@ -798,6 +798,7 @@ const M={
   plinth:new THREE.MeshStandardMaterial({color:0x2a211c,roughness:.28,metalness:.05}),
   gold:new THREE.MeshStandardMaterial({color:0xc9a04a,roughness:.32,metalness:.85}),
   brass:new THREE.MeshStandardMaterial({color:0xb08d4a,roughness:.4,metalness:.8}),
+  matBevel:new THREE.MeshStandardMaterial({color:0xddd3c0,roughness:.9}),
   leather:new THREE.MeshStandardMaterial({color:0x2e2a26,roughness:.55}),
   mat:new THREE.MeshStandardMaterial({color:0xf7f3ea,roughness:.95}),
   glass:new THREE.MeshBasicMaterial({map:glassTex,color:0xd9dcda,toneMapped:false,side:THREE.DoubleSide}),
@@ -1328,23 +1329,30 @@ function buildFrame(g,a,w,h,cy,s=1){ // s: 작은 실물 크기 작품은 액자
 }
 
 function hang(a,wall,x,rm){
-  // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다. 작을수록 액자도 얇게, 눈높이 가까이 낮게 건다.
+  // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다.
+  // 작은 그림은 실제 미술관처럼 넓은 매트(흰 대지)를 둘러 액자가 너무 작아지지 않게 한다 (매트 바깥 80cm, 액자 바깥 1.1m 남짓).
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
   let w,h;if(real){w=a.widthCm/100;h=a.heightCm/100;}else{w=maxW;h=w/ar;if(h>maxH){h=maxH;w=h*ar;}}
-  const s=real?THREE.MathUtils.clamp(Math.max(w,h)/1.6,.3,1):1;
-  const cy=real?THREE.MathUtils.clamp(1.5+h*.35,1.5,ART_Y):ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
-  const glowG=new THREE.PlaneGeometry(w+2.4*s,h+2.6*s);disposables.push(glowG);
+  const mat=real?Math.max(.06,(.8-Math.max(w,h))/2):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
+  const s=real?THREE.MathUtils.clamp(Math.max(iw,ih)/1.3,.7,1):1;
+  // 걸리는 높이: 미술관처럼 크기와 상관없이 모든 액자의 가운데를 한 높이(ART_Y)에 맞춘다
+  const cy=ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
+  const glowG=new THREE.PlaneGeometry(iw+2.4*s,ih+2.6*s);disposables.push(glowG);
   const glow=new THREE.Mesh(glowG,M.glow);glow.position.set(0,cy+.35*s,.005);g.add(glow);
   // 옛 액자 (양식은 작품마다 다름). 그림은 액자 안쪽 턱 바로 뒤에 놓인다.
-  const fw=buildFrame(g,a,w,h,cy,s);
-  const W=w+fw*2,Hh=h+fw*2;
+  const fw=buildFrame(g,a,iw,ih,cy,s);
+  const W=iw+fw*2,Hh=ih+fw*2,pz=Math.max(.008,.026*s);
+  if(mat){ // 매트: 미색 대지 + 그림 둘레의 비스듬히 잘린 단면(조금 어두운 띠)
+    const mg=new THREE.PlaneGeometry(iw,ih),bg=new THREE.PlaneGeometry(w+.016,h+.016);disposables.push(mg,bg);
+    const mm=new THREE.Mesh(mg,M.mat);mm.position.set(0,cy,pz-.002);mm.userData.art=a;g.add(mm);rayTargets.push(mm);
+    const bv=new THREE.Mesh(bg,M.matBevel);bv.position.set(0,cy,pz-.001);g.add(bv);}
   // 그림 조명
   const ls=Math.max(s,.45),lamp=new THREE.Group();lamp.position.y=cy+Hh/2;lamp.scale.setScalar(ls);g.add(lamp); // 작은 작품은 조명도 작게
   lamp.add(box(Math.min(W*.6,1.2)/ls,.06,.06,M.brass,0,.22,.32));lamp.add(box(.04,.04,.3,M.brass,0,.18,.17));
   const pg=new THREE.PlaneGeometry(w,h);disposables.push(pg);
   const pm=new THREE.MeshBasicMaterial({toneMapped:false,color:PLACEHOLDER});disposables.push(pm);
   (rm.pics||=[]).push({art:a,mat:pm});
-  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,Math.max(.008,.026*s));pic.userData.art=a;pic.userData.w=W;pic.userData.h=Hh;pic.userData.s=s;g.add(pic);
+  const pic=new THREE.Mesh(pg,pm);pic.position.set(0,cy,pz);pic.userData.art=a;pic.userData.w=W;pic.userData.h=Hh;pic.userData.s=s;g.add(pic);
   pickables.push(pic);rayTargets.push(pic);
   // 작품 설명 카드
   // 작품 설명 패널: 실제 미술관 벽 캡션처럼 산세리프 한 가지 글꼴에 굵기로만 위계를 둔다
@@ -1359,7 +1367,8 @@ function hang(a,wall,x,rm){
     if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
       x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
-  label.position.set(W/2+(real?.3:.5),1.42,.02);if(real)label.scale.setScalar(.6);g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
+  label.position.set(W/2+(real?.3:.5),real?cy-Hh/2+.132:1.42,.02);if(real)label.scale.setScalar(.6); // 실물 크기: 설명판 아래 끝을 액자 아래 끝에 맞춘다
+  g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
   label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
   artIndex.push({art:a,mesh:pic,room:rm});
 }
