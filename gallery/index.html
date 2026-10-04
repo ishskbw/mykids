@@ -91,6 +91,17 @@ body.col .hint-tab,body:has(.card.show) .hint-tab{opacity:0;pointer-events:none}
 .card .meta{color:var(--muted);font-size:14px;margin:0}
 .card .note{margin:8px 0 0;font-size:14px;white-space:pre-wrap}
 .card .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+body.remote:not(.editor) #cEdit{display:none}
+/* 액자 위치·크기 편집 막대 */
+.editbar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:6;width:min(560px,calc(100% - 32px));
+  background:var(--panel);color:var(--ink);border-radius:14px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.editbar p{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.editbar label{display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600}
+.editbar input[type=range]{flex:1;accent-color:var(--gold)}
+.editbar output{min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:400}
+.editbar .row{display:flex;gap:8px;margin-top:12px}
+body.editing #stage{cursor:move}
+body.editing .hint,body.editing .hint-tab{display:none}
 .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:8px 14px;font-size:14px}
 .btn:hover,.btn:focus-visible{border-color:var(--gold);outline:none}
 .btn.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:600}
@@ -299,6 +310,11 @@ label.f textarea{resize:vertical;min-height:38px}
   </svg>
 </div>
 
+<div class="editbar" id="editBar" role="dialog" aria-label="액자 위치와 크기 고치기" hidden>
+  <p>액자를 끌어서 벽 위의 자리를 옮기세요</p>
+  <label>액자 크기<input type="range" id="eScale" min="50" max="160" step="5"><output id="eScaleOut"></output></label>
+  <div class="row"><button class="btn" id="eReset">처음 자리로</button><span style="flex:1"></span><button class="btn" id="eCancel">취소</button><button class="btn primary" id="eDone">저장</button></div>
+</div>
 <div class="card" id="card" role="dialog" aria-live="polite">
   <h3 id="cTitle"></h3>
   <p class="meta" id="cMeta"></p>
@@ -307,6 +323,7 @@ label.f textarea{resize:vertical;min-height:38px}
     <button class="btn" id="cPrev">◀ 이전</button>
     <button class="btn" id="cNext">다음 ▶</button>
     <span class="spacer"></span>
+    <button class="btn" id="cEdit">위치·크기</button>
     <button class="btn primary" id="cZoom">크게 보기</button>
     <button class="btn" id="cClose">닫기</button>
   </div>
@@ -563,7 +580,7 @@ function remoteStore({fs,db}){
         await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
         a.blob=orig;a.small=small;}
       // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
-      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',room:a.room||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',room:a.room||'',hangDX:a.hangDX||0,hangDY:a.hangDY||0,frameScale:a.frameScale||1,widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
     },
     async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
     async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
@@ -1342,9 +1359,10 @@ function hang(a,wall,x,rm){
   // 작은 그림은 실제 미술관처럼 넓은 매트(흰 대지)를 둘러 액자가 너무 작아지지 않게 한다 (매트 바깥 80cm, 액자 바깥 1.1m 남짓).
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
   // 실물 크기도 사진 비율은 그대로 두고, 적어 준 가로×세로 안에 꼭 맞게 넣는다 (종이 비율과 사진 비율이 달라 찌그러지지 않게)
-  const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW,maxH];
+  const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
+  const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW*fs,maxH*fs];
   let w=bw,h=w/ar;if(h>bh){h=bh;w=h*ar;}
-  const mat=real?Math.max(.06,(.8-Math.max(w,h))/2):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
+  const mat=real?Math.max(.06,(.8*fs-Math.max(w,h))/2):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
   const s=real?THREE.MathUtils.clamp(Math.max(iw,ih)/1.3,.7,1):1;
   // 걸리는 높이: 미술관처럼 크기와 상관없이 모든 액자의 가운데를 한 높이(ART_Y)에 맞춘다
   const cy=ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
@@ -1353,6 +1371,12 @@ function hang(a,wall,x,rm){
   // 옛 액자 (양식은 작품마다 다름). 그림은 액자 안쪽 턱 바로 뒤에 놓인다.
   const fw=buildFrame(g,a,iw,ih,cy,s);
   const W=iw+fw*2,Hh=ih+fw*2,pz=Math.max(.008,.026*s);
+  // 편집에서 옮긴 자리. 문·벽 끝·천장 장식·걸레받이를 넘지 않게 범위 안으로 맞춘다 (설명판은 액자 오른쪽).
+  {const half=S/2-T/2-.15,door=DOOR_W/2+.15,LX=(real?.3:.5)+.28*(real?.6:1);
+    let lo,hi;if(x>0){lo=door+W/2;hi=half-W/2-LX;}else{lo=-half+W/2;hi=-door-W/2-LX;}if(lo>hi)lo=hi=(lo+hi)/2;
+    const dyMin=.55+Hh/2-cy,dyMax=Math.max(dyMin,H-1.2-Hh/2-cy);
+    g.userData.edit={x,lo,hi,dyMin,dyMax};
+    g.position.set(THREE.MathUtils.clamp(x+(a.hangDX||0),lo,hi),THREE.MathUtils.clamp(a.hangDY||0,dyMin,dyMax),0);}
   if(mat){ // 매트: 미색 대지 + 그림 둘레의 비스듬히 잘린 단면(조금 어두운 띠)
     const mg=new THREE.PlaneGeometry(iw,ih),bg=new THREE.PlaneGeometry(w+.016,h+.016);disposables.push(mg,bg);
     const mm=new THREE.Mesh(mg,M.mat);mm.position.set(0,cy,pz-.002);mm.userData.art=a;g.add(mm);rayTargets.push(mm);
@@ -1487,11 +1511,13 @@ const pinchDist=()=>{const[a,b]=[...pointers.values()];return Math.hypot(a.x-b.x
 const pinchMid=()=>{const[a,b]=[...pointers.values()];return{mx:(a.x+b.x)/2,my:(a.y+b.y)/2};};
 const clampMove=v=>Math.max(-2.5,Math.min(2.5,v));
 stage.addEventListener('pointerdown',e=>{
+  if(editing){editDown(e);return;}
   try{stage.setPointerCapture(e.pointerId);}catch{}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now(),moved:0};
   else{drag=null;pinch=pointers.size===2?{d:pinchDist(),...pinchMid(),mode:null,zd:0,pd:0}:null;}
 });
 stage.addEventListener('pointermove',e=>{
+  if(editing){editMove(e);return;}
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid(),dd=d-pinch.d,dx=mx-pinch.mx,dy=my-pinch.my;
     // 벌리기(앞뒤)와 두 손가락 끌기(옆·앞뒤)를 섞지 않는다: 처음 16px 동안 더 크게 움직인 쪽으로 정하고 손을 뗄 때까지 유지.
@@ -1512,6 +1538,7 @@ stage.addEventListener('pointermove',e=>{
 const DRAG_SPEED={mouse:1.6,pen:1.6,touch:2.1};
 const dragK=(type="mouse")=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,stage.clientHeight)*(DRAG_SPEED[type]||1.6);
 const endPtr=e=>{
+  if(editing){if(editing.drag?.id===e.pointerId)editing.drag=null;return;}
   pointers.delete(e.pointerId);stage.classList.remove('dragging');
   if(pointers.size<2)pinch=null;
   if(drag&&drag.moved<8&&performance.now()-drag.t<500&&e.type==='pointerup')tap(e.clientX,e.clientY,e.pointerType);
@@ -1523,7 +1550,7 @@ stage.addEventListener('wheel',e=>{e.preventDefault();if(tween)return;autoWalk=n
   const unit=e.deltaMode===1?16:e.deltaMode===2?400:1;
   wheelPending=Math.max(-2.5,Math.min(2.5,wheelPending-e.deltaY*unit*.006));
   if(!e.ctrlKey)player.yaw-=e.deltaX*unit*dragK();},{passive:false});
-stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag)return;
+stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag||editing)return;
   ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(rayTargets,false)[0];stage.style.cursor=hit?.object.userData.art||hit?.object.userData.label?'pointer':'';});
 
@@ -1542,7 +1569,8 @@ function tap(x,y,type){
 }
 addEventListener('keydown',e=>{
   if(e.target.closest?.('input,textarea,select,dialog'))return;
-  if(e.code==='Escape'){if(!labelView.hidden)closeLabel();else if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
+  if(e.code==='Escape'){if(editing)endEdit(false);else if(!labelView.hidden)closeLabel();else if(viewer.classList.contains('show'))closeViewer();else closeCard();return;}
+  if(editing)return;
   if(!labelView.hidden)return; // 설명 카드를 보는 동안에는 다른 단축키를 쓰지 않는다
   if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);
     if(e.key==='+'||e.key==='=')$('vZoomIn').click();if(e.key==='-')$('vZoomOut').click();if(e.key==='0')zoomAt(...stageCenter(),1,true);return;}
@@ -1565,7 +1593,7 @@ function viewPose(mesh){
   const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
   const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
   const dist=Math.min(11,Math.max(minD,need));
-  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:s<1?Math.max(1.1,wp.y-.3*s):FOCUS_EYE};
+  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:THREE.MathUtils.clamp(wp.y-.3*s,1.1,3.2)};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
@@ -1621,6 +1649,57 @@ layerClose.focus=()=>{
 };
 function step(d){if(!focused)return;const i=artIndex.indexOf(focused);focusArt(artIndex[(i+d+artIndex.length)%artIndex.length].art);}
 $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').onclick=closeCard;
+
+/* ── 액자 위치·크기 고치기 (가족 계정만): 액자를 끌어 옮기고, 막대로 크기를 바꾼 뒤 저장 ── */
+let editing=null;
+const editGroup=a=>artIndex.find(x=>x.art.id===a.id)?.mesh.parent;
+const wallPlane=new THREE.Plane(),wallHit=new THREE.Vector3();
+function wallPoint(e,g){ // 누른 곳이 벽 위의 어디인지 (벽 기준 좌표)
+  const wall=g.parent;wall.updateMatrixWorld();
+  wallPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0,0,1).transformDirection(wall.matrixWorld),new THREE.Vector3().setFromMatrixPosition(wall.matrixWorld));
+  ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
+  return ray.ray.intersectPlane(wallPlane,wallHit)?wall.worldToLocal(wallHit.clone()):null;
+}
+function startEdit(){
+  if(!focused||(Store.remote&&!editor))return;const a=focused.art;
+  editing={a,orig:{hangDX:a.hangDX||0,hangDY:a.hangDY||0,frameScale:a.frameScale||1},drag:null};
+  tween=null;autoWalk=null;wheelPending=strafePending=0;
+  card.classList.remove('show');document.body.classList.add('editing');
+  $('eScale').value=Math.round((a.frameScale||1)*100);$('eScaleOut').textContent=$('eScale').value+'%';
+  $('editBar').hidden=false;$('eDone').focus();
+}
+function editDown(e){
+  if(editing.drag)return;const g=editGroup(editing.a);if(!g)return;const p=wallPoint(e,g);if(!p)return;
+  try{stage.setPointerCapture(e.pointerId);}catch{}
+  editing.drag={id:e.pointerId,sx:p.x,sy:p.y,gx:g.position.x,gy:g.position.y};
+}
+function editMove(e){
+  const d=editing.drag;if(!d||d.id!==e.pointerId)return;const g=editGroup(editing.a);if(!g)return;const p=wallPoint(e,g);if(!p)return;
+  const u=g.userData.edit,C=THREE.MathUtils.clamp;
+  g.position.x=C(d.gx+p.x-d.sx,u.lo,u.hi);g.position.y=C(d.gy+p.y-d.sy,u.dyMin,u.dyMax);
+  editing.a.hangDX=g.position.x-u.x;editing.a.hangDY=g.position.y;
+}
+// 크기를 바꾸면 액자를 새로 짜야 하므로 미술관을 다시 짓는다 (그림은 캐시에 있어 빠르다). 자리는 그대로 둔다.
+let editRebuildRaf=0;
+function rebuildKeepFocus(){
+  const id=(editing?.a||focused?.art)?.id;build();curRoom=null;
+  if(focused)focused=artIndex.find(x=>x.art.id===id)||null;
+}
+$('eScale').oninput=e=>{if(!editing)return;editing.a.frameScale=+e.target.value/100;$('eScaleOut').textContent=e.target.value+'%';
+  cancelAnimationFrame(editRebuildRaf);editRebuildRaf=requestAnimationFrame(rebuildKeepFocus);};
+$('eReset').onclick=()=>{if(!editing)return;Object.assign(editing.a,{hangDX:0,hangDY:0,frameScale:1});$('eScale').value=100;$('eScaleOut').textContent='100%';rebuildKeepFocus();};
+async function endEdit(save){
+  if(!editing)return;const{a,orig}=editing;editing=null;
+  $('editBar').hidden=true;document.body.classList.remove('editing');
+  if(!save)Object.assign(a,orig);
+  if(Math.abs(a.hangDX||0)<.005)a.hangDX=0;if(Math.abs(a.hangDY||0)<.005)a.hangDY=0;
+  rebuildKeepFocus();
+  if(focused){card.classList.add('show');const to=viewPose(focused.mesh);lastFocusPose=to;tween={t:0,dur:.6,from:{...player},to};}
+  if(save&&a.sample){toast("예시 작품은 저장되지 않아요");return;}
+  if(save&&(a.hangDX!==orig.hangDX||a.hangDY!==orig.hangDY||(a.frameScale||1)!==orig.frameScale)){
+    try{await Store.put(a);toast('액자 자리와 크기를 저장했어요');}catch(err){console.error(err);toast('저장하지 못했어요. 다시 시도해 주세요.');}}
+}
+$('cEdit').onclick=startEdit;$('eDone').onclick=()=>endEdit(true);$('eCancel').onclick=()=>endEdit(false);
 // 크게 보기: 목록(전시 순서 또는 모아보기 순서) 안에서 앞뒤로 넘긴다
 let vList=[],vIdx=0;
 function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');openLayer('viewer');}
