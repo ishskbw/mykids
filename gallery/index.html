@@ -115,6 +115,10 @@ body.editing .hint,body.editing .hint-tab{display:none}
 /* 큰 그림 보기 */
 #viewer{position:fixed;inset:0;z-index:20;background:rgba(10,8,6,.94);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px;gap:12px}
 #viewer.show{display:flex}
+#viewer [hidden]{display:none!important}
+#viewer .vmodel{flex:1;min-height:0;width:100%;touch-action:none;cursor:grab}
+#viewer .vmodel canvas{display:block;width:100%;height:100%}
+#viewer.is3d .zoom{display:none}
 /* 그림이 놓이는 무대: 확대하면 이 안에서만 움직이고, 넘치는 부분은 잘린다 */
 #viewer .vstage{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in}
 #viewer .vstage.zoomed{cursor:grab}
@@ -349,6 +353,7 @@ label.f textarea{resize:vertical;min-height:38px}
 
 <div id="viewer">
   <div class="vstage" id="vStage"><img id="vImg" alt="" draggable="false"></div>
+  <div class="vmodel" id="vModel" hidden></div>
   <!-- 그림 아래 작품 정보 -->
   <div class="vinfo" id="vInfo">
     <span class="vt" id="vTitle"></span>
@@ -406,7 +411,7 @@ label.f textarea{resize:vertical;min-height:38px}
       <label class="drop" id="drop">
         <input type="file" id="fileInput" accept="image/*" multiple hidden>
         <strong>그림 사진 선택하기</strong>
-        <span>여기에 끌어다 놓아도 돼요 · 여러 장 한꺼번에 가능</span>
+        <span>여기에 끌어다 놓아도 돼요 · 여러 장 한꺼번에 가능 · 3D 스캔 파일(.glb)도 돼요</span>
       </label>
       <!-- 안드로이드 크롬은 image/* 를 받으면 휴대폰 사진만 보이는 시스템 사진 선택기를 연다.
            파일 형식을 정하지 않은 입력은 앱 고르기 창을 열어 구글 포토·파일 앱에서 고를 수 있다. -->
@@ -435,7 +440,7 @@ label.f textarea{resize:vertical;min-height:38px}
 <datalist id="mediumList">
   <option value="도화지에 크레파스"><option value="도화지에 색연필"><option value="도화지에 오일파스텔"><option value="도화지에 수채화">
   <option value="도화지에 사인펜"><option value="도화지에 연필"><option value="도화지에 물감"><option value="도화지에 혼합 재료">
-  <option value="캔버스에 유화"><option value="캔버스에 아크릴"><option value="종이에 콜라주"><option value="점토"><option value="사진"><option value="디지털 그림">
+  <option value="캔버스에 유화"><option value="캔버스에 아크릴"><option value="종이에 콜라주"><option value="점토"><option value="3D 스캔"><option value="사진"><option value="디지털 그림">
 </datalist>
 
 <!-- 작품 관리 -->
@@ -533,6 +538,7 @@ const LocalStore={
   getMeta:k=>tx('meta','readonly',s=>s.get(k)),
   setMeta:(k,v)=>tx('meta','readwrite',s=>s.put(v,k)),
   original:async a=>a.blob,
+  model:async a=>a.glb,
   // 예전에 올린 그림에 작은 사본이 없으면 처음 볼 때 만들어 저장해 둔다
   small:async a=>{if(!a.small){a.small=await smallFromBlob(a.blob);LocalStore.put(a).catch(()=>{});}return a.small;},
 };
@@ -578,11 +584,16 @@ function remoteStore({fs,db}){
       if(images){const orig=await fitBlob(a.blob),small=a.small||await smallFromBlob(orig);
         await fs.setDoc(d('originals',a.id),{data:await toBytes(orig)});
         await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
-        a.blob=orig;a.small=small;}
+        a.blob=orig;a.small=small;
+        if(a.glb){const buf=new Uint8Array(await a.glb.arrayBuffer()),CH=900*1024,n=Math.ceil(buf.length/CH);
+          for(let i=0;i<n;i++)await fs.setDoc(d('originals',`${a.id}~m${i}`),{data:fs.Bytes.fromUint8Array(buf.subarray(i*CH,(i+1)*CH))});
+          a.modelParts=n;}}
       // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
-      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',room:a.room||'',hangDX:a.hangDX||0,hangDY:a.hangDY||0,frameScale:a.frameScale||1,widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',room:a.room||'',hangDX:a.hangDX||0,hangDY:a.hangDY||0,frameScale:a.frameScale||1,model:!!a.model,modelParts:a.modelParts||0,widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
     },
-    async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
+    async del(id,parts=0){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id)),
+      ...Array.from({length:parts},(_,i)=>fs.deleteDoc(d('originals',`${id}~m${i}`)))]);},
+    model:async a=>a.glb||new Blob(await Promise.all(Array.from({length:a.modelParts||0},(_,i)=>image('originals',`${a.id}~m${i}`))),{type:'model/gltf-binary'}),
     async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
     setMeta:(k,v)=>fs.setDoc(d('settings',k),v),
     original:async a=>a.blob||image('originals',a.id),
@@ -820,6 +831,8 @@ const M={
   gold:new THREE.MeshStandardMaterial({color:0xc9a04a,roughness:.32,metalness:.85}),
   brass:new THREE.MeshStandardMaterial({color:0xb08d4a,roughness:.4,metalness:.8}),
   matBevel:new THREE.MeshStandardMaterial({color:0xddd3c0,roughness:.9}),
+  pedestal:new THREE.MeshStandardMaterial({color:0xefeae0,roughness:.85}), // 3D 작품 받침대
+  invisible:new THREE.MeshBasicMaterial({visible:false}), // 누르기용 보이지 않는 판
   leather:new THREE.MeshStandardMaterial({color:0x2e2a26,roughness:.55}),
   mat:new THREE.MeshStandardMaterial({color:0xf7f3ea,roughness:.95}),
   glass:new THREE.MeshBasicMaterial({map:glassTex,color:0xd9dcda,toneMapped:false,side:THREE.DoubleSide}),
@@ -957,10 +970,15 @@ function streamTextures(){
     else if(p.want){p.want=false;p.mat.map=null;p.mat.color.set(PLACEHOLDER);p.mat.needsUpdate=true;}
   }
   for(const id of [...texCache.keys()])if(!wanted.has(id))releaseTexture(id);
+  for(const rm of rooms)for(const m of rm.models||[]){
+    if(near.has(rm)){if(!m.want){m.want=true;artModel(m.art).then(w=>{if(!m.want||m.holder.children.length)return;
+      const o=w.clone(true);o.scale.multiplyScalar(m.holder.userData.size);m.holder.add(o);}).catch(err=>console.warn(err));}}
+    else if(m.want){m.want=false;m.holder.clear();}
+  }
 }
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
-const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
+const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 /* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
    '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
@@ -981,8 +999,10 @@ function planRooms(){
   for(const a of arts){const k=groupKey(a);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(a);}
   const keys=[...groups.keys()];if(state.groupBy==='year')keys.sort();
   const rooms=[{title:'로비',lobby:true,arts:[],color:LOBBY_WALL}];
-  keys.forEach((k,gi)=>{const list=groups.get(k),n=Math.max(1,Math.ceil(list.length/PER_ROOM));
-    for(let i=0;i<n;i++)rooms.push({title:groupTitle(k)+(n>1?` ${i+1}`:''),arts:list.slice(i*PER_ROOM,(i+1)*PER_ROOM),color:WALL_COLORS[gi%WALL_COLORS.length]});});
+  keys.forEach((k,gi)=>{const list=groups.get(k),flat=list.filter(a=>!a.model),solid=list.filter(a=>a.model);
+    const n=Math.max(1,Math.ceil(flat.length/PER_ROOM),Math.ceil(solid.length/PER_ROOM_3D));
+    for(let i=0;i<n;i++)rooms.push({title:groupTitle(k)+(n>1?` ${i+1}`:''),
+      arts:[...flat.slice(i*PER_ROOM,(i+1)*PER_ROOM),...solid.slice(i*PER_ROOM_3D,(i+1)*PER_ROOM_3D)],color:WALL_COLORS[gi%WALL_COLORS.length]});});
   // 로비를 첫 줄 가운데에 두고 나머지 방은 격자를 채운다.
   const rows=Math.ceil(rooms.length/COLS);const cells=[];
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++)cells.push([c,r]);
@@ -1091,7 +1111,7 @@ function drawWrapped(x,text,left,top,width,lh,maxY){
 
 function build(){
   if(world){scene.remove(world);disposables.forEach(d=>d.dispose());}
-  disposables=[];colliders=[];pickables=[];rayTargets=[];artIndex=[];cellMap=new Map();
+  disposables=[];colliders=[];pickables=[];rayTargets=[];artIndex=[];spinners=[];cellMap=new Map();
   world=new THREE.Group();scene.add(world);
   rooms=planRooms();rooms.forEach(rm=>cellMap.set(cellKey(rm.c,rm.r),rm));
   const at=(c,r)=>cellMap.get(cellKey(c,r));
@@ -1171,7 +1191,8 @@ function build(){
     }
     // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽
     const slots=[];for(const k of ['N','E','S','W'])for(const x of [-SLOT_X,SLOT_X])slots.push([k,x]);
-    rm.arts.forEach((a,i)=>{const[k,x]=slots[i];hang(a,wallGroups[k],x,rm);});
+    rm.arts.filter(a=>!a.model).forEach((a,i)=>{const[k,x]=slots[i];hang(a,wallGroups[k],x,rm);});
+    rm.arts.filter(a=>a.model).forEach((a,i)=>showcase(a,rm,PEDESTALS[i]));
   }
 }
 
@@ -1354,6 +1375,81 @@ function buildFrame(g,a,w,h,cy,s=1){ // s: 작은 실물 크기 작품은 액자
   return fw;
 }
 
+/* ───────────────────────── 3D 작품 (휴대폰 3D 스캔 GLB) ───────────────────────── */
+// 받침대 자리: 방 가운데에서 대각선으로 떨어진 네 곳. 벽 그림을 감상하는 자리와 문에서 가운데로 오는 길은 비운다.
+const PEDESTALS=[[-2.7,-2.7],[2.7,-2.7],[2.7,2.7],[-2.7,2.7]];
+let spinners=[]; // 천천히 도는 3D 작품
+let gltfLib=null;
+function gltfLoader(){ // 처음 3D 작품을 볼 때만 불러온다
+  return gltfLib||=(async()=>{
+    const[{GLTFLoader},{DRACOLoader},{MeshoptDecoder}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),
+      import('three/addons/loaders/DRACOLoader.js'),import('three/addons/libs/meshopt_decoder.module.js')]);
+    const l=new GLTFLoader(),dr=new DRACOLoader();dr.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');
+    l.setDRACOLoader(dr);l.setMeshoptDecoder(MeshoptDecoder);return l;})();
+}
+// GLB → 바닥 가운데가 원점, 가장 긴 변이 1m 가 되도록 맞춘 모형 (dims: 맞춘 뒤 가로·높이·깊이)
+async function parseModel(blob){
+  const l=await gltfLoader(),gl=await l.parseAsync(await blob.arrayBuffer(),''),obj=gl.scene;obj.updateMatrixWorld(true);
+  const bb=new THREE.Box3().setFromObject(obj),sz=bb.getSize(new THREE.Vector3()),c=bb.getCenter(new THREE.Vector3());
+  const k=1/Math.max(sz.x,sz.y,sz.z,1e-6),wrap=new THREE.Group();
+  obj.position.x-=c.x;obj.position.y-=bb.min.y;obj.position.z-=c.z;wrap.add(obj);wrap.scale.setScalar(k);
+  obj.traverse(o=>{if(o.isMesh)for(const m of [].concat(o.material||[]))if(m.map)m.map.anisotropy=maxAniso;});
+  wrap.userData.dims={x:sz.x*k,y:sz.y*k,z:sz.z*k};return wrap;
+}
+const modelCache=new Map();
+function artModel(a){
+  if(!modelCache.has(a.id))modelCache.set(a.id,Store.model(a).then(b=>{if(!b)throw new Error('no model');return parseModel(b);}).catch(err=>{modelCache.delete(a.id);throw err;}));
+  return modelCache.get(a.id);
+}
+// 올릴 때 미리보기 사진: 밝은 배경에서 비스듬히 위에서 본 모습 (모아보기·카드·평면도에 쓴다)
+async function modelThumb(blob){
+  const wrap=await parseModel(blob),d=wrap.userData.dims,N=1024;
+  const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(N,N,false);
+  r.outputColorSpace=THREE.SRGBColorSpace;r.toneMapping=renderer.toneMapping;r.toneMappingExposure=renderer.toneMappingExposure;
+  const sc=new THREE.Scene(),pm=new THREE.PMREMGenerator(r),env=pm.fromScene(new RoomEnvironment(),.04).texture;
+  sc.background=new THREE.Color(0xebe6dc);sc.environment=env;sc.add(wrap);
+  const cam=new THREE.PerspectiveCamera(30,1,.01,100),rad=Math.hypot(d.x,d.y,d.z)/2,dist=rad/Math.sin(THREE.MathUtils.degToRad(15))*1.05;
+  cam.position.set(dist*.55,d.y/2+dist*.3,dist*.78);cam.lookAt(0,d.y/2,0);r.render(sc,cam);
+  const c=document.createElement('canvas');c.width=c.height=N;c.getContext('2d').drawImage(r.domElement,0,0);
+  env.dispose();pm.dispose();r.dispose();r.forceContextLoss();return c;
+}
+function showcase(a,rm,[sx,sz]){
+  const real=a.widthCm>0&&a.heightCm>0,C=THREE.MathUtils.clamp;
+  // 모형의 가장 긴 변(m): 크기를 적었으면 그 크기, 아니면 45cm. 편집에서 고른 배율을 곱한다.
+  const size=C((real?Math.max(a.widthCm,a.heightCm)/100:.45)*(a.frameScale||1),.08,1.6);
+  const pw=C(size*.9+.15,.45,1.1),ph=size>.9?.45:size>.5?.75:1.0; // 받침대 폭·높이: 큰 작품은 낮은 받침대
+  const x0=rm.cx+sx,z0=rm.cz+sz,lim=S/2-T/2-pw/2-.4;
+  const g=new THREE.Group();world.add(g);
+  g.position.set(C(x0+(a.hangDX||0),rm.cx-lim,rm.cx+lim),0,C(z0+(a.hangDY||0),rm.cz-lim,rm.cz+lim));
+  g.rotation.y=Math.atan2(-sx,-sz); // 앞(+z)이 방 가운데를 보게
+  g.userData.edit={floor:true,x0,z0,xlo:rm.cx-lim,xhi:rm.cx+lim,zlo:rm.cz-lim,zhi:rm.cz+lim};
+  const ped=box(pw,ph,pw,M.pedestal,0,ph/2,0);g.add(ped);g.add(box(pw+.04,.06,pw+.04,M.plinth,0,.03,0));
+  ped.userData.art=a;rayTargets.push(ped);
+  const holder=new THREE.Group();holder.position.y=ph;holder.userData.size=size;g.add(holder);spinners.push(holder);
+  (rm.models||=[]).push({art:a,holder});
+  // 누르면 감상: 보이지 않는 판 (방 가운데 쪽을 본다). 조금 위에서 내려다보게 눈높이와 고개를 정해 둔다.
+  const ag=new THREE.PlaneGeometry(size,size);disposables.push(ag);
+  const anchor=new THREE.Mesh(ag,M.invisible);anchor.position.set(0,ph+size/2,0);
+  Object.assign(anchor.userData,{art:a,w:Math.max(size,pw)+.2,h:size+.5,s:.6,eye:ph+size*.6+.3,pitch:-.22});
+  g.add(anchor);pickables.push(anchor);rayTargets.push(anchor);
+  const label=makeLabel(a);label.scale.setScalar(.5);label.position.set(0,Math.max(.2,ph*.6),pw/2+.004);g.add(label);
+  label.userData.label=a;rayTargets.push(label);
+  colliders.push({x0:g.position.x-pw/2-.15,x1:g.position.x+pw/2+.15,z0:g.position.z-pw/2-.15,z1:g.position.z+pw/2+.15});
+  artIndex.push({art:a,mesh:anchor,room:rm});
+}
+// 작품 설명판 (벽 캡션)
+function makeLabel(a){
+  return textPlane(.56,.44,800,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.textBaseline='top';
+    const P=26,F='"Pretendard Variable",sans-serif';let y=P;
+    fitText(x,a.title||'제목 없음','700 {s}px '+F,cw-P*2,28);x.fillStyle='#1e1a15';x.fillText(a.title||'제목 없음',P,y);y+=40;
+    x.font='600 19px '+F;x.fillStyle='#2a2219';if(byline(a)){x.fillText(byline(a),P,y);y+=27;}
+    x.font='400 17px '+F;x.fillStyle='#4d4336';
+    if(yearOf(a)){x.fillText(yearOf(a),P,y);y+=25;}
+    if(mediumLine(a))y+=25*drawWrapped(x,mediumLine(a),P,y,cw-P*2,25,y+50);
+    if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
+      x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
+  },{transparent:false});
+}
 function hang(a,wall,x,rm){
   // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다.
   // 작은 그림은 실제 미술관처럼 넓은 매트(흰 대지)를 둘러 액자가 너무 작아지지 않게 한다 (매트 바깥 80cm, 액자 바깥 1.1m 남짓).
@@ -1392,16 +1488,7 @@ function hang(a,wall,x,rm){
   // 작품 설명 카드
   // 작품 설명 패널: 실제 미술관 벽 캡션처럼 산세리프 한 가지 글꼴에 굵기로만 위계를 둔다
   //   작품명(굵게) / 작가 / 연도 / 재료·기법 / 짧은 선 / 작품 설명
-  const label=textPlane(.56,.44,800,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.textBaseline='top';
-    const P=26,F='"Pretendard Variable",sans-serif';let y=P;
-    fitText(x,a.title||'제목 없음','700 {s}px '+F,cw-P*2,28);x.fillStyle='#1e1a15';x.fillText(a.title||'제목 없음',P,y);y+=40;
-    x.font='600 19px '+F;x.fillStyle='#2a2219';if(byline(a)){x.fillText(byline(a),P,y);y+=27;}
-    x.font='400 17px '+F;x.fillStyle='#4d4336';
-    if(yearOf(a)){x.fillText(yearOf(a),P,y);y+=25;}
-    if(mediumLine(a))y+=25*drawWrapped(x,mediumLine(a),P,y,cw-P*2,25,y+50);
-    if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
-      x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
-  },{transparent:false});
+  const label=makeLabel(a);
   label.position.set(W/2+(real?.3:.5),real?cy-Hh/2+.132:1.42,.02);if(real)label.scale.setScalar(.6); // 실물 크기: 설명판 아래 끝을 액자 아래 끝에 맞춘다
   g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
   label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
@@ -1594,7 +1681,7 @@ function viewPose(mesh){
   const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
   const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
   const dist=Math.min(11,Math.max(minD,need));
-  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:0,eye:THREE.MathUtils.clamp(wp.y-.3*s,1.1,3.2)};
+  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.3*s,1.1,3.2)};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
@@ -1667,16 +1754,22 @@ function startEdit(){
   tween=null;autoWalk=null;wheelPending=strafePending=0;
   card.classList.remove('show');document.body.classList.add('editing');
   $('eScale').value=Math.round((a.frameScale||1)*100);$('eScaleOut').textContent=$('eScale').value+'%';
+  $('editBar').querySelector('p').textContent=a.model?'받침대를 끌어서 바닥 위의 자리를 옮기세요':'액자를 끌어서 벽 위의 자리를 옮기세요';
+  $('eScale').previousSibling.textContent=a.model?'작품 크기':'액자 크기';
   $('editBar').hidden=false;$('eDone').focus();
 }
+function floorPoint(e){ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
+  wallPlane.set(new THREE.Vector3(0,1,0),0);return ray.ray.intersectPlane(wallPlane,wallHit)?wallHit.clone():null;}
 function editDown(e){
-  if(editing.drag)return;const g=editGroup(editing.a);if(!g)return;const p=wallPoint(e,g);if(!p)return;
+  if(editing.drag)return;const g=editGroup(editing.a);if(!g)return;const fl=g.userData.edit.floor,p=fl?floorPoint(e):wallPoint(e,g);if(!p)return;
   try{stage.setPointerCapture(e.pointerId);}catch{}
-  editing.drag={id:e.pointerId,sx:p.x,sy:p.y,gx:g.position.x,gy:g.position.y};
+  editing.drag={id:e.pointerId,sx:p.x,sy:fl?p.z:p.y,gx:g.position.x,gy:fl?g.position.z:g.position.y};
 }
 function editMove(e){
-  const d=editing.drag;if(!d||d.id!==e.pointerId)return;const g=editGroup(editing.a);if(!g)return;const p=wallPoint(e,g);if(!p)return;
-  const u=g.userData.edit,C=THREE.MathUtils.clamp;
+  const d=editing.drag;if(!d||d.id!==e.pointerId)return;const g=editGroup(editing.a);if(!g)return;
+  const u=g.userData.edit,C=THREE.MathUtils.clamp,p=u.floor?floorPoint(e):wallPoint(e,g);if(!p)return;
+  if(u.floor){g.position.x=C(d.gx+p.x-d.sx,u.xlo,u.xhi);g.position.z=C(d.gy+p.z-d.sy,u.zlo,u.zhi);
+    editing.a.hangDX=g.position.x-u.x0;editing.a.hangDY=g.position.z-u.z0;return;}
   g.position.x=C(d.gx+p.x-d.sx,u.lo,u.hi);g.position.y=C(d.gy+p.y-d.sy,u.dyMin,u.dyMax);
   editing.a.hangDX=g.position.x-u.x;editing.a.hangDY=g.position.y;
 }
@@ -1705,7 +1798,9 @@ $('cEdit').onclick=startEdit;$('eDone').onclick=()=>endEdit(true);$('eCancel').o
 let vList=[],vIdx=0;
 function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');openLayer('viewer');}
 // 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다
-function showViewer(){const a=vList[vIdx],img=$('vImg');img.alt=a.title||'';img.removeAttribute('src');resetZoom();
+function showViewer(){const a=vList[vIdx],img=$('vImg');
+  if(a.model){show3D(a);fillViewerInfo(a);$('vPrev').disabled=$('vNext').disabled=vList.length<2;return;}
+  hide3D();img.alt=a.title||'';img.removeAttribute('src');resetZoom();
   smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
   img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
   fillViewerInfo(a);
@@ -1731,8 +1826,31 @@ layerClose.label=()=>{labelView.hidden=true;};
 $('labelClose').onclick=closeLabel;
 labelView.addEventListener('click',e=>{if(e.target===labelView)closeLabel();});
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
-function closeViewer(){viewer.classList.remove('show');syncClose('viewer');}
-layerClose.viewer=()=>viewer.classList.remove('show');
+function closeViewer(){hide3D();viewer.classList.remove('show');syncClose('viewer');}
+let v3=null;
+function v3Tick(){if(!v3?.on)return;const box=$('vModel'),w=box.clientWidth||1,h=box.clientHeight||1;
+  if(v3.w!==w||v3.h!==h){v3.w=w;v3.h=h;v3.r.setSize(w,h,false);v3.cam.aspect=w/h;v3.cam.updateProjectionMatrix();}
+  v3.ctl.update();v3.r.render(v3.sc,v3.cam);requestAnimationFrame(v3Tick);}
+async function show3D(a){
+  viewer.classList.add('is3d');$('vStage').hidden=true;$('vModel').hidden=false;
+  if(!v3){const{OrbitControls}=await import('three/addons/controls/OrbitControls.js');
+    const r=new THREE.WebGLRenderer({antialias:true,alpha:true});r.setPixelRatio(Math.min(devicePixelRatio,2));r.setClearColor(0,0);
+    r.outputColorSpace=THREE.SRGBColorSpace;r.toneMapping=renderer.toneMapping;r.toneMappingExposure=renderer.toneMappingExposure;
+    const sc=new THREE.Scene(),pm=new THREE.PMREMGenerator(r);sc.environment=pm.fromScene(new RoomEnvironment(),.04).texture;pm.dispose();
+    const cam=new THREE.PerspectiveCamera(35,1,.01,50),ctl=new OrbitControls(cam,r.domElement);
+    ctl.enableDamping=true;ctl.autoRotateSpeed=1.5;ctl.addEventListener('start',()=>ctl.autoRotate=false);
+    $('vModel').append(r.domElement);v3={r,sc,cam,ctl,obj:null,on:false,cur:null};}
+  if(v3.obj){v3.sc.remove(v3.obj);v3.obj=null;}
+  v3.cur=a.id;v3.ctl.autoRotate=true;if(!v3.on){v3.on=true;v3Tick();}
+  try{const w=await artModel(a);if(v3.cur!==a.id||!v3.on)return;
+    const o=w.clone(true),d=w.userData.dims,rad=Math.hypot(d.x,d.y,d.z)/2,dist=rad/Math.sin(THREE.MathUtils.degToRad(17.5))*1.1;
+    v3.obj=o;v3.sc.add(o);v3.ctl.target.set(0,d.y/2,0);v3.cam.position.set(dist*.55,d.y/2+dist*.3,dist*.78);
+    v3.cam.near=dist/100;v3.cam.far=dist*20;v3.cam.updateProjectionMatrix();v3.ctl.minDistance=rad*.5;v3.ctl.maxDistance=dist*3;v3.ctl.update();}
+  catch(err){console.error(err);toast('3D 작품을 불러오지 못했어요');}
+}
+function hide3D(){viewer.classList.remove('is3d');$('vStage').hidden=false;$('vModel').hidden=true;
+  if(v3){v3.on=false;v3.cur=null;if(v3.obj){v3.sc.remove(v3.obj);v3.obj=null;}}}
+layerClose.viewer=()=>{hide3D();viewer.classList.remove('show');};
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
 // 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
@@ -1975,7 +2093,7 @@ function renderPending(){
     const th=document.createElement('div');th.className='thumb';
     const cv=drawRotated(p.bitmap,p.rot,240);th.append(cv);
     const row=document.createElement('div');row.className='row';
-    const rot=document.createElement('button');rot.type='button';rot.className='btn';rot.textContent='↻ 돌리기';rot.onclick=()=>{p.rot=(p.rot+90)%360;cv.replaceWith(drawRotated(p.bitmap,p.rot,240));renderPending();};
+    const rot=document.createElement('button');rot.type='button';rot.className='btn';rot.textContent='↻ 돌리기';rot.hidden=!!p.model;rot.onclick=()=>{p.rot=(p.rot+90)%360;cv.replaceWith(drawRotated(p.bitmap,p.rot,240));renderPending();};
     const rm=document.createElement('button');rm.type='button';rm.className='btn danger';rm.textContent='빼기';rm.onclick=()=>{pending.splice(idx,1);renderPending();};
     row.append(rot,rm);th.append(row);
     const fs=document.createElement('div');fs.className='fields';
@@ -1992,9 +2110,18 @@ function renderPending(){
   $('btnSave').disabled=!pending.length;
 }
 async function addFiles(files){
-  const imgs=[...files].filter(f=>f.type.startsWith('image/')||/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name));
-  if(!imgs.length){if(files.length)toast('그림(사진) 파일만 올릴 수 있어요');return;}
-  for(const f of imgs){try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
+  const isGlb=f=>/\.glb$/i.test(f.name)||f.type==='model/gltf-binary';
+  const imgs=[...files].filter(f=>isGlb(f)||f.type.startsWith('image/')||/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name));
+  if(!imgs.length){if(files.length)toast('그림(사진)이나 3D 스캔(.glb) 파일만 올릴 수 있어요');return;}
+  for(const f of imgs){
+    // 3D 스캔: 미리보기 사진을 만들어 그림처럼 다루고, GLB 파일을 함께 올린다
+    if(isGlb(f)){if(f.size>40*1024*1024){toast(`${f.name} 파일이 너무 커요 (40MB까지). 스캔 앱에서 용량을 줄여 내보내 주세요.`);continue;}
+      $('upCount').textContent='3D 작품 준비 중…';
+      try{const bitmap=await createImageBitmap(await modelThumb(f));
+        pending.push({bitmap,rot:0,model:f,gear:'',title:f.name.replace(/\.[^.]+$/,''),artist:$('commonArtist').value,date:$('commonDate').value||fileDate(f),medium:$("commonMedium").value,size:$("commonSize").value,room:$("commonRoom").value,note:""});}
+      catch(err){console.error(err);toast(`${f.name} 3D 파일을 열 수 없었어요`);}
+      continue;}
+    try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
     pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,room:$("commonRoom").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
   renderPending();
@@ -2002,6 +2129,8 @@ async function addFiles(files){
 $('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').value=localStorage.getItem('kg-last-artist')||'';$('commonDate').value='';$('commonRoom').value='';renderPending();markKid();$('dlgUpload').showModal();};
 $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 $('fileInputAny').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+// 안드로이드는 image/* 일 때만 사진 선택기가 열리므로 그대로 두고, 3D 파일은 '다른 앱에서 고르기'로 고른다
+if(!/android/i.test(navigator.userAgent))$('fileInput').accept='image/*,.glb';
 if(/android/i.test(navigator.userAgent))$('otherApp').hidden=$('otherAppTip').hidden=false;
 const drop=$('drop');
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
@@ -2026,6 +2155,7 @@ $('btnSave').onclick=async()=>{
       const c=drawRotated(p.bitmap,p.rot,2048);const blob=await fitCanvas(c);
       const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await canvasBlob(sc,.85);
       const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),gear:p.gear||'',room:roomName(p.room),...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
+      if(p.model)Object.assign(a,{model:true,glb:p.model});
       await Store.put(a,{images:true});saved.push(a);
     }
     try{localStorage.setItem('kg-last-artist',pending.at(-1)?.artist||'');}catch{}
@@ -2056,7 +2186,7 @@ function renderManage(){
     const go=document.createElement('button');go.className='btn';go.textContent='보러 가기';go.onclick=()=>{$('dlgManage').close();showSpace();focusArt(a,{instant:true});};
     const del=document.createElement('button');del.className='btn danger';del.textContent='삭제';
     del.onclick=async()=>{if(!confirm(`‘${a.title}’을(를) 미술관에서 내릴까요? 되돌릴 수 없어요.`))return;
-      try{await Store.del(a.id);}catch(err){console.error(err);return toast('지우지 못했어요. 인터넷 연결이나 로그인을 확인해 주세요.');}
+      try{await Store.del(a.id,a.modelParts||0);modelCache.delete(a.id);}catch(err){console.error(err);return toast('지우지 못했어요. 인터넷 연결이나 로그인을 확인해 주세요.');}
       state.arts=state.arts.filter(x=>x!==a);if(a.url)URL.revokeObjectURL(a.url);if(a.surl)URL.revokeObjectURL(a.surl);dirty=true;renderManage();};
     row.append(go,del);th.append(row);
     const fs=document.createElement('div');fs.className='fields';
@@ -2185,6 +2315,7 @@ async function loadCanvasFonts(withArts=true){
 const clock=new THREE.Clock();
 function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
   world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});
+  for(const o of spinners)o.rotation.y+=dt*.25;
   if(!colOpen())renderer.render(scene,camera);requestAnimationFrame(loop);}
 // 화면 글자용 글꼴은 Firebase 연결·목록 받기와 동시에 받기 시작한다
 const fontsEarly=loadCanvasFonts(false);
