@@ -1516,7 +1516,7 @@ function showcase(a,rm,[sx,sz]){
   Object.assign(anchor.userData,{art:a,w:Math.max(size,pw)+.2,h:size+.5,s:.6,eye:ph+size*.6+.3,pitch:-.22});
   g.add(anchor);pickables.push(anchor);rayTargets.push(anchor);
   const label=makeLabel(a);label.scale.setScalar(.38);label.position.set(0,Math.max(.18,ph*.6),pw/2+.004);g.add(label);
-  label.userData.label=a;rayTargets.push(label);
+  label.userData.label=a;label.userData.hit.userData.label=a;rayTargets.push(label,label.userData.hit);
   colliders.push({x0:g.position.x-pw/2-.15,x1:g.position.x+pw/2+.15,z0:g.position.z-pw/2-.15,z1:g.position.z+pw/2+.15});
   artIndex.push({art:a,mesh:anchor,room:rm});
 }
@@ -1539,6 +1539,7 @@ function labelExtras(){
   return labelParts={edgeG:new THREE.BoxGeometry(.56,.44,LABEL_D),edgeM:new THREE.MeshStandardMaterial({color:0xe9e2d4,roughness:.75}),
     shG:new THREE.PlaneGeometry(.56/.625,.44/.625),shM:new THREE.MeshBasicMaterial({map:st,color:0x1a120a,transparent:true,opacity:.62,depthWrite:false,toneMapped:false})};
 }
+let L_HIT=null;
 function makeLabel(a){
   const m=textPlane(.56,.44,800,(x,cw,ch)=>{
     // 위에서 빛을 받는 판: 위쪽은 조금 밝고 아래로 갈수록 살짝 어둡게, 위·왼쪽 모서리는 밝은 선, 아래·오른쪽은 그늘진 선
@@ -1555,6 +1556,8 @@ function makeLabel(a){
     if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
       x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
+  // 손가락으로 누르기 쉽게 설명판보다 조금 넓은 보이지 않는 터치 영역
+  if(!L_HIT)L_HIT=new THREE.PlaneGeometry(.56*1.45,.44*1.6);const hit=new THREE.Mesh(L_HIT,M.invisible);hit.position.z=.003;m.add(hit);m.userData.hit=hit;
   const L=labelExtras(),edge=new THREE.Mesh(L.edgeG,L.edgeM);edge.position.z=-LABEL_D/2-.0005;m.add(edge);
   const sh=new THREE.Mesh(L.shG,L.shM);sh.position.set(.016,-.028,-LABEL_D-.002);m.add(sh);
   return m;
@@ -1612,7 +1615,7 @@ function hang(a,wall,slo,shi,rm,doorWall=true){
   const label=makeLabel(a);
   label.position.set(W/2+LOFF,Math.max(.9,cy-Hh/2)+.22*LS,.02);label.scale.setScalar(LS); // 실물 크기: 설명판 아래 끝을 액자 아래 끝에 맞춘다
   g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
-  label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
+  label.userData.label=a;label.userData.hit.userData.label=a;rayTargets.push(label,label.userData.hit); // 누르면 설명 카드를 크게 본다
   artIndex.push({art:a,mesh:pic,room:rm});
 }
 
@@ -1766,11 +1769,13 @@ stage.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||drag||editi
 // 휴대폰에서 화면 아래쪽(발치)을 톡 하면 뒤로 물러난다. 바로 앞 바닥이라 '그리로 걷기'로는 거의 안 움직이기 때문.
 const BACK_ZONE=.88, BACK_STEP=2.5; // 화면 아래 12% (발자국 표시 영역과 같아야 한다)
 function tap(x,y,type){
-  if(type==='touch'&&y>stage.clientHeight*BACK_ZONE){closeCard();autoWalk=null;wheelPending=-BACK_STEP;return;}
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObjects(rayTargets,false)[0];if(!hit)return;
-  if(hit.object.userData.label){openLabel(hit.object.userData.label);return;}
-  if(hit.object.userData.art){focusArt(hit.object.userData.art);return;}
+  const hit=ray.intersectObjects(rayTargets,false)[0];
+  // 그림·설명판을 눌렀으면 화면 아래쪽이어도 먼저 연다 (큰 그림의 설명판은 낮게 붙어 있어 화면 아래에 오기 쉽다)
+  if(hit?.object.userData.label){openLabel(hit.object.userData.label);return;}
+  if(hit?.object.userData.art){focusArt(hit.object.userData.art);return;}
+  if(type==='touch'&&y>stage.clientHeight*BACK_ZONE){closeCard();autoWalk=null;wheelPending=-BACK_STEP;return;}
+  if(!hit)return;
   if(hit.object.userData.floor){closeCard();
     // 휴대폰에서 발자국 바로 위 바닥처럼 가까운 곳을 누르면 거의 안 움직이므로, 적어도 뒤로 물러나는 만큼은 앞으로 간다
     if(type==='touch'&&Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<BACK_STEP){autoWalk=null;wheelPending=BACK_STEP;return;}
