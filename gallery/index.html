@@ -984,6 +984,10 @@ function streamTextures(){
     else if(p.want){p.want=false;p.mat.map=null;p.mat.color.set(PLACEHOLDER);p.mat.needsUpdate=true;}
   }
   for(const id of [...texCache.keys()])if(!wanted.has(id))releaseTexture(id);
+  for(const rm of rooms)for(const pp of rm.people||[]){
+    if(!near.has(rm)||pp.loaded)continue;pp.loaded=true;
+    personModel(pp.file).then(s=>{if(!pp.holder.parent)return;const o=s.clone(true);o.scale.setScalar(pp.h/(s.userData.h||1.75));pp.holder.add(o);}).catch(err=>{pp.loaded=false;console.warn(err);});
+  }
   for(const rm of rooms)for(const m of rm.models||[]){
     if(near.has(rm)){if(!m.want){m.want=true;artModel(m.art).then(w=>{if(!m.want||m.holder.children.length)return;
       const o=w.clone(true);o.scale.multiplyScalar(m.holder.userData.size);m.holder.add(o);}).catch(err=>console.warn(err));}}
@@ -992,7 +996,7 @@ function streamTextures(){
 }
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
-const S=16, H=5.2, T=0.4, DOOR_W=3.4, DOOR_H=2.8, COLS=3, EYE=1.6, ART_Y=1.7, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
+const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.9, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 /* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
    '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
@@ -1190,7 +1194,7 @@ function build(){
     }
     if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);
       // 로비에도 이름판을 바라보는 관람객 두 명
-      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.72,0);addVisitor(rm.cx+1.1,rm.cz-.6,Math.PI+.25,1.18,3);continue;}
+      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.76,0x10,rm);addVisitor(rm.cx-.95,rm.cz-1.05,Math.PI-.15,1.64,0x08,rm);addVisitor(rm.cx+1.4,rm.cz-.5,Math.PI+.25,1.25,0x00,rm);continue;}
     // 가운데 벤치(남북으로 길게)와 그 양옆의 바닥 통풍 그릴 한 쌍
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
@@ -1251,27 +1255,32 @@ const FRAME_STYLES=[
     bands:[[0,3,'beads','gilt',14],[3,4,'plain','gilt'],[4,5,'flutes','gilt',7],[5,8,'eggdart','gilt',5],[8,10,'plain','gilt']] },
 ];
 const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
-/* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명. 건축 모형 속 사람처럼 단순한 형태 ── */
-let visitorKit=null;
-function visitorParts(){
-  if(visitorKit)return visitorKit;
-  const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.85});
-  return visitorKit={
-    leg:new THREE.CapsuleGeometry(.065,.62,4,10),body:new THREE.CapsuleGeometry(.16,.42,4,14),arm:new THREE.CapsuleGeometry(.048,.5,4,8),
-    head:new THREE.SphereGeometry(.105,18,14),hair:new THREE.SphereGeometry(.112,18,10,0,Math.PI*2,0,Math.PI*.55),
-    skin:mat(0xc9ad92),pants:mat(0x2b2b30),hairM:[mat(0x2a211b),mat(0x5a3d2b),mat(0x1c1c1f)],
-    coats:[mat(0x3a4250),mat(0x7a4f3a),mat(0x8b8f78),mat(0x5b3f5e),mat(0xb8a27c),mat(0x34515a)]};
+/* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명 ── */
+// 사람 모델: Microsoft Rocketbox 아바타(MIT)를 서 있는 자세로 바꾸고 가볍게 줄인 GLB (gallery/people/, LICENSE.txt 참고)
+const PEOPLE_ADULT=['female_adult_02','female_adult_15','male_adult_03','male_adult_14'],PEOPLE_KID=['male_child_01','female_child_01'];
+const peopleCache=new Map();
+function personModel(file){
+  if(!peopleCache.has(file))peopleCache.set(file,gltfLoader().then(l=>l.loadAsync(`/gallery/people/${file}.glb`)).then(gl=>{
+    const s=gl.scene,bb=new THREE.Box3().setFromObject(s);s.userData.h=bb.max.y-bb.min.y;
+    s.traverse(o=>{if(o.isMesh)for(const m of [].concat(o.material))if(m.map)m.map.anisotropy=maxAniso;});return s;})
+    .catch(err=>{peopleCache.delete(file);throw err;}));
+  return peopleCache.get(file);
 }
-// 키 h(m)인 사람을 (x,z)에 세운다. yaw: 바라보는 방향(앞이 +z). v: 옷·머리색 고르는 수
-function addVisitor(x,z,yaw,h,v){
-  const P=visitorParts(),g=new THREE.Group(),coat=P.coats[v%P.coats.length];
-  const add=(geo,m,px,py,pz,rx=0,rz=0,sx=1,sz=1)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.rotation.set(rx,0,rz);o.scale.set(sx,1,sz);g.add(o);return o;};
-  for(const s of [-1,1])add(P.leg,P.pants,s*.085,.4,0);
-  add(P.body,coat,0,1.06,0,0,0,1,.72);
-  for(const s of [-1,1])add(P.arm,coat,s*.21,1.06,-.04,.18,s*.06); // 팔은 뒤로 살짝 (뒷짐)
-  add(P.head,P.skin,0,1.5,.01);add(P.hair,P.hairM[v%3],0,1.515,-.005,-.25);
-  g.scale.setScalar(h/1.62);g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
-  colliders.push({x0:x-.22,x1:x+.22,z0:z-.22,z1:z+.22});
+let visitorShadow=null;
+function visitorShadowMat(){
+  if(visitorShadow)return visitorShadow;
+  const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),gr=x.createRadialGradient(64,64,4,64,64,62);
+  gr.addColorStop(0,'rgba(0,0,0,.5)');gr.addColorStop(.6,'rgba(0,0,0,.2)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,128,128);
+  return visitorShadow={mat:new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}),geo:new THREE.PlaneGeometry(1,1)};
+}
+// 키 h(m)인 사람을 (x,z)에 세운다. yaw: 바라보는 방향(앞이 +z). v: 사람을 고르는 수.
+// 모델은 그 방(이나 옆방)에 들어설 때 불러온다 (streamTextures).
+function addVisitor(x,z,yaw,h,v,rm){
+  const list=h<1.4?PEOPLE_KID:PEOPLE_ADULT,file=list[(v>>>3)%list.length];
+  const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
+  const S2=visitorShadowMat(),sh=new THREE.Mesh(S2.geo,S2.mat);sh.rotation.x=-Math.PI/2;sh.position.y=.004;sh.scale.set(.62,.46,1);sh.renderOrder=1;g.add(sh);
+  colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24});
+  (rm.people||=[]).push({holder:g,file,h});
 }
 // 방의 벽 그림 몇 점 앞에, 그림 정면을 살짝 비켜 서서 그림을 바라보게 한다 (감상 시점을 가리지 않게)
 function placeVisitors(rm){
@@ -1284,7 +1293,7 @@ function placeVisitors(rm){
     let x=p.x+nrm.x*d+nrm.z*side*1.05,z=p.z+nrm.z*d-nrm.x*side*1.05;
     x=THREE.MathUtils.clamp(x,rm.cx-lim,rm.cx+lim);z=THREE.MathUtils.clamp(z,rm.cz-lim,rm.cz+lim);
     const yaw=Math.atan2(p.x-x,p.z-z),kid=i===1&&(hs&1);
-    addVisitor(x,z,yaw,kid?1.2:1.66+((hs>>(i*2))&3)*.03,(hs>>(i*4))+i);}
+    addVisitor(x,z,yaw,kid?1.25:1.66+((hs>>>(i*2))&3)*.03,(hs>>>(i*4))+i*8,rm);}
 }
 const hashStr=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
 
@@ -1540,7 +1549,7 @@ function makeLabel(a){
   const sh=new THREE.Mesh(L.shG,L.shM);sh.position.set(.016,-.028,-LABEL_D-.002);m.add(sh);
   return m;
 }
-const SHOW_MIN=1.3; // 실제 크기가 이보다 작은 그림은 긴 변을 1.3m 로 키워 건다 (넓은 전시실에서도 잘 보이게)
+const SHOW_MIN=.6; // 실제 크기가 이보다 작은 그림은 긴 변을 60cm 로 키워 건다 (사람 키와 견줘도 어색하지 않을 만큼만)
 // 벽 그림 자리: 문 양옆 기둥(문 가장자리에서 45cm, 지름 70cm)에 가리지 않도록 기둥 바깥부터 쓴다
 const HANG_IN=DOOR_W/2+.45+.45,HANG_OUT=S/2-T/2-.15;
 function hang(a,wall,slo,shi,rm,doorWall=true){
@@ -1550,15 +1559,15 @@ function hang(a,wall,slo,shi,rm,doorWall=true){
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1);
   // 액자 오른쪽 설명판까지 합친 묶음이 자리 안에 들어가도록 크기를 맞추고, 묶음을 자리 가운데에 둔다
   const LS=real?.45:.62,LOFF=real?.22:.35; // 설명판 크기 배율과 액자와의 간격
-  const slotW=shi-slo,LX0=LOFF+.28*LS,narrow=slotW<4,maxW=Math.min(2.3,slotW-.2-LX0-.6),maxH=narrow?1.4:1.6;
+  const slotW=shi-slo,LX0=LOFF+.28*LS,narrow=slotW<4,maxW=Math.min(1.25,slotW-.2-LX0-.6),maxH=narrow?1:1.1; // 크기를 모르는 그림은 보통 유화 크기(1m 남짓)로
   const x=(slo+shi)/2-LX0/2;
   // 실물 크기도 사진 비율은 그대로 두고, 적어 준 가로×세로 안에 꼭 맞게 넣는다 (종이 비율과 사진 비율이 달라 찌그러지지 않게)
   const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
   const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW*fs,maxH*fs];
   let w=bw,h=w/ar;if(h>bh){h=bh;w=h*ar;}
   if(real){const k=Math.max(1,SHOW_MIN/Math.max(w,h));w*=k;h*=k;}
-  const mat=real?Math.max(.06,(1.0*fs-Math.max(w,h))/2):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
-  const s=real?THREE.MathUtils.clamp(Math.max(iw,ih)/1.3,.7,1):1;
+  const mat=real?THREE.MathUtils.clamp((.8*fs-Math.max(w,h))/2,.05,.12):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
+  const s=THREE.MathUtils.clamp(Math.max(iw,ih)/1.7,.35,1); // 액자 폭·두께: 작은 그림일수록 얇게
   // 걸리는 높이: 미술관처럼 크기와 상관없이 모든 액자의 가운데를 한 높이(ART_Y)에 맞춘다
   const cy=ART_Y,g=new THREE.Group();g.position.set(x,0,0);wall.add(g);
   const glowG=new THREE.PlaneGeometry(iw+2.4*s,ih+2.6*s);disposables.push(glowG);
@@ -1622,7 +1631,7 @@ function buildLobby(rm,walls,hasDoor){
     else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',maxW,230);x.fillText(state.name,w/2,h*.55);}
     const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
     fitText(x,msg,'500 {s}px "Pretendard Variable",sans-serif',maxW,50);x.fillStyle='#6f5a3a';x.fillText(msg,w/2,h*.9);});
-  t.scale.setScalar(.85);t.position.set(0,2.55,.03);walls.N.add(t);
+  t.position.set(0,3.6,.03);walls.N.add(t);
   // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
   const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
   for(const s of [-1,1]){const x=rm.cx+s*4.6,z=rm.cz-.5;
@@ -1632,7 +1641,7 @@ function buildLobby(rm,walls,hasDoor){
 }
 
 /* ───────────────────────── 이동 & 충돌 ───────────────────────── */
-const START={x:S,z:6.4,yaw:0,pitch:.04,eye:EYE};
+const START={x:S,z:6.4,yaw:0,pitch:.07,eye:EYE};
 const player={...START};
 const R=.38,keys=new Set();
 let autoWalk=null, tween=null, focused=null;
@@ -1783,7 +1792,7 @@ function viewPose(mesh){
   const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
   const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
   const dist=Math.min(11,Math.max(minD,need));
-  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.1,1.1,3.2)};
+  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.25,1.1,3.2)};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
