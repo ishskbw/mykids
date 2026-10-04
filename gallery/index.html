@@ -992,7 +992,7 @@ function streamTextures(){
 }
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
-const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
+const S=16, H=5.2, T=0.4, DOOR_W=3.4, DOOR_H=2.8, COLS=3, EYE=1.6, ART_Y=1.7, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 /* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
    '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
@@ -1188,7 +1188,9 @@ function build(){
       for(const[s0,s1]of segs){g.add(box(s1-s0,.42,.07,M.plinth,(s0+s1)/2,.21,.035));g.add(box(s1-s0,.05,.1,M.gold,(s0+s1)/2,.44,.05));}
       g.add(box(S-T,.35,.25,M.stone,0,H-.55,.12));g.add(box(S-T,.12,.35,M.gold,0,H-.8,.17));
     }
-    if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);continue;}
+    if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);
+      // 로비에도 이름판을 바라보는 관람객 두 명
+      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.72,0);addVisitor(rm.cx+1.1,rm.cz-.6,Math.PI+.25,1.18,3);continue;}
     // 가운데 벤치(남북으로 길게)와 그 양옆의 바닥 통풍 그릴 한 쌍
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
@@ -1196,26 +1198,30 @@ function build(){
     // 벤치는 막지 않는다: 걸어서 그대로 지나갈 수 있다
     for(const s of [-1,1])world.add(box(.95,.008,4.6,grilleMat,cx+s*2.3,.004,cz));
     // 벽 그림이 8점을 넘으면 '촘촘히' 건다: 벽 한쪽에 두 점까지 (방 이름은 그림과 겹치지 않게 위로)
-    const flat=rm.arts.filter(a=>!a.model),dense=flat.length>8;
-    // 문이 없는 첫 벽 가운데에 방 이름
+    const flat=rm.arts.filter(a=>!a.model);
+    // 문이 없는 첫 벽 위쪽(처마 띠 바로 아래)에 방 이름을 한 줄로
     const plainWall=['N','E','S','W'].find(k=>!hasDoor[k]);
     if(plainWall){
-      const t=textPlane(4.6,1.5,160,(x,w,h)=>{x.textAlign='center';x.fillStyle='#ecd394';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=8;
-        fitText(x,rm.title,'600 {s}px "Hahmlet",serif',w-40,110);x.fillText(rm.title,w/2,h*.48);
-        x.font='500 44px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
-      t.position.set(0,dense?4.4:2.6,.03);wallGroups[plainWall].add(t);
+      const t=textPlane(5,.62,200,(x,w,h)=>{x.textAlign='center';x.textBaseline='middle';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=6;
+        const sub=rm.arts.length?`  ·  작품 ${rm.arts.length}점`:'  ·  아직 비어 있어요';
+        x.font='600 76px "Hahmlet",serif';const tw=x.measureText(rm.title).width;x.font='500 40px "Pretendard Variable",sans-serif';const sw=x.measureText(sub).width;
+        const sc=Math.min(1,(w-40)/(tw+sw)),x0=(w-(tw+sw)*sc)/2;x.save();x.translate(x0,h/2);x.scale(sc,sc);x.textAlign='left';
+        x.font='600 76px "Hahmlet",serif';x.fillStyle='#ecd394';x.fillText(rm.title,0,0);
+        x.font='500 40px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.8)';x.fillText(sub,tw,4);x.restore();});
+      t.position.set(0,H-1.25,.03);wallGroups[plainWall].add(t);
     }
-    // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽. 자리마다 [벽, 왼쪽 끝 x, 오른쪽 끝 x]
-    // 한쪽 자리는 문 기둥 바깥(HANG_IN)부터 벽 끝(HANG_OUT)까지. 액자+설명판 묶음을 그 가운데에 건다.
-    // 촘촘히 걸 때는 작품 수를 네 벽에 고르게 나누고, 한쪽에 두 점이면 그 쪽을 반씩 나눠 쓴다.
-    const slots=[],I=HANG_IN,O=HANG_OUT,MID=(I+O)/2;
-    if(!dense){for(const k of ['N','E','S','W'])for(const sp of [[-O,-I],[I,O]])slots.push([k,...sp]);}
-    else{const n=flat.length,base=Math.floor(n/4),extra=n%4;
-      ['N','E','S','W'].forEach((k,wi)=>{const c=base+(wi<extra?1:0);
-        const pos=c<=2?[[-O,-I],[I,O]].slice(0,c):c===3?[[-O,-MID],[-MID,-I],[I,O]]:[[-O,-MID],[-MID,-I],[I,MID],[MID,O]];
-        for(const sp of pos)slots.push([k,...sp]);});}
-    flat.forEach((a,i)=>{const[k,lo,hi]=slots[i];hang(a,wallGroups[k],lo,hi,rm);});
+    // 작품 걸기: 자리마다 [벽, 왼쪽 끝 x, 오른쪽 끝 x]. 액자+설명판 묶음을 자리 가운데에 건다.
+    // 문 있는 벽은 문 기둥 바깥(HANG_IN)부터 벽 끝(HANG_OUT)까지 양쪽(한쪽 두 점까지),
+    // 문 없는 벽은 벽 전체를 쓴다(다섯 점까지). 작품 수는 벽마다 채운 비율이 고르게 되도록 나눈다.
+    const slots=[],I=HANG_IN,O=HANG_OUT,walls4=['N','E','S','W'],cap=k=>hasDoor[k]?4:5,cnt={N:0,E:0,S:0,W:0};
+    for(let i=0;i<flat.length;i++){const k=walls4.filter(k=>cnt[k]<cap(k)).sort((a,b)=>cnt[a]/cap(a)-cnt[b]/cap(b)||cap(b)-cap(a))[0];if(!k)break;cnt[k]++;}
+    const split=(a,b,c)=>Array.from({length:c},(_,i)=>[a+(b-a)*i/c,a+(b-a)*(i+1)/c]);
+    for(const k of walls4){const c=cnt[k];if(!c)continue;
+      const pos=hasDoor[k]?[...split(-O,-I,Math.ceil(c/2)),...split(I,O,Math.floor(c/2))]:split(-O,O,c);
+      for(const sp of pos)slots.push([k,...sp]);}
+    flat.forEach((a,i)=>{const s=slots[i];if(s)hang(a,wallGroups[s[0]],s[1],s[2],rm,!!hasDoor[s[0]]);});
     rm.arts.filter(a=>a.model).forEach((a,i)=>showcase(a,rm,PEDESTALS[i]));
+    placeVisitors(rm);
   }
 }
 
@@ -1245,6 +1251,41 @@ const FRAME_STYLES=[
     bands:[[0,3,'beads','gilt',14],[3,4,'plain','gilt'],[4,5,'flutes','gilt',7],[5,8,'eggdart','gilt',5],[8,10,'plain','gilt']] },
 ];
 const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
+/* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명. 건축 모형 속 사람처럼 단순한 형태 ── */
+let visitorKit=null;
+function visitorParts(){
+  if(visitorKit)return visitorKit;
+  const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.85});
+  return visitorKit={
+    leg:new THREE.CapsuleGeometry(.065,.62,4,10),body:new THREE.CapsuleGeometry(.16,.42,4,14),arm:new THREE.CapsuleGeometry(.048,.5,4,8),
+    head:new THREE.SphereGeometry(.105,18,14),hair:new THREE.SphereGeometry(.112,18,10,0,Math.PI*2,0,Math.PI*.55),
+    skin:mat(0xc9ad92),pants:mat(0x2b2b30),hairM:[mat(0x2a211b),mat(0x5a3d2b),mat(0x1c1c1f)],
+    coats:[mat(0x3a4250),mat(0x7a4f3a),mat(0x8b8f78),mat(0x5b3f5e),mat(0xb8a27c),mat(0x34515a)]};
+}
+// 키 h(m)인 사람을 (x,z)에 세운다. yaw: 바라보는 방향(앞이 +z). v: 옷·머리색 고르는 수
+function addVisitor(x,z,yaw,h,v){
+  const P=visitorParts(),g=new THREE.Group(),coat=P.coats[v%P.coats.length];
+  const add=(geo,m,px,py,pz,rx=0,rz=0,sx=1,sz=1)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.rotation.set(rx,0,rz);o.scale.set(sx,1,sz);g.add(o);return o;};
+  for(const s of [-1,1])add(P.leg,P.pants,s*.085,.4,0);
+  add(P.body,coat,0,1.06,0,0,0,1,.72);
+  for(const s of [-1,1])add(P.arm,coat,s*.21,1.06,-.04,.18,s*.06); // 팔은 뒤로 살짝 (뒷짐)
+  add(P.head,P.skin,0,1.5,.01);add(P.hair,P.hairM[v%3],0,1.515,-.005,-.25);
+  g.scale.setScalar(h/1.62);g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
+  colliders.push({x0:x-.22,x1:x+.22,z0:z-.22,z1:z+.22});
+}
+// 방의 벽 그림 몇 점 앞에, 그림 정면을 살짝 비켜 서서 그림을 바라보게 한다 (감상 시점을 가리지 않게)
+function placeVisitors(rm){
+  const mine=artIndex.filter(e=>e.room===rm&&!e.art.model);if(!mine.length)return;
+  const hs=hashStr(rm.title),n=mine.length>=5?2:1,lim=S/2-T/2-.6;
+  const p=new THREE.Vector3(),q=new THREE.Quaternion(),nrm=new THREE.Vector3();
+  for(let i=0;i<n;i++){
+    const e=mine[(hs+i*Math.ceil(mine.length/2))%mine.length];e.mesh.getWorldPosition(p);e.mesh.getWorldQuaternion(q);nrm.set(0,0,1).applyQuaternion(q);
+    const side=((hs>>(i+3))&1)?1:-1,d=1.5+((hs>>(i+5))&3)*.15;
+    let x=p.x+nrm.x*d+nrm.z*side*1.05,z=p.z+nrm.z*d-nrm.x*side*1.05;
+    x=THREE.MathUtils.clamp(x,rm.cx-lim,rm.cx+lim);z=THREE.MathUtils.clamp(z,rm.cz-lim,rm.cz+lim);
+    const yaw=Math.atan2(p.x-x,p.z-z),kid=i===1&&(hs&1);
+    addVisitor(x,z,yaw,kid?1.2:1.66+((hs>>(i*2))&3)*.03,(hs>>(i*4))+i);}
+}
 const hashStr=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
 
 // 높이 그림(흑백) → 요철 지도(normal map). 가로는 이어지게(반복), 세로는 끝에서 멈춘다.
@@ -1499,17 +1540,17 @@ function makeLabel(a){
   const sh=new THREE.Mesh(L.shG,L.shM);sh.position.set(.016,-.028,-LABEL_D-.002);m.add(sh);
   return m;
 }
-const SHOW_MIN=.8; // 실제 크기가 이보다 작은 그림은 긴 변을 80cm 로 키워 건다
+const SHOW_MIN=1.3; // 실제 크기가 이보다 작은 그림은 긴 변을 1.3m 로 키워 건다 (넓은 전시실에서도 잘 보이게)
 // 벽 그림 자리: 문 양옆 기둥(문 가장자리에서 45cm, 지름 70cm)에 가리지 않도록 기둥 바깥부터 쓴다
 const HANG_IN=DOOR_W/2+.45+.45,HANG_OUT=S/2-T/2-.15;
-function hang(a,wall,slo,shi,rm){
+function hang(a,wall,slo,shi,rm,doorWall=true){
   // 크기를 적은 작품은 실제 크기(cm → m)를 바탕으로 건다. 다만 가상 공간이라 너무 작으면 잘 안 보이므로,
   // 긴 변이 SHOW_MIN 보다 작은 그림은 그 길이까지 키워 건다 (설명판의 크기는 실제 크기 그대로).
   // 둘레에는 실제 미술관처럼 매트(흰 대지)를 둘러 액자에 여유를 준다.
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1);
   // 액자 오른쪽 설명판까지 합친 묶음이 자리 안에 들어가도록 크기를 맞추고, 묶음을 자리 가운데에 둔다
   const LS=real?.45:.62,LOFF=real?.22:.35; // 설명판 크기 배율과 액자와의 간격
-  const slotW=shi-slo,LX0=LOFF+.28*LS,narrow=slotW<4,maxW=Math.min(2.3,slotW-.2-LX0-.6),maxH=narrow?1.6:1.95;
+  const slotW=shi-slo,LX0=LOFF+.28*LS,narrow=slotW<4,maxW=Math.min(2.3,slotW-.2-LX0-.6),maxH=narrow?1.4:1.6;
   const x=(slo+shi)/2-LX0/2;
   // 실물 크기도 사진 비율은 그대로 두고, 적어 준 가로×세로 안에 꼭 맞게 넣는다 (종이 비율과 사진 비율이 달라 찌그러지지 않게)
   const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
@@ -1530,7 +1571,7 @@ function hang(a,wall,slo,shi,rm){
     const sh=new THREE.Mesh(sg,frameShadow());sh.position.set(.012,cy-.035-.03*s,.004);g.add(sh);}
   // 편집에서 옮긴 자리. 문·벽 끝·천장 장식·걸레받이를 넘지 않게 범위 안으로 맞춘다 (설명판은 액자 오른쪽).
   {const half=HANG_OUT,door=HANG_IN,LX=LX0;
-    let lo,hi;if(x>0){lo=door+W/2;hi=half-W/2-LX;}else{lo=-half+W/2;hi=-door-W/2-LX;}if(lo>hi)lo=hi=(lo+hi)/2;
+    let lo,hi;if(!doorWall){lo=-half+W/2;hi=half-W/2-LX;}else if(x>0){lo=door+W/2;hi=half-W/2-LX;}else{lo=-half+W/2;hi=-door-W/2-LX;}if(lo>hi)lo=hi=(lo+hi)/2;
     const dyMin=.55+Hh/2-cy,dyMax=Math.max(dyMin,H-1.2-Hh/2-cy);
     g.userData.edit={x,lo,hi,dyMin,dyMax};
     g.position.set(THREE.MathUtils.clamp(x+(a.hangDX||0),lo,hi),THREE.MathUtils.clamp(a.hangDY||0,dyMin,dyMax),0);}
@@ -1550,7 +1591,7 @@ function hang(a,wall,slo,shi,rm){
   // 작품 설명 패널: 실제 미술관 벽 캡션처럼 산세리프 한 가지 글꼴에 굵기로만 위계를 둔다
   //   작품명(굵게) / 작가 / 연도 / 재료·기법 / 짧은 선 / 작품 설명
   const label=makeLabel(a);
-  label.position.set(W/2+LOFF,(real?cy-Hh/2:1.2)+.22*LS,.02);label.scale.setScalar(LS); // 실물 크기: 설명판 아래 끝을 액자 아래 끝에 맞춘다
+  label.position.set(W/2+LOFF,Math.max(.9,cy-Hh/2)+.22*LS,.02);label.scale.setScalar(LS); // 실물 크기: 설명판 아래 끝을 액자 아래 끝에 맞춘다
   g.add(label); // 실물 크기 작품 옆 설명판은 실제 미술관처럼 작게
   label.userData.label=a;rayTargets.push(label); // 누르면 설명 카드를 크게 본다
   artIndex.push({art:a,mesh:pic,room:rm});
@@ -1581,7 +1622,7 @@ function buildLobby(rm,walls,hasDoor){
     else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',maxW,230);x.fillText(state.name,w/2,h*.55);}
     const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
     fitText(x,msg,'500 {s}px "Pretendard Variable",sans-serif',maxW,50);x.fillStyle='#6f5a3a';x.fillText(msg,w/2,h*.9);});
-  t.position.set(0,3.6,.03);walls.N.add(t);
+  t.scale.setScalar(.85);t.position.set(0,2.55,.03);walls.N.add(t);
   // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
   const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
   for(const s of [-1,1]){const x=rm.cx+s*4.6,z=rm.cz-.5;
@@ -1591,7 +1632,7 @@ function buildLobby(rm,walls,hasDoor){
 }
 
 /* ───────────────────────── 이동 & 충돌 ───────────────────────── */
-const START={x:S,z:6.4,yaw:0,pitch:.12,eye:EYE};
+const START={x:S,z:6.4,yaw:0,pitch:.04,eye:EYE};
 const player={...START};
 const R=.38,keys=new Set();
 let autoWalk=null, tween=null, focused=null;
@@ -1742,7 +1783,7 @@ function viewPose(mesh){
   const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
   const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
   const dist=Math.min(11,Math.max(minD,need));
-  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.3*s,1.1,3.2)};
+  return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.1,1.1,3.2)};
 }
 function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
 
