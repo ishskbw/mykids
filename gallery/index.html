@@ -978,7 +978,7 @@ function streamTextures(){
 }
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
-const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
+const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 /* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
    '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
@@ -1181,17 +1181,25 @@ function build(){
     for(const s of [-1,1])world.add(box(.7,.34,.12,M.wood,cx,.17,cz+s*1.4));
     // 벤치는 막지 않는다: 걸어서 그대로 지나갈 수 있다
     for(const s of [-1,1])world.add(box(.95,.008,4.6,grilleMat,cx+s*2.3,.004,cz));
+    // 벽 그림이 8점을 넘으면 '촘촘히' 건다: 벽 한쪽에 두 점까지 (방 이름은 그림과 겹치지 않게 위로)
+    const flat=rm.arts.filter(a=>!a.model),dense=flat.length>8;
     // 문이 없는 첫 벽 가운데에 방 이름
     const plainWall=['N','E','S','W'].find(k=>!hasDoor[k]);
     if(plainWall){
       const t=textPlane(4.6,1.5,160,(x,w,h)=>{x.textAlign='center';x.fillStyle='#ecd394';x.shadowColor='rgba(0,0,0,.5)';x.shadowBlur=8;
         fitText(x,rm.title,'600 {s}px "Hahmlet",serif',w-40,110);x.fillText(rm.title,w/2,h*.48);
         x.font='500 44px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
-      t.position.set(0,2.6,.03);wallGroups[plainWall].add(t);
+      t.position.set(0,dense?4.4:2.6,.03);wallGroups[plainWall].add(t);
     }
-    // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽
-    const slots=[];for(const k of ['N','E','S','W'])for(const x of [-SLOT_X,SLOT_X])slots.push([k,x]);
-    rm.arts.filter(a=>!a.model).forEach((a,i)=>{const[k,x]=slots[i];hang(a,wallGroups[k],x,rm);});
+    // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽. 자리마다 [벽, 가운데 x, 자리 폭]
+    // 촘촘히 걸 때는 작품 수를 네 벽에 고르게 나누고, 한쪽에 두 점이면 그 쪽을 반씩 나눠 쓴다.
+    const slots=[],SIDE=5.8,HALF=2.9,C1=3.3,C2=6.2; // 문(또는 방 이름) 옆부터 벽 끝까지 한쪽 길이 5.8m
+    if(!dense){for(const k of ['N','E','S','W'])for(const x of [-SLOT_X,SLOT_X])slots.push([k,x,SIDE]);}
+    else{const n=flat.length,base=Math.floor(n/4),extra=n%4;
+      ['N','E','S','W'].forEach((k,wi)=>{const c=base+(wi<extra?1:0);
+        const pos=c<=2?[[-SLOT_X,SIDE],[SLOT_X,SIDE]].slice(0,c):c===3?[[-C2,HALF],[-C1,HALF],[SLOT_X,SIDE]]:[[-C2,HALF],[-C1,HALF],[C1,HALF],[C2,HALF]];
+        for(const[x,w]of pos)slots.push([k,x,w]);});}
+    flat.forEach((a,i)=>{const[k,x,w]=slots[i];hang(a,wallGroups[k],x,rm,w);});
     rm.arts.filter(a=>a.model).forEach((a,i)=>showcase(a,rm,PEDESTALS[i]));
   }
 }
@@ -1450,10 +1458,13 @@ function makeLabel(a){
       x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
 }
-function hang(a,wall,x,rm){
+function hang(a,wall,x,rm,slotW=5.8){
   // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다.
   // 작은 그림은 실제 미술관처럼 넓은 매트(흰 대지)를 둘러 액자가 너무 작아지지 않게 한다 (매트 바깥 80cm, 액자 바깥 1.1m 남짓).
-  const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1),maxW=2.3,maxH=1.95;
+  const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1);
+  // 좁은 자리(촘촘히 걸 때): 액자와 오른쪽 설명판이 자리 안에 들어가도록 크기를 줄이고, 둘을 합쳐 가운데에 둔다
+  const LX0=real?.47:.78,narrow=slotW<5,maxW=narrow?Math.min(2.3,slotW-.2-LX0-.6):2.3,maxH=narrow?1.6:1.95;
+  if(narrow)x-=LX0/2;
   // 실물 크기도 사진 비율은 그대로 두고, 적어 준 가로×세로 안에 꼭 맞게 넣는다 (종이 비율과 사진 비율이 달라 찌그러지지 않게)
   const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
   const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW*fs,maxH*fs];
