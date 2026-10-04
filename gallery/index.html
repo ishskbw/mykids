@@ -1192,9 +1192,7 @@ function build(){
       for(const[s0,s1]of segs){g.add(box(s1-s0,.42,.07,M.plinth,(s0+s1)/2,.21,.035));g.add(box(s1-s0,.05,.1,M.gold,(s0+s1)/2,.44,.05));}
       g.add(box(S-T,.35,.25,M.stone,0,H-.55,.12));g.add(box(S-T,.12,.35,M.gold,0,H-.8,.17));
     }
-    if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);
-      // 로비에도 이름판을 바라보는 관람객 세 명
-      addVisitor(rm.cx-1.7,rm.cz-1.2,Math.PI-.55,1.76,80,rm);addVisitor(rm.cx-.85,rm.cz-1.0,Math.PI+.2,1.64,104,rm);addVisitor(rm.cx+1.5,rm.cz-.5,Math.PI+.6,1.72,56,rm);continue;}
+    if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);continue;}
     // 가운데 벤치(남북으로 길게)와 그 양옆의 바닥 통풍 그릴 한 쌍
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
