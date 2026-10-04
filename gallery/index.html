@@ -2312,9 +2312,24 @@ async function runInstall(){if(!installEvt)return;installEvt.prompt();await inst
 const askInstallSoon=()=>{const t=setInterval(()=>{if($('loading').classList.contains('gone')){clearInterval(t);setTimeout(()=>{if(shouldAskInstall())openInstall();},1500);}},300);};
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('btnInstall').hidden=false;askInstallSoon();});
 addEventListener('appinstalled',()=>{installEvt=null;$('btnInstall').hidden=true;installBox.classList.remove('show');toast('홈 화면에 공공의 미술관을 설치했어요');});
-{const ua=navigator.userAgent;if(/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios|edgios/i.test(ua)){$('installIos').hidden=false;$('installYes').textContent='알겠어요';askInstallSoon();}}
+// 카카오톡 같은 메신저 안의 브라우저는 앱을 설치할 수 없다 → 크롬(아이폰은 사파리)으로 옮겨 열도록 돕는다
+let openOutside=null;
+{const ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua),android=/android/i.test(ua),kakao=/KAKAOTALK/i.test(ua);
+  const inApp=kakao||/NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|BAND\/|; wv\)/i.test(ua);
+  const show=(title,html,yes)=>{$('installTitle').textContent=title;const p=$('installIos');p.innerHTML=html;p.hidden=false;$('installYes').textContent=yes;askInstallSoon();};
+  if(inApp){const url=location.href;
+    if(kakao)openOutside=()=>{location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);};
+    else if(android)openOutside=()=>{location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';};
+    const outside=ios?'Safari':'크롬';
+    show(`앱은 ${outside}에서 설치할 수 있어요`,
+      openOutside?`지금은 메신저 안의 브라우저라 설치할 수 없어요. <b>${outside}에서 열기</b>를 누르면 ${outside}로 옮겨 가서 설치할 수 있어요.`
+        :`지금은 메신저 안의 브라우저라 설치할 수 없어요. 화면의 <b>⋯ 메뉴</b> → <b>${outside}로 열기</b>를 누른 뒤 설치해 주세요.`,
+      openOutside?`${outside}에서 열기`:'알겠어요');}
+  else if(ios)show('앱을 설치하시겠어요?',/crios|fxios|edgios/i.test(ua)
+      ?'주소창 오른쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.'
+      :'Safari 아래쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.','알겠어요');}
 $('btnInstall').onclick=runInstall;
-$('installYes').onclick=async()=>{await runInstall();closeInstall();};
+$('installYes').onclick=async()=>{if(openOutside){closeInstall();openOutside();return;}await runInstall();closeInstall();};
 $('installNo').onclick=closeInstall;
 installBox.addEventListener('click',e=>{if(e.target===installBox)closeInstall();});
 $('btnLogin').onclick=async()=>{
