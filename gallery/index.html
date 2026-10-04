@@ -200,6 +200,7 @@ dialog::backdrop{background:rgba(10,8,6,.6)}
 .drop span{color:var(--muted);font-size:13px}
 .other-app{display:block;margin:8px auto 0;width:max-content;max-width:100%;padding:8px 14px;border:1px solid var(--line);border-radius:999px;font-size:14px;cursor:pointer;text-align:center}
 .other-app:hover,.other-app:focus-within{border-color:var(--gold)}
+.other-app-tip{margin:6px 0 0;text-align:center;font-size:12.5px;color:var(--muted);word-break:keep-all;text-wrap:balance}
 .common{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 label.f input,label.f select,label.f textarea{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink);min-width:0}
@@ -393,8 +394,9 @@ label.f textarea{resize:vertical;min-height:38px}
       <!-- 안드로이드 크롬은 image/* 를 받으면 휴대폰 사진만 보이는 시스템 사진 선택기를 연다.
            파일 형식을 정하지 않은 입력은 앱 고르기 창을 열어 구글 포토·파일 앱에서 고를 수 있다. -->
       <label class="other-app" id="otherApp" hidden>
-        <input type="file" id="fileInputAny" multiple hidden>구글 포토 등 다른 앱에서 고르기
+        <input type="file" id="fileInputAny" multiple hidden>갤러리·구글 포토 등 다른 앱에서 고르기
       </label>
+      <p class="other-app-tip" id="otherAppTip" hidden><b>파일</b>을 누른 뒤 왼쪽 위 <b>☰</b> 메뉴에서 <b>갤러리</b>나 <b>Google 포토</b>를 고르세요</p>
       <div class="common">
         <label class="f">그린 사람 (모든 그림에 적용)<input id="commonArtist" list="artistList" placeholder="이름을 쓰거나 아래에서 고르세요"><span class="kid-pick" id="kidPick"></span></label>
         <label class="f">그린 날 (모든 그림에 적용)<input id="commonDate" type="date"></label>
@@ -1920,7 +1922,7 @@ async function addFiles(files){
 $('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').value=localStorage.getItem('kg-last-artist')||'';$('commonDate').value='';$('commonRoom').value='';renderPending();markKid();$('dlgUpload').showModal();};
 $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 $('fileInputAny').onchange=e=>{addFiles(e.target.files);e.target.value='';};
-if(/android/i.test(navigator.userAgent))$('otherApp').hidden=false;
+if(/android/i.test(navigator.userAgent))$('otherApp').hidden=$('otherAppTip').hidden=false;
 const drop=$('drop');
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
 ['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
