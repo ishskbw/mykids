@@ -400,6 +400,7 @@ label.f textarea{resize:vertical;min-height:38px}
         <label class="f">그린 날 (모든 그림에 적용)<input id="commonDate" type="date"></label>
         <label class="f">재료·기법 (모든 그림에 적용)<input id="commonMedium" list="mediumList" placeholder="예: 도화지에 크레파스"></label>
         <label class="f">크기 (모든 그림에 적용)<input id="commonSize" list="sizeList" placeholder="예: 8절 또는 39×27"></label>
+        <label class="f">전시실 (새 이름을 쓰면 새 전시실이 생겨요)<input id="commonRoom" list="roomList" placeholder="비워 두면 그린 사람의 전시실"></label>
       </div>
       <ul class="items" id="pending"></ul>
     </div>
@@ -407,6 +408,7 @@ label.f textarea{resize:vertical;min-height:38px}
   </div>
 </dialog>
 <datalist id="artistList"></datalist>
+<datalist id="roomList"></datalist>
 <!-- 작품 설명 패널의 재료·기법: 목록에서 고르거나 직접 쓴다 -->
 <datalist id="sizeList">
   <option value="8절 (39.4 × 27.2 cm)"><option value="4절 (54.5 × 39.4 cm)"><option value="16절 (27.2 × 19.7 cm)"><option value="2절 (78.8 × 54.5 cm)"><option value="A4 (29.7 × 21 cm)"><option value="A3 (42 × 29.7 cm)">
@@ -559,7 +561,7 @@ function remoteStore({fs,db}){
         await fs.setDoc(d('thumbs',a.id),{data:await toBytes(small)});
         a.blob=orig;a.small=small;}
       // 작품 정보는 이미지를 다 올린 뒤 마지막에 써서, 보는 사람에게 이미지 없는 작품이 보이지 않게 한다
-      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
+      await fs.setDoc(d('arts',a.id),{title:a.title||'',artist:a.artist||'',date:a.date||'',medium:a.medium||'',gear:a.gear||'',room:a.room||'',widthCm:a.widthCm||0,heightCm:a.heightCm||0,note:a.note||'',w:a.w||1,h:a.h||1,created:a.created||Date.now()});
     },
     async del(id){await fs.deleteDoc(d('arts',id));await Promise.all([fs.deleteDoc(d('thumbs',id)),fs.deleteDoc(d('originals',id))]);},
     async getMeta(k){const s=await fs.getDoc(d('settings',k));return s.exists()?s.data():undefined;},
@@ -941,12 +943,17 @@ function streamTextures(){
 /* ───────────────────────── 전시 계획 ───────────────────────── */
 const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.62, ART_Y=2.15, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=8, SLOT_X=4.4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
+/* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
+   '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
+const roomName=r=>(r||'').trim();
 function groupKey(a){
-  if(state.groupBy==='artist'){const b=bareName(a.artist);return kidOf(b)?.name||b||'이름 없는 화가';}
+  if(state.groupBy==='artist'){const r=roomName(a.room);
+    if(r){const k=KIDS.find(k=>r===`${k.name}의 전시실`);return k?k.name:'#'+r;}
+    const b=bareName(a.artist);return kidOf(b)?.name||b||'이름 없는 화가';}
   if(state.groupBy==='year')return a.date?a.date.slice(0,4)+'년':'날짜 모름';
   return '상설 전시';
 }
-function groupTitle(k){return state.groupBy==='artist'?`${k}의 전시실`:k;}
+function groupTitle(k){return state.groupBy!=='artist'?k:k.startsWith('#')?k.slice(1):`${k}의 전시실`;}
 function planRooms(){
   const arts=[...displayArts()].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.created||0)-(b.created||0));
   const groups=new Map();
@@ -1478,13 +1485,18 @@ const clampMove=v=>Math.max(-2.5,Math.min(2.5,v));
 stage.addEventListener('pointerdown',e=>{
   try{stage.setPointerCapture(e.pointerId);}catch{}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now(),moved:0};
-  else{drag=null;pinch=pointers.size===2?{d:pinchDist(),...pinchMid()}:null;}
+  else{drag=null;pinch=pointers.size===2?{d:pinchDist(),...pinchMid(),mode:null,zd:0,pd:0}:null;}
 });
 stage.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid();
-    if(!tween){autoWalk=null;const k=.012; // 화면 1px당 0.012m
-      wheelPending=clampMove(wheelPending+(d-pinch.d)*k+(my-pinch.my)*k);strafePending=clampMove(strafePending-(mx-pinch.mx)*k);}
+  if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid(),dd=d-pinch.d,dx=mx-pinch.mx,dy=my-pinch.my;
+    // 벌리기(앞뒤)와 두 손가락 끌기(옆·앞뒤)를 섞지 않는다: 처음 16px 동안 더 크게 움직인 쪽으로 정하고 손을 뗄 때까지 유지.
+    // 벌릴 때 두 손가락 가운데가 조금씩 흔들려 옆으로 미끄러지던 문제를 막는다.
+    if(!pinch.mode){pinch.zd+=Math.abs(dd);pinch.pd+=Math.hypot(dx,dy);
+      if(pinch.zd+pinch.pd>16)pinch.mode=pinch.zd>=pinch.pd*.8?'zoom':'pan';}
+    if(!tween&&pinch.mode){autoWalk=null;const k=.012; // 화면 1px당 0.012m
+      if(pinch.mode==='zoom')wheelPending=clampMove(wheelPending+dd*k);
+      else{wheelPending=clampMove(wheelPending+dy*k);strafePending=clampMove(strafePending-dx*k);}}
     Object.assign(pinch,{d,mx,my});return;}
   if(!drag||tween)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
   drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.moved>6){stage.classList.add('dragging');autoWalk=null;}
@@ -1868,6 +1880,7 @@ const isPhoto=s=>(s||'').trim()==='사진';
 const photoMedium=gear=>gear?`사진 (${gear})`:'사진';
 const fileDate=f=>f.lastModified?new Date(f.lastModified-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10):today();
 function refreshArtistList(){const dl=$('artistList');dl.replaceChildren();
+  const rl=$('roomList');rl.replaceChildren();[...new Set(state.arts.map(a=>roomName(a.room)).filter(Boolean))].forEach(n=>{const o=document.createElement('option');o.value=n;rl.append(o);});
   [...new Set([...KIDS.map(artistOf),...state.arts.map(a=>a.artist).filter(Boolean)])].forEach(n=>{const o=document.createElement('option');o.value=n;dl.append(o);});}
 function field(label,type,value,cls=''){const l=document.createElement('label');l.className='f '+cls;l.textContent=label;
   const i=document.createElement(type==='textarea'?'textarea':'input');if(type!=='textarea')i.type=type;i.value=value||'';l.append(i);return[l,i];}
@@ -1888,7 +1901,8 @@ function renderPending(){
     const[l5,md]=field('재료·기법','text',p.medium);md.setAttribute('list','mediumList');md.placeholder='예: 도화지에 크레파스';md.oninput=()=>{p.medium=md.value;if(isPhoto(md.value)&&p.gear)md.value=p.medium=photoMedium(p.gear);};
     const[l6,sz]=field('크기 (가로×세로 cm)','text',p.size);sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';sz.oninput=()=>p.size=sz.value;
     const[l4,nt]=field('작품 설명 (선택)','textarea',p.note,'wide');nt.rows=2;nt.placeholder='아이가 들려준 그림 이야기';nt.oninput=()=>p.note=nt.value;
-    fs.append(l1,l2,l3,l5,l6,l4);li.append(th,fs);ul.append(li);
+    const[l7,rmf]=field('전시실','text',p.room);rmf.setAttribute('list','roomList');rmf.placeholder='비워 두면 그린 사람의 전시실';rmf.oninput=()=>p.room=rmf.value;
+    fs.append(l1,l2,l3,l5,l6,l7,l4);li.append(th,fs);ul.append(li);
   });
   $('upCount').textContent=pending.length?`${pending.length}점 준비됨`:'선택한 그림이 없어요';
   $('btnSave').disabled=!pending.length;
@@ -1897,11 +1911,11 @@ async function addFiles(files){
   const imgs=[...files].filter(f=>f.type.startsWith('image/')||/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name));
   if(!imgs.length){if(files.length)toast('그림(사진) 파일만 올릴 수 있어요');return;}
   for(const f of imgs){try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
-    pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,note:""});}
+    pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,room:$("commonRoom").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
   renderPending();
 }
-$('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').value=localStorage.getItem('kg-last-artist')||'';$('commonDate').value='';renderPending();markKid();$('dlgUpload').showModal();};
+$('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').value=localStorage.getItem('kg-last-artist')||'';$('commonDate').value='';$('commonRoom').value='';renderPending();markKid();$('dlgUpload').showModal();};
 $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 $('fileInputAny').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 if(/android/i.test(navigator.userAgent))$('otherApp').hidden=false;
@@ -1917,6 +1931,7 @@ function markKid(){const v=$('commonArtist').value;kidPick.querySelectorAll('but
 $('commonDate').oninput=e=>{pending.forEach(p=>p.date=e.target.value);renderPending();};
 $('commonMedium').oninput=e=>{const v=e.target.value;pending.forEach(p=>p.medium=isPhoto(v)?photoMedium(p.gear):v);renderPending();};
 $('commonSize').oninput=e=>{pending.forEach(p=>p.size=e.target.value);renderPending();};
+$('commonRoom').oninput=e=>{pending.forEach(p=>p.room=e.target.value);renderPending();};
 $('btnSave').onclick=async()=>{
   const btn=$('btnSave');btn.disabled=true;btn.textContent='거는 중…';
   const saved=[];
@@ -1926,7 +1941,7 @@ $('btnSave').onclick=async()=>{
       btn.textContent=`거는 중… ${i+1}/${pending.length}`;
       const c=drawRotated(p.bitmap,p.rot,2048);const blob=await fitCanvas(c);
       const sc=drawRotated(p.bitmap,p.rot,DISPLAY_MAX);const small=await canvasBlob(sc,.85);
-      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),gear:p.gear||'',...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
+      const a={id:uid(),title:p.title.trim()||'제목 없음',artist:p.artist.trim(),date:p.date,medium:(p.medium||'').trim(),gear:p.gear||'',room:roomName(p.room),...sizeForImage(parseSize(p.size),c.width,c.height),note:p.note.trim(),blob,small,w:c.width,h:c.height,created:base+i};
       await Store.put(a,{images:true});saved.push(a);
     }
     try{localStorage.setItem('kg-last-artist',pending.at(-1)?.artist||'');}catch{}
@@ -1969,7 +1984,8 @@ function renderManage(){
     const[l6,sz]=field('크기 (가로×세로 cm)','text',sizeText(a));sz.setAttribute('list','sizeList');sz.placeholder='예: 8절 또는 39×27';
     sz.onchange=()=>{const d=sizeForImage(parseSize(sz.value),a.w||1,a.h||1);if(d)Object.assign(a,d);else{a.widthCm=0;a.heightCm=0;}sz.value=sizeText(a);save();};
     const[l4,nt]=field('작품 설명','textarea',a.note,'wide');nt.rows=2;nt.onchange=()=>{a.note=nt.value.trim();save();};
-    fs.append(l1,l2,l3,l5,l6,l4);li.append(th,fs);ul.append(li);
+    const[l7,rmf]=field('전시실','text',a.room||'');rmf.setAttribute('list','roomList');rmf.placeholder='비워 두면 그린 사람의 전시실';rmf.onchange=()=>{a.room=roomName(rmf.value);save();};
+    fs.append(l1,l2,l3,l5,l6,l7,l4);li.append(th,fs);ul.append(li);
   });
 }
 $('btnManage').onclick=()=>{dirty=false;refreshArtistList();renderManage();$('dlgManage').showModal();};
