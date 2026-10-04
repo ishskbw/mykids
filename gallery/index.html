@@ -1514,16 +1514,17 @@ stage.addEventListener('pointerdown',e=>{
   if(editing){editDown(e);return;}
   try{stage.setPointerCapture(e.pointerId);}catch{}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now(),moved:0};
-  else{drag=null;pinch=pointers.size===2?{d:pinchDist(),...pinchMid(),mode:null,zd:0,pd:0}:null;}
+  else{drag=null;if(pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid();pinch={d,mx,my,d0:d,mx0:mx,my0:my,mode:null};}else pinch=null;}
 });
 stage.addEventListener('pointermove',e=>{
   if(editing){editMove(e);return;}
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&pointers.size===2){const d=pinchDist(),{mx,my}=pinchMid(),dd=d-pinch.d,dx=mx-pinch.mx,dy=my-pinch.my;
-    // 벌리기(앞뒤)와 두 손가락 끌기(옆·앞뒤)를 섞지 않는다: 처음 16px 동안 더 크게 움직인 쪽으로 정하고 손을 뗄 때까지 유지.
+    // 벌리기(앞뒤)와 두 손가락 끌기(옆·앞뒤)를 섞지 않는다: 시작할 때보다 더 크게 바뀐 쪽으로 정하고 손을 뗄 때까지 유지.
     // 벌릴 때 두 손가락 가운데가 조금씩 흔들려 옆으로 미끄러지던 문제를 막는다.
-    if(!pinch.mode){pinch.zd+=Math.abs(dd);pinch.pd+=Math.hypot(dx,dy);
-      if(pinch.zd+pinch.pd>16)pinch.mode=pinch.zd>=pinch.pd*.8?'zoom':'pan';}
+    // 휴대폰은 두 손가락 움직임을 한 손가락씩 번갈아 알려 주므로, 순간 변화의 합이 아니라 시작점과의 차이로 판단한다.
+    if(!pinch.mode){const zd=Math.abs(d-pinch.d0),pd=Math.hypot(mx-pinch.mx0,my-pinch.my0);
+      if(Math.max(zd,pd)>14)pinch.mode=zd>pd?'zoom':'pan';}
     if(!tween&&pinch.mode){autoWalk=null;const k=.012; // 화면 1px당 0.012m
       if(pinch.mode==='zoom')wheelPending=clampMove(wheelPending+dd*k);
       else{wheelPending=clampMove(wheelPending+dy*k);strafePending=clampMove(strafePending-dx*k);}}
