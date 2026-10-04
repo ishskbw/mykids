@@ -134,7 +134,9 @@ body.editing .hint,body.editing .hint-tab{display:none}
 /* 벽 설명 카드 크게 보기: 3D 벽에 붙은 카드(크림색 종이, 함렛 제목, 갈색 글씨)와 같은 모양 */
 .labelview{position:fixed;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,8,6,.6)}
 .labelview[hidden]{display:none}
-.wlabel{position:relative;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;background:#f8f5ee;color:#2a2219;border-radius:2px;padding:34px 34px 30px;box-shadow:0 2px 0 rgba(0,0,0,.08),0 24px 60px rgba(0,0,0,.45)}
+.wlabel{position:relative;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;background:linear-gradient(#fbf9f4,#f0ebe1);color:#2a2219;border-radius:2px;padding:34px 34px 30px;
+  /* 벽 설명판과 같이 입체로: 위 모서리 밝은 선, 아래 그늘, 아래로 보이는 판 두께, 벽에 지는 그림자 */
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9),inset 0 -3px 0 rgba(120,100,70,.18),0 5px 0 #ddd5c5,0 7px 2px rgba(0,0,0,.18),0 26px 60px rgba(0,0,0,.45)}
 .wlabel .x{position:absolute;top:8px;right:10px;color:#8a7d6a}
 .wlabel h2{font-family:var(--f-body);font-weight:700;font-size:clamp(26px,6.5vw,36px);line-height:1.3;margin:0 0 10px;color:#1e1a15;letter-spacing:-.01em;text-wrap:balance}
 .wlabel .la{margin:0 0 4px;font-size:clamp(18px,4.4vw,21px);font-weight:600;color:#2a2219;line-height:1.5}
@@ -1446,8 +1448,23 @@ function showcase(a,rm,[sx,sz]){
   artIndex.push({art:a,mesh:anchor,room:rm});
 }
 // 작품 설명판 (벽 캡션)
+// 설명판을 입체로: 두께 있는 판 + 벽에 지는 부드러운 그림자 (모든 설명판이 같이 쓰는 모양·재질)
+const LABEL_D=.012;let labelParts=null;
+function labelExtras(){
+  if(labelParts)return labelParts;
+  const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
+  x.shadowColor='#000';x.shadowBlur=16;x.shadowOffsetX=200;x.fillStyle='#000';x.fillRect(24-200,24,80,80); // 흐린 네모만 남긴다
+  const st=new THREE.CanvasTexture(c);
+  return labelParts={edgeG:new THREE.BoxGeometry(.56,.44,LABEL_D),edgeM:new THREE.MeshStandardMaterial({color:0xe9e2d4,roughness:.75}),
+    shG:new THREE.PlaneGeometry(.56/.625,.44/.625),shM:new THREE.MeshBasicMaterial({map:st,color:0x1a120a,transparent:true,opacity:.62,depthWrite:false,toneMapped:false})};
+}
 function makeLabel(a){
-  return textPlane(.56,.44,800,(x,cw,ch)=>{x.fillStyle='#f8f5ee';x.fillRect(0,0,cw,ch);x.textBaseline='top';
+  const m=textPlane(.56,.44,800,(x,cw,ch)=>{
+    // 위에서 빛을 받는 판: 위쪽은 조금 밝고 아래로 갈수록 살짝 어둡게, 위·왼쪽 모서리는 밝은 선, 아래·오른쪽은 그늘진 선
+    const gr=x.createLinearGradient(0,0,0,ch);gr.addColorStop(0,'#fbf9f4');gr.addColorStop(1,'#f0ebe1');x.fillStyle=gr;x.fillRect(0,0,cw,ch);
+    x.fillStyle='rgba(255,255,255,.9)';x.fillRect(0,0,cw,3);x.fillRect(0,0,3,ch);
+    x.fillStyle='rgba(120,100,70,.28)';x.fillRect(0,ch-4,cw,4);x.fillRect(cw-3,0,3,ch);
+    x.textBaseline='top';
     const P=26,F='"Pretendard Variable",sans-serif';let y=P;
     fitText(x,a.title||'제목 없음','700 {s}px '+F,cw-P*2,28);x.fillStyle='#1e1a15';x.fillText(a.title||'제목 없음',P,y);y+=40;
     x.font='600 19px '+F;x.fillStyle='#2a2219';if(byline(a)){x.fillText(byline(a),P,y);y+=27;}
@@ -1457,6 +1474,9 @@ function makeLabel(a){
     if(a.note){y+=8;x.fillStyle='#c9bfae';x.fillRect(P,y,36,2);y+=14;
       x.font='400 15px '+F;x.fillStyle='#5c5142';drawWrapped(x,a.note.replace(/\s+/g,' '),P,y,cw-P*2,21,ch-P);}
   },{transparent:false});
+  const L=labelExtras(),edge=new THREE.Mesh(L.edgeG,L.edgeM);edge.position.z=-LABEL_D/2-.0005;m.add(edge);
+  const sh=new THREE.Mesh(L.shG,L.shM);sh.position.set(.016,-.028,-LABEL_D-.002);m.add(sh);
+  return m;
 }
 function hang(a,wall,x,rm,slotW=5.8){
   // 크기를 적은 작품은 실제 크기(cm → m) 그대로 건다.
