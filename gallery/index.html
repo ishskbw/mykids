@@ -1193,15 +1193,16 @@ function build(){
         x.font='500 44px "Pretendard Variable",sans-serif';x.fillStyle='rgba(240,228,200,.85)';x.fillText(rm.arts.length?`작품 ${rm.arts.length}점`:'아직 걸린 작품이 없어요',w/2,h*.82);});
       t.position.set(0,dense?4.4:2.6,.03);wallGroups[plainWall].add(t);
     }
-    // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽. 자리마다 [벽, 가운데 x, 자리 폭]
+    // 작품 걸기: 북→동→남→서, 벽마다 왼쪽·오른쪽. 자리마다 [벽, 왼쪽 끝 x, 오른쪽 끝 x]
+    // 한쪽 자리는 문 기둥 바깥(HANG_IN)부터 벽 끝(HANG_OUT)까지. 액자+설명판 묶음을 그 가운데에 건다.
     // 촘촘히 걸 때는 작품 수를 네 벽에 고르게 나누고, 한쪽에 두 점이면 그 쪽을 반씩 나눠 쓴다.
-    const slots=[],SIDE=5.8,HALF=2.9,C1=3.3,C2=6.2; // 문(또는 방 이름) 옆부터 벽 끝까지 한쪽 길이 5.8m
-    if(!dense){for(const k of ['N','E','S','W'])for(const x of [-SLOT_X,SLOT_X])slots.push([k,x,SIDE]);}
+    const slots=[],I=HANG_IN,O=HANG_OUT,MID=(I+O)/2;
+    if(!dense){for(const k of ['N','E','S','W'])for(const sp of [[-O,-I],[I,O]])slots.push([k,...sp]);}
     else{const n=flat.length,base=Math.floor(n/4),extra=n%4;
       ['N','E','S','W'].forEach((k,wi)=>{const c=base+(wi<extra?1:0);
-        const pos=c<=2?[[-SLOT_X,SIDE],[SLOT_X,SIDE]].slice(0,c):c===3?[[-C2,HALF],[-C1,HALF],[SLOT_X,SIDE]]:[[-C2,HALF],[-C1,HALF],[C1,HALF],[C2,HALF]];
-        for(const[x,w]of pos)slots.push([k,x,w]);});}
-    flat.forEach((a,i)=>{const[k,x,w]=slots[i];hang(a,wallGroups[k],x,rm,w);});
+        const pos=c<=2?[[-O,-I],[I,O]].slice(0,c):c===3?[[-O,-MID],[-MID,-I],[I,O]]:[[-O,-MID],[-MID,-I],[I,MID],[MID,O]];
+        for(const sp of pos)slots.push([k,...sp]);});}
+    flat.forEach((a,i)=>{const[k,lo,hi]=slots[i];hang(a,wallGroups[k],lo,hi,rm);});
     rm.arts.filter(a=>a.model).forEach((a,i)=>showcase(a,rm,PEDESTALS[i]));
   }
 }
@@ -1487,14 +1488,16 @@ function makeLabel(a){
   return m;
 }
 const SHOW_MIN=.8; // 실제 크기가 이보다 작은 그림은 긴 변을 80cm 로 키워 건다
-function hang(a,wall,x,rm,slotW=5.8){
+// 벽 그림 자리: 문 양옆 기둥(문 가장자리에서 45cm, 지름 70cm)에 가리지 않도록 기둥 바깥부터 쓴다
+const HANG_IN=DOOR_W/2+.45+.45,HANG_OUT=S/2-T/2-.15;
+function hang(a,wall,slo,shi,rm){
   // 크기를 적은 작품은 실제 크기(cm → m)를 바탕으로 건다. 다만 가상 공간이라 너무 작으면 잘 안 보이므로,
   // 긴 변이 SHOW_MIN 보다 작은 그림은 그 길이까지 키워 건다 (설명판의 크기는 실제 크기 그대로).
   // 둘레에는 실제 미술관처럼 매트(흰 대지)를 둘러 액자에 여유를 준다.
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1);
-  // 좁은 자리(촘촘히 걸 때): 액자와 오른쪽 설명판이 자리 안에 들어가도록 크기를 줄이고, 둘을 합쳐 가운데에 둔다
-  const LX0=real?.47:.78,narrow=slotW<5,maxW=narrow?Math.min(2.3,slotW-.2-LX0-.6):2.3,maxH=narrow?1.6:1.95;
-  if(narrow)x-=LX0/2;
+  // 액자 오른쪽 설명판까지 합친 묶음이 자리 안에 들어가도록 크기를 맞추고, 묶음을 자리 가운데에 둔다
+  const slotW=shi-slo,LX0=real?.47:.78,narrow=slotW<4,maxW=Math.min(2.3,slotW-.2-LX0-.6),maxH=narrow?1.6:1.95;
+  const x=(slo+shi)/2-LX0/2;
   // 실물 크기도 사진 비율은 그대로 두고, 적어 준 가로×세로 안에 꼭 맞게 넣는다 (종이 비율과 사진 비율이 달라 찌그러지지 않게)
   const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
   const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW*fs,maxH*fs];
@@ -1513,7 +1516,7 @@ function hang(a,wall,x,rm,slotW=5.8){
   {const sg=new THREE.PlaneGeometry((W+.06)/.875,(Hh+.06)/.875);disposables.push(sg);
     const sh=new THREE.Mesh(sg,frameShadow());sh.position.set(.012,cy-.035-.03*s,.004);g.add(sh);}
   // 편집에서 옮긴 자리. 문·벽 끝·천장 장식·걸레받이를 넘지 않게 범위 안으로 맞춘다 (설명판은 액자 오른쪽).
-  {const half=S/2-T/2-.15,door=DOOR_W/2+.15,LX=(real?.3:.5)+.28*(real?.6:1);
+  {const half=HANG_OUT,door=HANG_IN,LX=LX0;
     let lo,hi;if(x>0){lo=door+W/2;hi=half-W/2-LX;}else{lo=-half+W/2;hi=-door-W/2-LX;}if(lo>hi)lo=hi=(lo+hi)/2;
     const dyMin=.55+Hh/2-cy,dyMax=Math.max(dyMin,H-1.2-Hh/2-cy);
     g.userData.edit={x,lo,hi,dyMin,dyMax};
