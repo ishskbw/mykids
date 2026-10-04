@@ -272,6 +272,14 @@ label.f textarea{resize:vertical;min-height:38px}
 .install .head p{margin:2px 0 0;color:var(--muted);font-size:14px}
 .install .ios{margin:14px 0 0;font-size:14px;background:var(--panel-2);border-radius:10px;padding:10px 12px}
 .install .btns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+/* 아이폰: 그림 두 단계 + 아래 공유 버튼을 가리키는 화살표 */
+.install .steps{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.install .steps li{display:flex;align-items:center;gap:12px;background:var(--panel-2);border-radius:12px;padding:10px 12px;font-size:16px}
+.install .steps .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:14px;font-weight:700;display:grid;place-items:center}
+.install .steps svg{flex:none;width:26px;height:26px;color:#0a84ff}
+.install .point{display:block;margin:10px auto -6px;width:34px;height:34px;color:var(--gold);animation:pointDown 1s ease-in-out infinite}
+@keyframes pointDown{50%{transform:translateY(8px)}}
+@media (prefers-reduced-motion:reduce){.install .point{animation:none}}
 .install .btns .btn{font-size:16px;padding:12px;border-radius:12px}
 </style>
 <script type="importmap">
@@ -391,6 +399,10 @@ label.f textarea{resize:vertical;min-height:38px}
       <img src="/gallery/icon-192.png" alt="">
       <div><h2 id="installTitle">앱을 설치하시겠어요?</h2><p>홈 화면에서 바로 열고, 전체 화면으로 미술관을 거닐 수 있어요.</p></div>
     </div>
+    <ol class="steps" id="installSteps" hidden>
+      <li><span class="n">1</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg><span>화면 아래 <b>공유</b> 버튼</span></li>
+      <li><span class="n">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg><span><b>홈 화면에 추가</b></span></li>
+    </ol>
     <p class="ios" id="installIos" hidden>Safari 아래쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.</p>
     <div class="btns">
       <button class="btn primary" id="installYes">네, 설치해 주세요</button>
@@ -2318,6 +2330,8 @@ let openOutside=null;
   const inApp=kakao||/NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|BAND\/|; wv\)/i.test(ua);
   const show=(title,html,yes)=>{$('installTitle').textContent=title;const p=$('installIos');p.innerHTML=html;p.hidden=false;$('installYes').textContent=yes;askInstallSoon();};
   if(inApp){const url=location.href;
+    // 카카오톡은 버튼을 누르지 않아도 바로 바깥 브라우저(아이폰 사파리·갤럭시 크롬)로 옮겨 연다 (한 번만)
+    if(kakao)try{if(!sessionStorage.getItem('kg-out')){sessionStorage.setItem('kg-out','1');location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);}}catch{}
     if(kakao)openOutside=()=>{location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);};
     else if(android)openOutside=()=>{location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';};
     const outside=ios?'Safari':'크롬';
@@ -2325,9 +2339,13 @@ let openOutside=null;
       openOutside?`지금은 메신저 안의 브라우저라 설치할 수 없어요. <b>${outside}에서 열기</b>를 누르면 ${outside}로 옮겨 가서 설치할 수 있어요.`
         :`지금은 메신저 안의 브라우저라 설치할 수 없어요. 화면의 <b>⋯ 메뉴</b> → <b>${outside}로 열기</b>를 누른 뒤 설치해 주세요.`,
       openOutside?`${outside}에서 열기`:'알겠어요');}
-  else if(ios)show('앱을 설치하시겠어요?',/crios|fxios|edgios/i.test(ua)
-      ?'주소창 오른쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.'
-      :'Safari 아래쪽 <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누르면 설치돼요.','알겠어요');}
+  else if(ios){ // 아이폰은 설치 창을 띄울 수 없어 그림 두 단계로 안내한다
+    $('installTitle').textContent='홈 화면에 미술관 앱 추가';$('installSteps').hidden=false;$('installYes').textContent='알겠어요';
+    const crios=/crios|fxios|edgios/i.test(ua);
+    if(crios)$('installSteps').querySelector('li span:last-child').innerHTML='주소창 오른쪽 <b>공유</b> 버튼';
+    else{const a=document.createElementNS('http://www.w3.org/2000/svg','svg');a.setAttribute('viewBox','0 0 24 24');a.classList.add('point');
+      a.innerHTML='<path d=\"M12 4v15M6 13l6 6 6-6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>';$('installSteps').after(a);}
+    askInstallSoon();}}
 $('btnInstall').onclick=runInstall;
 $('installYes').onclick=async()=>{if(openOutside){closeInstall();openOutside();return;}await runInstall();closeInstall();};
 $('installNo').onclick=closeInstall;
