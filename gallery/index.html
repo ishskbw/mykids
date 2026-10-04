@@ -1193,8 +1193,8 @@ function build(){
       g.add(box(S-T,.35,.25,M.stone,0,H-.55,.12));g.add(box(S-T,.12,.35,M.gold,0,H-.8,.17));
     }
     if(rm.lobby){buildLobby(rm,wallGroups,hasDoor);
-      // 로비에도 이름판을 바라보는 관람객 두 명
-      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.76,0x10,rm);addVisitor(rm.cx-.95,rm.cz-1.05,Math.PI-.15,1.64,0x08,rm);addVisitor(rm.cx+1.4,rm.cz-.5,Math.PI+.25,1.42,0x00,rm);continue;}
+      // 로비에도 이름판을 바라보는 관람객 세 명
+      addVisitor(rm.cx-1.6,rm.cz-1.2,Math.PI,1.76,0x10,rm);addVisitor(rm.cx-.95,rm.cz-1.05,Math.PI-.15,1.64,0x08,rm);addVisitor(rm.cx+1.4,rm.cz-.5,Math.PI+.25,1.72,0x18,rm);continue;}
     // 가운데 벤치(남북으로 길게)와 그 양옆의 바닥 통풍 그릴 한 쌍
     world.add(box(.9,.16,3.2,M.leather,cx,.48,cz));
     world.add(box(.8,.06,3.1,M.wood,cx,.37,cz));
@@ -1257,7 +1257,7 @@ const FRAME_STYLES=[
 const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
 /* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명 ── */
 // 사람 모델: Microsoft Rocketbox 아바타(MIT)를 서 있는 자세로 바꾸고 가볍게 줄인 GLB (gallery/people/, LICENSE.txt 참고)
-const PEOPLE_ADULT=['female_adult_02','female_adult_15','male_adult_03','male_adult_14'],PEOPLE_KID=['male_child_01','female_child_01'];
+const PEOPLE_ADULT=['female_adult_02','female_adult_15','male_adult_03','male_adult_14'];
 const peopleCache=new Map();
 function personModel(file){
   if(!peopleCache.has(file))peopleCache.set(file,gltfLoader().then(l=>l.loadAsync(`/gallery/people/${file}.glb`)).then(gl=>{
@@ -1276,7 +1276,7 @@ function visitorShadowMat(){
 // 키 h(m)인 사람을 (x,z)에 세운다. yaw: 바라보는 방향(앞이 +z). v: 사람을 고르는 수.
 // 모델은 그 방(이나 옆방)에 들어설 때 불러온다 (streamTextures).
 function addVisitor(x,z,yaw,h,v,rm){
-  const list=h<1.5?PEOPLE_KID:PEOPLE_ADULT,file=list[(v>>>3)%list.length];
+  const file=PEOPLE_ADULT[(v>>>3)%PEOPLE_ADULT.length];
   const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
   const S2=visitorShadowMat(),sh=new THREE.Mesh(S2.geo,S2.mat);sh.rotation.x=-Math.PI/2;sh.position.y=.004;sh.scale.set(.62,.46,1);sh.renderOrder=1;g.add(sh);
   colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24});
@@ -1292,8 +1292,8 @@ function placeVisitors(rm){
     const side=((hs>>(i+3))&1)?1:-1,d=1.5+((hs>>(i+5))&3)*.15;
     let x=p.x+nrm.x*d+nrm.z*side*1.05,z=p.z+nrm.z*d-nrm.x*side*1.05;
     x=THREE.MathUtils.clamp(x,rm.cx-lim,rm.cx+lim);z=THREE.MathUtils.clamp(z,rm.cz-lim,rm.cz+lim);
-    const yaw=Math.atan2(p.x-x,p.z-z),kid=i===1&&(hs&1);
-    addVisitor(x,z,yaw,kid?1.42:1.66+((hs>>>(i*2))&3)*.03,(hs>>>(i*4))+i*8,rm);}
+    const yaw=Math.atan2(p.x-x,p.z-z);
+    addVisitor(x,z,yaw,1.64+((hs>>>(i*2))&3)*.03,(hs>>>(i*4))+i*8,rm);}
 }
 const hashStr=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
 
