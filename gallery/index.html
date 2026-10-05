@@ -852,13 +852,16 @@ const glowTex=canvasTex(256,256,(g,w,h)=>{const gr=g.createRadialGradient(w/2,h*
 /* 실제 사진 재질 (Poly Haven, CC0): /gallery/textures/ 에 1K로 담아 두었다.
    파일을 못 읽으면 위에서 직접 그린 재질로 대신한다. */
 const texLoader=new THREE.TextureLoader();
-function photoMaps(material,base,{repeat=1,rot=0,normalScale=1,fallback}={}){
-  const load=(suffix,srgb)=>texLoader.load(`/gallery/textures/${base}_${suffix}_1k.jpg`,undefined,undefined,
-    ()=>{if(suffix==='diff'&&fallback){material.map=fallback();material.needsUpdate=true;}});
-  const maps={map:load('diff',true),normalMap:load('nor_gl'),roughnessMap:load('rough')};
-  for(const t of Object.values(maps)){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=maxAniso;t.repeat.set(repeat,repeat);if(rot){t.center.set(.5,.5);t.rotation=rot;}}
-  maps.map.colorSpace=THREE.SRGBColorSpace;
-  Object.assign(material,maps,{roughness:1});material.normalScale.set(normalScale,normalScale);material.needsUpdate=true;
+// 사진을 다 받기 전에는 직접 그린 재질(fallback)을 먼저 입혀 둔다. 빈 재질이면 처음에 회색으로 보였다가 바뀌어 어색하다.
+// 받는 중인 사진은 photoLoads 에 모아 두고, 첫 화면은 이것들을 (잠깐) 기다린 뒤에 보여 준다.
+const photoLoads=[];
+function photoMaps(material,base,{repeat=1,rot=0,normalScale=1,fallback,early=false}={}){ // early: 받기 전에도 fallback 을 입혀 둔다
+  const prep=t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=maxAniso;t.repeat.set(repeat,repeat);if(rot){t.center.set(.5,.5);t.rotation=rot;}return t;};
+  const load=(suffix,slot)=>photoLoads.push(new Promise(res=>texLoader.load(`/gallery/textures/${base}_${suffix}_1k.jpg`,
+    t=>{prep(t);if(slot==='map')t.colorSpace=THREE.SRGBColorSpace;material[slot]=t;if(slot==='map')material.roughness=1;material.needsUpdate=true;res();},undefined,()=>{if(slot==='map'&&fallback&&!early){material.map=fallback();material.needsUpdate=true;}res();})));
+  if(fallback&&early)material.map=fallback();
+  load('diff','map');load('nor_gl','normalMap');load('rough','roughnessMap');
+  material.normalScale.set(normalScale,normalScale);
   return material;
 }
 
@@ -919,7 +922,7 @@ function wallMat(hex){
   let m;
   if(hex===LOBBY_WALL){
     // 로비: 사진 재질의 다듬은 돌 블록 (한 장 약 2.5m)
-    m=photoMaps(new THREE.MeshStandardMaterial({color:new THREE.Color(1.08,1.04,.98)}),'marble_01',{repeat:TILE/2.5,fallback:()=>{const t=ashlarTex();t.repeat.set(TILE/2.4,TILE/2.4);return t;}});}
+    m=photoMaps(new THREE.MeshStandardMaterial({color:new THREE.Color(1.08,1.04,.98)}),'marble_01',{repeat:TILE/2.5,early:true,fallback:()=>{const t=ashlarTex();t.repeat.set(TILE/2.4,TILE/2.4);return t;}});}
   else{const map=damaskTextures(hex),rough=damaskRoughness(),k=TILE/DAMASK_M;map.repeat.set(k,k);rough.repeat.set(k,k);velvetNormal.repeat.set(TILE/.6,TILE/.6);
     m=new THREE.MeshStandardMaterial({map,roughnessMap:rough,roughness:1,envMapIntensity:1.1,normalMap:velvetNormal,normalScale:new THREE.Vector2(.45,.45)});}
   wallMats.set(hex,skylightFalloff(m));return m;
@@ -1004,6 +1007,7 @@ function releaseTexture(id){const e=texCache.get(id);if(e){e.t?.dispose();texCac
 // 지금 방(과 옆방)의 그림만 올리고 나머지는 자리표시 색으로 바꾼다
 function streamTextures(){
   const near=new Set();
+  if(prefetchRoom)near.add(prefetchRoom);
   if(curRoom){near.add(curRoom);if(quality()!=='low')for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const n=cellMap.get(cellKey(curRoom.c+dc,curRoom.r+dr));if(n)near.add(n);}}
   const wanted=new Set();
   for(const rm of rooms)for(const p of rm.pics||[]){
@@ -1757,7 +1761,7 @@ function update(dt){
     if((!focused||walking)&&player.eye!==EYE){player.eye+=(EYE-player.eye)*Math.min(1,dt*3);if(Math.abs(player.eye-EYE)<.005)player.eye=EYE;}
   }
   camera.position.set(player.x,player.eye,player.z);camera.rotation.set(player.pitch,player.yaw,0);
-  const rm=roomAt(player.x,player.z);if(rm&&rm!==curRoom){curRoom=rm;showRoom(rm);streamTextures();}
+  const rm=roomAt(player.x,player.z);if(rm&&rm!==curRoom){curRoom=rm;if(prefetchRoom===rm)prefetchRoom=null;showRoom(rm);streamTextures();}
 }
 let curRoom=null;
 const roomAt=(x,z)=>cellMap.get(cellKey(Math.round(x/S),Math.round(z/S)));
@@ -1843,8 +1847,9 @@ addEventListener('keydown',e=>{
   if(viewer.classList.contains('show')){if(e.code==='ArrowLeft')viewerStep(-1);if(e.code==='ArrowRight')viewerStep(1);
     if(e.key==='+'||e.key==='=')$('vZoomIn').click();if(e.key==='-')$('vZoomOut').click();if(e.key==='0')zoomAt(...stageCenter(),1,true);return;}
   if(colOpen())return;
-  if(focused&&(e.code==='BracketRight'||e.code==='KeyN'))return step(1);
-  if(focused&&(e.code==='BracketLeft'||e.code==='KeyP'))return step(-1);
+  // 그림을 감상하는 중에는 ← → 가 옆걸음 대신 '이전·다음 작품' (꾹 누르고 있어도 한 번씩만)
+  if(focused&&(e.code==='BracketRight'||e.code==='KeyN'||e.code==='ArrowRight')){e.preventDefault();if(!e.repeat)step(1);return;}
+  if(focused&&(e.code==='BracketLeft'||e.code==='KeyP'||e.code==='ArrowLeft')){e.preventDefault();if(!e.repeat)step(-1);return;}
   keys.add(e.code);if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
   if(/Key[WASD]|Arrow(Up|Down|Left|Right)/.test(e.code)){tween=null;}
 });
@@ -1863,7 +1868,17 @@ function viewPose(mesh){
   const dist=Math.min(11,Math.max(minD,need));
   return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.05,1.1,3.2)};
 }
-function fadeJump(fn){fade.classList.add('on');setTimeout(()=>{fn();setTimeout(()=>fade.classList.remove('on'),40);},300);}
+// 화면을 어둡게 했다가 옮긴다. 옮겨 갈 방(to)을 알려 주면, 어두운 동안 그 방 그림을 먼저 받아 두고(최대 1.5초) 밝힌다
+// — 그렇지 않으면 방을 건너뛸 때 액자가 잠깐 빈 채로 보인다.
+var prefetchRoom=null; // var: streamTextures 가 이 줄보다 먼저 불려도 괜찮게
+function warmRoom(rm){
+  if(!rm||rm===curRoom)return Promise.resolve();
+  prefetchRoom=rm;streamTextures();
+  const ps=(rm.pics||[]).map(p=>artTexture(p.art).catch(()=>{}));
+  return Promise.race([Promise.all(ps),new Promise(r=>setTimeout(r,1500))]);
+}
+function fadeJump(fn,to){fade.classList.add('on');
+  Promise.all([new Promise(r=>setTimeout(r,300)),warmRoom(to)]).then(()=>{fn();setTimeout(()=>fade.classList.remove('on'),60);});}
 
 /* ───────────────────────── 뒤로가기 ─────────────────────────
    사용자가 한 '단계'(그림 감상, 크게 보기, 설명 카드, 작품 모아보기, 대화상자, 전시실 안내로 방 이동)마다
@@ -1894,7 +1909,7 @@ function focusArt(a,{instant=false,cut=false,dur=.9}={}){
   autoWalk=null;focused=e;fillCard(e.art);
   const to=viewPose(e.mesh);lastFocusPose=to;clearSightline(to,e.mesh);
   if(cut){tween=null;Object.assign(player,to);}
-  else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to));}
+  else if(instant||roomAt(player.x,player.z)!==e.room){tween=null;fadeJump(()=>Object.assign(player,to),e.room);}
   else tween={t:0,dur,from:{...player},to};
   card.classList.add('show');showHint(false);
 }
@@ -1919,7 +1934,7 @@ layerClose.focus=()=>{
   const b=beforeFocus,p=lastFocusPose;beforeFocus=null;
   if(!b||!p||Math.hypot(player.x-p.x,player.z-p.z)>.5)return;
   autoWalk=null;wheelPending=0;
-  if(roomAt(b.x,b.z)!==roomAt(player.x,player.z)){tween=null;fadeJump(()=>Object.assign(player,b));}
+  if(roomAt(b.x,b.z)!==roomAt(player.x,player.z)){tween=null;fadeJump(()=>Object.assign(player,b),roomAt(b.x,b.z));}
   else tween={t:0,dur:.7,from:{...player},to:b};
 };
 function step(d){if(!focused)return;const i=artIndex.indexOf(focused),j=(i+d+artIndex.length)%artIndex.length;
@@ -1971,7 +1986,7 @@ $('cZoom').addEventListener('click',()=>{if(tour&&tour.paused==null){clearTimeou
 function tourResume(){if(!tour||tour.paused==null)return;
   const a=vList[vIdx],j=artIndex.findIndex(e=>e.art===a);
   if(j>=0&&j!==tour.i){tour.i=j;tour.paused=null;tourShow();}else tourWait(tour.paused);}
-addEventListener('keydown',e=>{if(tour&&!viewer.classList.contains('show')&&!e.target.closest?.('input,textarea,select'))stopTour();},true);
+addEventListener('keydown',e=>{if(tour&&!viewer.classList.contains('show')&&!(focused&&/^Arrow(Left|Right)$|^Bracket|^Key[NP]$/.test(e.code))&&!e.target.closest?.('input,textarea,select'))stopTour();},true);
 $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').onclick=closeCard;
 
 /* ── 액자 위치·크기 고치기 (가족 계정만): 액자를 끌어 옮기고, 막대로 크기를 바꾼 뒤 저장 ── */
@@ -2224,11 +2239,11 @@ showHint(true);
 function enterRoom(rm){
   // 방 이동도 한 단계: 뒤로가기하면 옮기기 전 자리와 방향으로 돌아간다
   const prev={...player};
-  openLayer('move',()=>{closeCard();fadeJump(()=>{Object.assign(player,prev);autoWalk=null;tween=null;wheelPending=0;});});
+  openLayer('move',()=>{closeCard();fadeJump(()=>{Object.assign(player,prev);autoWalk=null;tween=null;wheelPending=0;},roomAt(prev.x,prev.z));});
   closeCard();fadeJump(()=>{
     // 방 가운데보다 조금 남쪽에서 북쪽 벽을 바라본다 (벤치를 피해서)
     Object.assign(player,{x:rm.cx,z:rm.cz+(rm.lobby?6.4:6.2),yaw:0,pitch:.05});autoWalk=null;tween=null;
-  });
+  },rm);
 }
 /* 전시실 안내: 실제 배치 그대로 그린 평면도. 방 한 칸 = 100단위(16m).
    벽과 문, 작품이 걸린 자리, 지금 위치와 바라보는 방향을 표시하고, 방이나 작품을 누르면 그리로 간다. */
@@ -2676,6 +2691,8 @@ const fontsEarly=loadCanvasFonts(false);
   try{const r=JSON.parse(sessionStorage.getItem('kg-resume')||'null');sessionStorage.removeItem('kg-resume');
     if(r&&Date.now()-r.t<60000&&roomAt(r.x,r.z))Object.assign(player,{x:r.x,z:r.z,yaw:r.yaw,pitch:0});}catch{}
   loop();
+  // 바닥·로비 벽 사진 재질을 (최대 3초) 기다렸다가 첫 화면을 보여 준다
+  await Promise.race([Promise.all(photoLoads),new Promise(r=>setTimeout(r,3000))]);
   setTimeout(()=>$('loading').classList.add('gone'),200);
   fresh?.then(data=>{const before=snap();apply(data);if(snap()!==before){$('brandName').textContent=document.title=state.name;rebuild();}}).catch(err=>console.warn(err));
 })();
