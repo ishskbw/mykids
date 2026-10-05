@@ -160,7 +160,7 @@ body.col .seg button{color:var(--muted)}
 body.col .seg button[aria-selected="true"]{background:var(--ink);color:var(--panel)}
 body.col .room-now,body.col .hint,body.col .card,body.col #btnRooms{display:none}
 /* 온라인 미술관: 가족 계정으로 로그인해야 올리기·관리 버튼이 보인다 */
-body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage{display:none}
+body.remote:not(.editor) #btnUpload,body.remote:not(.editor) #btnManage,body.remote:not(.editor) #btnMoveRooms{display:none}
 .migrate:not(:empty){display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:12px;border:1px solid var(--gold);border-radius:10px;background:var(--panel-2)}
 .migrate p{margin:0;flex:1;min-width:200px}
 
@@ -256,6 +256,13 @@ label.f textarea{resize:vertical;min-height:38px}
 .plan-me circle{fill:#d64535;stroke:#fff;stroke-width:1.2}
 .plan-cone{fill:#d64535;fill-opacity:.25}
 .plan-here{font-size:5.5px;font-weight:600;text-anchor:middle;fill:#d64535;paint-order:stroke;stroke:var(--panel-2);stroke-width:2px}
+.plan.moving .plan-art,.plan.moving .plan-me{display:none}
+.plan.moving .plan-room rect{stroke:var(--gold);stroke-width:1;stroke-dasharray:3 2}
+.plan.moving .plan-room.picked rect{fill-opacity:.7;stroke-width:2.4;stroke-dasharray:none}
+.plan.moving .plan-room.fixed{cursor:default}
+.plan.moving .plan-room.fixed rect{stroke:none}
+.plan-tools{display:flex;align-items:center;gap:10px;margin:0 0 10px;flex-wrap:wrap}
+.plan-tools .muted{font-size:13px;color:var(--muted)}
 .plan-legend{margin:10px 0 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lg-me{width:10px;height:10px;border-radius:50%;background:#d64535;display:inline-block}
 .lg-art{width:16px;height:4px;border-radius:2px;background:#b8914a;display:inline-block;margin-left:8px}
@@ -498,6 +505,7 @@ label.f textarea{resize:vertical;min-height:38px}
   <div class="dlg">
     <header><h2>전시실 안내</h2><button class="x" data-close aria-label="닫기">×</button></header>
     <div class="body">
+      <div class="plan-tools"><button class="btn" id="btnMoveRooms">전시실 위치 바꾸기</button><span class="muted" id="moveHint"></span></div>
       <div id="planWrap"></div>
       <p class="plan-legend"><span class="lg-me"></span>지금 위치와 바라보는 방향 <span class="lg-art"></span>작품 · 방이나 작품을 누르면 그곳으로 가요</p>
     </div>
@@ -625,7 +633,7 @@ const bareName=n=>(n||'').replace(/\s*\(예시\)$/,'').trim();
 const kidOf=n=>{const b=bareName(n);return KIDS.find(k=>k.name===b||k.artist===b);};
 const artistOf=k=>k.artist||k.name;
 const byline=a=>a.artist||'';
-const state={ arts:[], name:'공공의 미술관', nameEn:'The Kong Gallery', groupBy:'artist', samples:null };
+const state={ arts:[], name:'공공의 미술관', nameEn:'The Kong Gallery', groupBy:'artist', roomOrder:[], samples:null }; // roomOrder: 전시실을 채우는 순서(방 이름). 비어 있으면 기본 순서
 const $=id=>document.getElementById(id);
 const toastEl=$('toast'); let toastT;
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),2600);}
@@ -1027,6 +1035,9 @@ function planRooms(){
     const n=Math.max(1,Math.ceil(flat.length/PER_ROOM),Math.ceil(solid.length/PER_ROOM_3D));
     for(let i=0;i<n;i++)rooms.push({title:groupTitle(k)+(n>1?` ${i+1}`:''),
       arts:[...flat.slice(i*PER_ROOM,(i+1)*PER_ROOM),...solid.slice(i*PER_ROOM_3D,(i+1)*PER_ROOM_3D)],color:WALL_COLORS[gi%WALL_COLORS.length]});});
+  // 가족이 '전시실 위치 바꾸기'로 정한 순서가 있으면 그 순서대로 놓는다. 순서에 없는 새 방은 뒤에 붙는다.
+  if(state.roomOrder?.length){const pos=new Map(state.roomOrder.map((t,i)=>[t,i])),rest=rooms.slice(1);
+    rest.forEach((rm,i)=>rm._o=pos.has(rm.title)?pos.get(rm.title):1e6+i);rest.sort((a,b)=>a._o-b._o);rooms.splice(1,rest.length,...rest);}
   // 로비를 첫 줄 가운데에 두고 나머지 방은 격자를 채운다.
   const rows=Math.ceil(rooms.length/COLS);const cells=[];
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++)cells.push([c,r]);
@@ -2144,7 +2155,9 @@ function renderPlan(){
   const sc=100/S,P=(x,z)=>[(x+S/2)*sc,(z+S/2)*sc],pad=10;
   const cs=rooms.map(r=>r.c),rs=rooms.map(r=>r.r),minC=Math.min(...cs),maxC=Math.max(...cs),maxR=Math.max(...rs);
   const vw=(maxC-minC+1)*100+pad*2,vh=(maxR+1)*100+pad*2+14;
-  const svg=svgEl('svg',{viewBox:`${minC*100-pad} ${-pad-14} ${vw} ${vh}`,class:'plan',role:'img','aria-label':'미술관 평면도'},wrap);
+  const svg=svgEl('svg',{viewBox:`${minC*100-pad} ${-pad-14} ${vw} ${vh}`,class:'plan'+(moveMode?' moving':''),role:'img','aria-label':'미술관 평면도'},wrap);
+  $('btnMoveRooms').textContent=moveMode?'다 바꿨어요':'전시실 위치 바꾸기';$('btnMoveRooms').classList.toggle('primary',moveMode);
+  $('moveHint').textContent=!moveMode?'':movePick?`‘${movePick}’과 자리를 바꿀 방을 누르세요`:'자리를 바꿀 방 두 개를 차례로 누르세요 (로비는 그대로)';
   const at=(c,r)=>cellMap.get(cellKey(c,r));
   // 방 (누르면 이동)
   for(const rm of rooms){
@@ -2153,7 +2166,8 @@ function renderPlan(){
     svgEl('rect',{x:X,y:Y,width:100,height:100,fill:rm.color,'fill-opacity':rm.lobby?.35:.3},g);
     const t=svgEl('text',{x:X+50,y:Y+(rm.lobby?50:47),class:'plan-title'},g);t.textContent=rm.title;
     const n=svgEl('text',{x:X+50,y:Y+(rm.lobby?62:60),class:'plan-sub'},g);n.textContent=rm.lobby?'입구':rm.arts.length?`작품 ${rm.arts.length}점`:'아직 비어 있어요';
-    const go=()=>{$('dlgRooms').close();enterRoom(rm);};
+    if(rm.lobby)g.classList.add('fixed');if(movePick===rm.title)g.classList.add('picked');
+    const go=()=>{if(moveMode)return pickRoom(rm);$('dlgRooms').close();enterRoom(rm);};
     g.addEventListener('click',go);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
   }
   // 벽: 방 네 변, 옆방이 있는 변은 가운데에 문
@@ -2181,7 +2195,22 @@ function renderPlan(){
   svgEl('circle',{cx:px,cy:py,r:3.2},me);
   const lab=svgEl('text',{x:px,y:py+(dy<0?10:-6),class:'plan-here'},me);lab.textContent='지금 여기'; // 바라보는 쪽 반대편에 글자
 }
-$('btnRooms').onclick=()=>{renderPlan();$('dlgRooms').showModal();};
+$('btnRooms').onclick=()=>{moveMode=false;movePick=null;renderPlan();$('dlgRooms').showModal();};
+/* 전시실 위치 바꾸기 (가족만): 평면도에서 방 두 개를 차례로 누르면 두 방의 자리를 맞바꾼다. 순서는 settings 에 저장해 모두에게 같게 보인다. */
+let moveMode=false,movePick=null;
+$('btnMoveRooms').onclick=()=>{moveMode=!moveMode;movePick=null;renderPlan();};
+function pickRoom(rm){
+  if(rm.lobby)return toast('로비는 입구라서 옮길 수 없어요');
+  if(!movePick||movePick===rm.title){movePick=movePick===rm.title?null:rm.title;return renderPlan();}
+  const order=rooms.slice(1).map(r=>r.title),a=order.indexOf(movePick),b=order.indexOf(rm.title);movePick=null;
+  if(a<0||b<0)return renderPlan();
+  [order[a],order[b]]=[order[b],order[a]];state.roomOrder=order;saveSettings();
+  // 서 있던 방이 옮겨 가면 사람도 같은 방 안의 같은 자리로 함께 옮긴다
+  const here=roomAt(player.x,player.z),dx=here?player.x-here.cx:0,dz=here?player.z-here.cz:0,hereTitle=here?.title;
+  rebuild();
+  const now=hereTitle&&rooms.find(r=>r.title===hereTitle);if(now)Object.assign(player,{x:now.cx+dx,z:now.cz+dz});
+  renderPlan();toast('전시실 자리를 바꿨어요');
+}
 document.querySelectorAll('dialog').forEach(d=>{
   d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close();});
   // 대화상자도 뒤로가기로 닫히게: 열릴 때 층을 쌓고, 어떤 방법으로든 닫히면 기록을 맞춘다
@@ -2359,7 +2388,7 @@ $('setGroup').onchange=e=>{state.groupBy=e.target.value;saveSettings();dirty=tru
 $('setQuality').onchange=e=>{try{localStorage.setItem('kg-quality',e.target.value);}catch{}
   renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY_PR[quality()]));resize();streamTextures();};
 $('dlgManage').addEventListener('close',()=>{if(dirty)rebuild();});
-function saveSettings(){Store.setMeta('settings',{name:state.name,nameEn:state.nameEn,groupBy:state.groupBy}).catch(()=>{});$('brandName').textContent=state.name;document.title=state.name;}
+function saveSettings(){Store.setMeta('settings',{name:state.name,nameEn:state.nameEn,groupBy:state.groupBy,roomOrder:state.roomOrder||[]}).catch(()=>{});$('brandName').textContent=state.name;document.title=state.name;}
 const blobToDataURL=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b);});
 $('btnExport').onclick=async()=>{
   if(!state.arts.length)return toast('백업할 작품이 아직 없어요');
@@ -2499,8 +2528,8 @@ const fontsEarly=loadCanvasFonts(false);
   applyRole();
   if(FIREBASE_CONFIG&&!Store.remote&&new URLSearchParams(location.search).has("local"))setTimeout(()=>toast("디자인 확인 모드 · 온라인 미술관이 아니라 예시 작품만 보여요"),1200);
   const apply=([arts,settings])=>{state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);
-    if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;}};
-  const snap=()=>JSON.stringify([state.arts.map(a=>JSON.stringify(Object.entries(a).filter(([k])=>!['blob','small'].includes(k)).sort())).sort(),state.name,state.nameEn,state.groupBy]);
+    if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;state.roomOrder=settings.roomOrder||[];}};
+  const snap=()=>JSON.stringify([state.arts.map(a=>JSON.stringify(Object.entries(a).filter(([k])=>!['blob','small'].includes(k)).sort())).sort(),state.name,state.nameEn,state.groupBy,state.roomOrder]);
   // 다시 열 때는 기기에 받아 둔 목록으로 바로 열고, 서버의 새 목록은 뒤에서 받아 바뀐 것이 있을 때만 다시 건다
   const cached=Store.remote?await Store.cached():null;let fresh=null;
   if(cached){apply(cached);fresh=Promise.all([Store.all(),Store.getMeta('settings')]);}
