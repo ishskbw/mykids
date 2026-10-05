@@ -1047,7 +1047,7 @@ function planRooms(){
   const P=state.roomPos||{},look=t=>P[t]||P[t.replace(/ 1$/,'')]||P[t+' 1'];
   const taken=new Map([[cellKey(1,0),rooms[0]]]);let loose=[];
   for(const rm of rooms.slice(1)){const p=look(rm.title);
-    if(Array.isArray(p)&&p[0]>=0&&p[1]>=0&&!taken.has(cellKey(p[0],p[1]))){[rm.c,rm.r]=p;taken.set(cellKey(rm.c,rm.r),rm);}else loose.push(rm);}
+    if(Array.isArray(p)&&p[1]>=0&&!taken.has(cellKey(p[0],p[1]))){[rm.c,rm.r]=p;taken.set(cellKey(rm.c,rm.r),rm);}else loose.push(rm);}
   // 저장된 자리가 로비와 끊겨 있으면(사이 방이 없어진 경우 등) 다시 자동으로 놓는다
   const reach=connected(taken);for(const[k,rm]of[...taken])if(!reach.has(k)){taken.delete(k);loose.unshift(rm);}
   const nb=(c,r)=>[[1,0],[-1,0],[0,1],[0,-1]].some(([dc,dr])=>taken.has(cellKey(c+dc,r+dr)));
@@ -1168,11 +1168,11 @@ function build(){
   const at=(c,r)=>cellMap.get(cellKey(c,r));
 
   // 바닥
-  const maxC=Math.max(...rooms.map(r=>r.c)),maxR=Math.max(...rooms.map(r=>r.r));
-  const fw=(maxC+1)*S,fd=(maxR+1)*S;
+  const minC=Math.min(...rooms.map(r=>r.c)),maxC=Math.max(...rooms.map(r=>r.c)),maxR=Math.max(...rooms.map(r=>r.r));
+  const fw=(maxC-minC+1)*S,fd=(maxR+1)*S;
   const fg=new THREE.PlaneGeometry(fw,fd);fg.rotateX(-Math.PI/2);
   const fuv=fg.attributes.uv;for(let i=0;i<fuv.count;i++)fuv.setXY(i,fuv.getX(i)*fw/2.6,fuv.getY(i)*fd/2.6);
-  disposables.push(fg);const floor=new THREE.Mesh(fg,M.floor);floor.position.set(fw/2-S/2,0,fd/2-S/2);floor.userData.floor=true;
+  disposables.push(fg);const floor=new THREE.Mesh(fg,M.floor);floor.position.set(minC*S+fw/2-S/2,0,fd/2-S/2);floor.userData.floor=true;
   world.add(floor);rayTargets.push(floor);
 
   // 벽: 칸 경계마다 한 번씩. 양쪽에 방이 있으면 문을 뚫는다.
@@ -2227,10 +2227,10 @@ function pickRoom(rm){
 }
 // 지금 배치에서 몇 방만 다른 칸으로 옮긴 배치 {방 이름:[c,r]}
 function layout(moves){const L={};for(const rm of rooms.slice(1))L[rm.title]=moves.get(rm.title)||[rm.c,rm.r];return L;}
-// 고른 방을 옮길 수 있는 빈칸: 다른 방 옆이면서 아직 비어 있는 칸 (로비보다 위쪽 줄·왼쪽 바깥은 안 됨)
+// 고른 방을 옮길 수 있는 빈칸: 다른 방 옆이면서 아직 비어 있는 칸 (왼쪽 바깥도 되지만, 로비 줄보다 위쪽은 안 됨 — 로비 북쪽 벽에는 미술관 이름이 있다)
 function freeCells(title){const others=new Set(rooms.filter(r=>r.title!==title).map(r=>cellKey(r.c,r.r))),out=new Map();
   for(const k of others){const[c,r]=k.split(',').map(Number);
-    for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const x=c+dc,y=r+dr,kk=cellKey(x,y);if(x>=0&&y>=0&&!others.has(kk))out.set(kk,[x,y]);}}
+    for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const x=c+dc,y=r+dr,kk=cellKey(x,y);if(y>=0&&!others.has(kk))out.set(kk,[x,y]);}}
   const me=rooms.find(r=>r.title===title);if(me)out.delete(cellKey(me.c,me.r));
   // 옮기면 다른 방이 떨어져 버리는 칸은 빼고 보여 준다
   return [...out.values()].filter(([c,r])=>linked(layout(new Map([[title,[c,r]]]))));}
