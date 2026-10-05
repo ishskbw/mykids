@@ -1937,13 +1937,19 @@ async function endEdit(save){
 $('cEdit').onclick=startEdit;$('eDone').onclick=()=>endEdit(true);$('eCancel').onclick=()=>endEdit(false);
 // 크게 보기: 목록(전시 순서 또는 모아보기 순서) 안에서 앞뒤로 넘긴다
 let vList=[],vIdx=0;
-function openViewer(list,i){vList=list;vIdx=i;showViewer();viewer.classList.add('show');openLayer('viewer');}
-// 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다
+function openViewer(list,i){vList=list;vIdx=i;const im=$('vImg');im.removeAttribute('src');im.style.visibility='hidden';showViewer();viewer.classList.add('show');openLayer('viewer');}
+// 작은 사본을 먼저 보여 주고, 원본을 다 받으면 바꿔 끼운다.
+// 다음 그림으로 넘길 때 빈 칸(흰 테두리만 있는 작은 상자)이 보이지 않도록, 새 그림이 다 준비될 때까지 이전 그림을 그대로 두었다가 바꾼다.
+let viewerToken=0;
 function showViewer(){const a=vList[vIdx],img=$('vImg');
   if(a.model){show3D(a);fillViewerInfo(a);$('vPrev').disabled=$('vNext').disabled=vList.length<2;return;}
-  hide3D();img.alt=a.title||'';img.removeAttribute('src');resetZoom();
-  smallUrl(a).then(u=>{if(vList[vIdx]===a&&!img.dataset.full)img.src=u;}).catch(()=>{});
-  img.dataset.full='';artUrl(a).then(u=>{if(vList[vIdx]===a){img.dataset.full='1';img.src=u;}}).catch(()=>toast('원본 그림을 불러오지 못했어요'));
+  hide3D();img.alt=a.title||'';const tk=++viewerToken;img.dataset.full='';
+  const swap=u=>{const pre=new Image();pre.src=u;return pre.decode().catch(()=>{}).then(()=>{if(tk!==viewerToken)return false;
+    const first=img.dataset.shown!==a.id;img.src=u;img.dataset.shown=a.id;img.style.visibility='';if(first)resetZoom();return true;});};
+  smallUrl(a).then(u=>{if(!img.dataset.full)return swap(u);}).catch(()=>{});
+  artUrl(a).then(u=>swap(u).then(ok=>{if(ok)img.dataset.full='1';})).catch(()=>toast('원본 그림을 불러오지 못했어요'));
+  // 앞뒤 그림의 작은 사본을 미리 받아 두어 넘길 때 바로 바뀌게 한다
+  for(const d of [1,-1]){const n=vList[(vIdx+d+vList.length)%vList.length];if(n&&n!==a&&!n.model)smallUrl(n).then(u=>{const p=new Image();p.src=u;}).catch(()=>{});}
   fillViewerInfo(a);
   $('vPrev').disabled=$('vNext').disabled=vList.length<2;
   // '전시실에서 보기'를 누를 때 벽에 바로 걸려 있도록 3D용 이미지를 미리 준비해 둔다
