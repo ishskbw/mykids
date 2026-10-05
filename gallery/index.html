@@ -2217,11 +2217,19 @@ function renderPlan(){
 }
 $('btnRooms').onclick=()=>{moveMode=false;movePick=null;renderPlan();$('dlgRooms').showModal();};
 /* 전시실 위치 바꾸기 (가족만): 평면도에서 방 두 개를 차례로 누르면 두 방의 자리를 맞바꾼다. 순서는 settings 에 저장해 모두에게 같게 보인다. */
-let moveMode=false,movePick=null;
-$('btnMoveRooms').onclick=()=>{moveMode=!moveMode;movePick=null;renderPlan();};
+// 뒤로가기는 방금 한 것 하나만 되돌린다: 방 고르기 → 고르기 취소, 옮기기 → 옮기기 전 배치로, 바꾸기 모드 켜기 → 모드 끄기.
+// '다 바꿨어요'나 창 닫기로 끝내면 쌓아 둔 단계는 뒤로가기 때 건너뛴다.
+let moveMode=false,movePick=null,moveSteps=[],pickStep=null;
+const moveStep=(name,undo)=>{const s=openLayer(name,undo);moveSteps.push(s);return s;};
+function endMoveMode(){moveMode=false;movePick=null;pickStep=null;moveSteps.forEach(s=>s.dead=true);moveSteps=[];}
+$('btnMoveRooms').onclick=()=>{
+  if(moveMode){endMoveMode();return renderPlan();}
+  moveMode=true;movePick=null;moveStep('moveMode',()=>{endMoveMode();renderPlan();});renderPlan();};
+$('dlgRooms').addEventListener('close',endMoveMode);
 function pickRoom(rm){
   if(rm.lobby)return toast('로비는 입구라서 옮길 수 없어요');
-  if(!movePick||movePick===rm.title){movePick=movePick===rm.title?null:rm.title;return renderPlan();}
+  if(movePick===rm.title){movePick=null;if(pickStep)pickStep.dead=true;pickStep=null;return renderPlan();}
+  if(!movePick){movePick=rm.title;pickStep=moveStep('movePick',()=>{movePick=null;pickStep=null;renderPlan();});return renderPlan();}
   const A=rooms.find(r=>r.title===movePick);movePick=null;if(!A)return renderPlan();
   applyLayout(layout(new Map([[A.title,[rm.c,rm.r]],[rm.title,[A.c,A.r]]])),'전시실 자리를 바꿨어요');
 }
@@ -2237,8 +2245,15 @@ function freeCells(title){const others=new Set(rooms.filter(r=>r.title!==title).
 const linked=L=>{const cells=new Map([[cellKey(1,0),1],...Object.values(L).map(([c,r])=>[cellKey(c,r),1])]);return connected(cells).size===cells.size;};
 function moveRoomTo(title,c,r){movePick=null;applyLayout(layout(new Map([[title,[c,r]]])),'전시실을 옮겼어요');}
 function applyLayout(L,msg){
-  if(!linked(L)){toast('그렇게 옮기면 다른 방과 떨어진 방이 생겨요');return renderPlan();}
-  state.roomPos=L;state.roomOrder=[];saveSettings();
+  const step=pickStep;pickStep=null;
+  if(!linked(L)){if(step)step.dead=true;toast('그렇게 옮기면 다른 방과 떨어진 방이 생겨요');return renderPlan();}
+  // 방을 고른 단계를 '옮기기' 단계로 바꿔, 뒤로가기하면 옮기기 전 배치로 돌아가게 한다
+  const prev={pos:state.roomPos,order:state.roomOrder};
+  if(step)step.undo=()=>{movePick=null;setLayout(prev.pos,prev.order,'방금 옮긴 것을 되돌렸어요');};
+  setLayout(L,[],msg);
+}
+function setLayout(pos,order,msg){
+  state.roomPos=pos;state.roomOrder=order;saveSettings();
   // 서 있던 방이 옮겨 가면 사람도 같은 방 안의 같은 자리로 함께 옮긴다
   const here=roomAt(player.x,player.z),dx=here?player.x-here.cx:0,dz=here?player.z-here.cz:0,hereTitle=here?.title;
   rebuild();
