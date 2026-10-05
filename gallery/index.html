@@ -909,8 +909,8 @@ function skylightFalloff(mat){
 // 로비: 내셔널 갤러리 입구처럼 다듬은 돌을 쌓은 벽
 function ashlarTex(){return canvasTex(1024,1024,(g,w,h)=>{
   const rows=4,bh=h/rows,bw=w/2;
-  for(let r=0;r<rows;r++)for(let c=-1;c<3;c++){const x=c*bw+(r%2)*bw/2,l=80+Math.random()*4;
-    g.fillStyle=`hsl(40 24% ${l}%)`;g.fillRect(x,r*bh,bw,bh);
+  for(let r=0;r<rows;r++)for(let c=-1;c<3;c++){const x=c*bw+(r%2)*bw/2,l=64+Math.random()*5;
+    g.fillStyle=`hsl(39 32% ${l}%)`;g.fillRect(x,r*bh,bw,bh);
     g.strokeStyle='rgba(120,100,70,.08)';for(let i=0;i<5;i++){g.beginPath();g.moveTo(x+Math.random()*bw,r*bh);g.bezierCurveTo(x+Math.random()*bw,r*bh+bh*.4,x+Math.random()*bw,r*bh+bh*.7,x+Math.random()*bw,r*bh+bh);g.stroke();}
     g.fillStyle='rgba(95,80,60,.55)';g.fillRect(x,r*bh,3,bh);}
   for(let r=0;r<=rows;r++){g.fillStyle='rgba(95,80,60,.55)';g.fillRect(0,r*bh-1.5,w,3);}
@@ -927,6 +927,7 @@ function wallMat(hex){
     m=new THREE.MeshStandardMaterial({map,roughnessMap:rough,roughness:1,envMapIntensity:1.1,normalMap:velvetNormal,normalScale:new THREE.Vector2(.45,.45)});}
   wallMats.set(hex,skylightFalloff(m));return m;
 }
+
 
 /* ───────────────────────── 예시 그림 (작품이 없을 때) ───────────────────────── */
 function crayon(g,pts,color,width=10,close=false,fill=null){
@@ -1029,6 +1030,7 @@ function streamTextures(){
 
 /* ───────────────────────── 전시 계획 ───────────────────────── */
 const S=16, H=7, T=0.4, DOOR_W=3.4, DOOR_H=4.4, COLS=3, EYE=1.7, ART_Y=1.6, FOCUS_EYE=ART_Y-.3, TILE=1.4, PER_ROOM=16, SLOT_X=4.4, PER_ROOM_3D=4; // EYE: 걸을 때 눈높이, ART_Y: 그림 가운데 높이, FOCUS_EYE: 그림을 감상할 때 눈높이(그림보다 조금 낮게 두고 고개는 수평 → 정면으로 보이면서 아래 설명 카드에 가리지 않는다)
+wallMat(LOBBY_WALL); // 로비 벽 사진은 글꼴·작품 목록과 함께 처음부터 받기 시작한다 (전에는 전시장을 지을 때에야 받기 시작해 휴대폰에서 늦었다)
 function displayArts(){return state.arts.length?state.arts:(state.samples||=makeSamples());}
 /* 따로 만든 전시실: 작품의 room 에 이름이 있으면 그린 사람 대신 그 이름의 방에 건다 ('#' 을 붙여 사람 이름과 구분).
    '공유정의 전시실'처럼 가족 전시실 이름을 쓰면 그 가족 방으로 간다. */
@@ -2691,8 +2693,8 @@ const fontsEarly=loadCanvasFonts(false);
   try{const r=JSON.parse(sessionStorage.getItem('kg-resume')||'null');sessionStorage.removeItem('kg-resume');
     if(r&&Date.now()-r.t<60000&&roomAt(r.x,r.z))Object.assign(player,{x:r.x,z:r.z,yaw:r.yaw,pitch:0});}catch{}
   loop();
-  // 바닥·로비 벽 사진 재질을 (최대 3초) 기다렸다가 첫 화면을 보여 준다
-  await Promise.race([Promise.all(photoLoads),new Promise(r=>setTimeout(r,3000))]);
+  // 바닥·로비 벽 사진 재질을 (최대 6초) 기다렸다가 첫 화면을 보여 준다
+  await Promise.race([Promise.all(photoLoads),new Promise(r=>setTimeout(r,6000))]);
   setTimeout(()=>$('loading').classList.add('gone'),200);
   fresh?.then(data=>{const before=snap();apply(data);if(snap()!==before){$('brandName').textContent=document.title=state.name;rebuild();}}).catch(err=>console.warn(err));
 })();
