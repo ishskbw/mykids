@@ -2623,10 +2623,22 @@ async function loadCanvasFonts(withArts=true){
   return loaded()!==before;
 }
 const clock=new THREE.Clock();
-function loop(){const dt=Math.min(clock.getDelta(),.05);update(dt);
-  world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});
-  for(const o of spinners)o.rotation.y+=dt*.25;
-  if(!colOpen())renderer.render(scene,camera);requestAnimationFrame(loop);}
+/* 그리기 아끼기: 화면이 그대로면 다시 그리지 않는다 (PC 팬이 계속 돌지 않게).
+   - 움직이는 동안(걷기·돌기·그림으로 다가가기·액자 고치기)에는 초당 60번까지만 그린다 (144Hz 모니터에서도 60).
+   - 도는 조형물이 있는 방(로비·3D 작품 방)에 있으면 초당 30번.
+   - 가만히 있으면 0.5초에 한 번만 그려, 늦게 받아진 그림·글자도 곧 나타나게 한다.
+   - 작품 모아보기·크게 보기가 전시장을 가리고 있으면 그리지 않는다. */
+let lastFrame=0,lastDraw=0,lastSig='';
+function loop(t=0){requestAnimationFrame(loop);
+  if(t-lastFrame<15.5)return;lastFrame=t;
+  const dt=Math.min(clock.getDelta(),.05);update(dt);
+  const here=roomAt(player.x,player.z),anim=!!(here?.lobby||here?.models?.length);
+  if(anim){world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});for(const o of spinners)o.rotation.y+=dt*.25;}
+  if(colOpen()||viewer.classList.contains('show'))return;
+  const sig=[player.x,player.z,player.yaw,player.pitch,player.eye,camera.aspect].map(v=>v.toFixed(4)).join();
+  const moved=sig!==lastSig;lastSig=sig;
+  if(moved||editing||(anim&&t-lastDraw>32)||t-lastDraw>500){renderer.render(scene,camera);lastDraw=t;}
+}
 // 화면 글자용 글꼴은 Firebase 연결·목록 받기와 동시에 받기 시작한다
 const fontsEarly=loadCanvasFonts(false);
 (async()=>{
