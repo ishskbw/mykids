@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <script>
-// 미술관은 전용 주소(kong-gallery.vercel.app)에서 연다. 같은 주소에 주말 나들이 앱이 있으면
+// 미술관은 전용 주소(kong-gallery.com)에서 연다. 같은 주소에 주말 나들이 앱이 있으면
 // 휴대폰 크롬이 두 앱을 하나로 여겨 따로 설치할 수 없기 때문. 옛 주소로 오면 옮겨 준다.
-if(location.hostname==="mykids-mu.vercel.app")location.replace("https://kong-gallery.vercel.app"+location.pathname+location.search+location.hash);
+if(["mykids-mu.vercel.app","kong-gallery.vercel.app","www.kong-gallery.com"].includes(location.hostname))location.replace("https://kong-gallery.com"+location.pathname+location.search+location.hash);
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="robots" content="noindex, nofollow">
