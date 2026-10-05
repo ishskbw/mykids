@@ -1924,7 +1924,10 @@ function step(d){if(!focused)return;const i=artIndex.indexOf(focused),j=(i+d+art
 var tour=null,wakeLock=null; // var: 카드 닫기(hideCard)가 이 줄보다 먼저 불려도 괜찮게
 function startTour(){
   if(!artIndex.length)return toast('아직 걸린 작품이 없어요');
-  const here=roomAt(player.x,player.z);let i=focused?artIndex.indexOf(focused):artIndex.findIndex(e=>e.room===here);
+  // 보고 있던 그림이 있으면 그 그림부터, 아니면 가장 가까운 그림부터 (벽 너머 옆방보다 지금 방의 그림을 먼저 고른다)
+  const here=roomAt(player.x,player.z),wp=new THREE.Vector3();let i=focused?artIndex.indexOf(focused):-1;
+  if(i<0){let best=Infinity;artIndex.forEach((e,k)=>{e.mesh.getWorldPosition(wp);
+    const d=Math.hypot(wp.x-player.x,wp.z-player.z)+(e.room===here?0:1000);if(d<best){best=d;i=k;}});}
   tour={i:Math.max(0,i),timer:0};document.body.classList.add('touring');showHint(false);
   try{navigator.wakeLock?.request('screen').then(l=>wakeLock=l).catch(()=>{});}catch{}
   tourShow();
