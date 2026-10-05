@@ -1670,6 +1670,12 @@ function spacedText(x,text,cx,y,track){
   const align=x.textAlign;x.textAlign='left';let px=cx-total/2;
   chars.forEach((c,i)=>{x.fillText(c,px,y);px+=ws[i]+gap;});x.textAlign=align;
 }
+// 로비 흉상: 한 번만 받아 두고 키를 .8m 정도로 맞춘다 (바닥 = 0)
+let bustP=null;
+function lobbyBust(){return bustP||=gltfLoader().then(l=>l.loadAsync('/gallery/statue/marble_bust_01_1k.gltf')).then(gl=>{
+  const o=gl.scene,b=new THREE.Box3().setFromObject(o),sz=b.getSize(new THREE.Vector3()),k=.8/sz.y;
+  o.scale.setScalar(k);o.position.set(-(b.min.x+b.max.x)/2*k,-b.min.y*k,-(b.min.z+b.max.z)/2*k);
+  const g=new THREE.Group();g.add(o);return g;});}
 function buildLobby(rm,walls,hasDoor){
   const total=rooms.filter(r=>!r.lobby).reduce((s,r)=>s+r.arts.length,0);
   // 세로 휴대폰처럼 좁은 화면에서는 입구에서 벽 폭 전체가 보이지 않으므로, 영문 이름을 두 줄로 쌓고 글씨 폭을 줄인다
@@ -1689,12 +1695,13 @@ function buildLobby(rm,walls,hasDoor){
     const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
     fitText(x,msg,'500 {s}px "Pretendard Variable",sans-serif',maxW,50);x.fillStyle='#6f5a3a';x.fillText(msg,w/2,h*.9);});
   t.position.set(0,3.6,.03);walls.N.add(t);
-  // 양옆 원형 좌대와 금빛 조형물 (가운데는 비워 입구에서 이름이 잘 보이게)
-  const pg=new THREE.CylinderGeometry(.8,.9,.9,40),kg=new THREE.TorusKnotGeometry(.4,.12,160,24);disposables.push(pg,kg);
+  // 양옆 돌 좌대 위 대리석 흉상 (가운데는 비워 입구에서 이름이 잘 보이게). 흉상은 Poly Haven 'Marble Bust 01' (CC0, gallery/statue/)
+  const PH=1.15,PW=.6;
   for(const s of [-1,1]){const x=rm.cx+s*4.6,z=rm.cz-.5;
-    const ped=new THREE.Mesh(pg,M.stone);ped.position.set(x,.45,z);world.add(ped);
-    const knot=new THREE.Mesh(kg,M.gold);knot.position.set(x,1.55,z);knot.userData.spin=true;world.add(knot);
-    colliders.push({x0:x-.95,x1:x+.95,z0:z-.95,z1:z+.95});}
+    world.add(box(PW,PH,PW,M.stone,x,PH/2,z));world.add(box(PW+.12,.08,PW+.12,M.stone,x,.04,z));world.add(box(PW+.08,.06,PW+.08,M.stone,x,PH+.03,z));
+    const holder=new THREE.Group();holder.position.set(x,PH+.06,z);holder.rotation.y=-s*.35;world.add(holder); // 입구 쪽을 살짝 바라보게
+    lobbyBust().then(b=>{if(holder.parent)holder.add(b.clone());}).catch(err=>console.warn(err));
+    colliders.push({x0:x-PW/2-.1,x1:x+PW/2+.1,z0:z-PW/2-.1,z1:z+PW/2+.1});}
 }
 
 /* ───────────────────────── 이동 & 충돌 ───────────────────────── */
@@ -2625,14 +2632,14 @@ async function loadCanvasFonts(withArts=true){
 const clock=new THREE.Clock();
 /* 그리기 아끼기: 화면이 그대로면 다시 그리지 않는다 (PC 팬이 계속 돌지 않게).
    - 움직이는 동안(걷기·돌기·그림으로 다가가기·액자 고치기)에는 초당 60번까지만 그린다 (144Hz 모니터에서도 60).
-   - 도는 조형물이 있는 방(로비·3D 작품 방)에 있으면 초당 30번.
+   - 도는 3D 작품이 있는 방에 있으면 초당 30번.
    - 가만히 있으면 0.5초에 한 번만 그려, 늦게 받아진 그림·글자도 곧 나타나게 한다.
    - 작품 모아보기·크게 보기가 전시장을 가리고 있으면 그리지 않는다. */
 let lastFrame=0,lastDraw=0,lastSig='';
 function loop(t=0){requestAnimationFrame(loop);
   if(t-lastFrame<15.5)return;lastFrame=t;
   const dt=Math.min(clock.getDelta(),.05);update(dt);
-  const here=roomAt(player.x,player.z),anim=!!(here?.lobby||here?.models?.length);
+  const here=roomAt(player.x,player.z),anim=!!here?.models?.length;
   if(anim){world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});for(const o of spinners)o.rotation.y+=dt*.25;}
   if(colOpen()||viewer.classList.contains('show'))return;
   const sig=[player.x,player.z,player.yaw,player.pitch,player.eye,camera.aspect].map(v=>v.toFixed(4)).join();
