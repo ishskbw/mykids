@@ -1321,7 +1321,7 @@ function addVisitor(x,z,yaw,h,v,rm){
   const file=PEOPLE_ADULT[(v>>>3)%PEOPLE_ADULT.length];
   const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
   const S2=visitorShadowMat(),sh=new THREE.Mesh(S2.geo,S2.mat);sh.rotation.x=-Math.PI/2;sh.position.y=.004;sh.scale.set(.62,.46,1);sh.renderOrder=1;g.add(sh);
-  colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24});
+  colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24,holder:g}); // 그림을 가리지 않게 숨긴 관람객은 부딪히지 않는다
   (rm.people||=[]).push({holder:g,file,h,pose:POSE_NAMES[(v>>>5)%POSE_NAMES.length]});
 }
 // 방의 벽 그림 몇 점을 방 안쪽(벽에서 3.6m 남짓)에서 바라보게 세운다.
@@ -1692,7 +1692,7 @@ const player={...START};
 const R=.38,keys=new Set();
 let autoWalk=null, tween=null, focused=null;
 function collide(){
-  for(const b of colliders){const nx=Math.max(b.x0,Math.min(player.x,b.x1)),nz=Math.max(b.z0,Math.min(player.z,b.z1));
+  for(const b of colliders){if(b.holder&&!b.holder.visible)continue;const nx=Math.max(b.x0,Math.min(player.x,b.x1)),nz=Math.max(b.z0,Math.min(player.z,b.z1));
     const dx=player.x-nx,dz=player.z-nz,d2=dx*dx+dz*dz;
     if(d2<R*R){if(d2>1e-8){const d=Math.sqrt(d2);player.x=nx+dx/d*R;player.z=nz+dz/d*R;}
       else{const pen=[player.x-b.x0,b.x1-player.x,player.z-b.z0,b.z1-player.z],m=Math.min(...pen);
@@ -1730,7 +1730,8 @@ function update(dt){
     else wheelPending=0;
     if(Math.abs(strafePending)>.005){const st=strafePending*Math.min(1,dt*8);strafePending-=st;moveBy(cy*st,-sy*st);}
     else strafePending=0;
-    collide();
+    // 그림 앞에 멈춰 감상하는 동안에는 밀어내지 않는다 (감상 자리가 벤치나 관람객 곁이어도 그림 정면에 그대로 선다)
+    if(!focused||fwd||str||autoWalk)collide();
     // 안전장치: 어떤 이유로든 건물 밖에 있으면 마지막으로 안전했던 자리로 돌려 놓는다
     if(roomAt(player.x,player.z))lastSafe={x:player.x,z:player.z};else{player.x=lastSafe.x;player.z=lastSafe.z;wheelPending=strafePending=0;autoWalk=null;}
     // 그림 감상이 끝나거나 다시 걷기 시작하면 눈높이를 사람 키로 천천히 되돌린다
