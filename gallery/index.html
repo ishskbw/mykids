@@ -1939,7 +1939,7 @@ function tourShow(){
   const read=THREE.MathUtils.clamp(6+(e.art.note||'').length*.05,7,14); // 설명이 길면 조금 더 머문다
   tour.until=performance.now()+walk*1000;tour.read=read;tourWait(walk*1000+read*TOUR_SPEED[tourSpeed].k*1000);
 }
-function tourWait(ms){clearTimeout(tour.timer);
+function tourWait(ms){clearTimeout(tour.timer);tour.deadline=performance.now()+ms;tour.paused=null;
   tour.timer=setTimeout(()=>{if(!tour)return;
     if(tour.i+1>=artIndex.length){stopTour();toast('모든 작품을 다 둘러보았어요');return;}
     tour.i++;tourShow();},ms);}
@@ -1958,8 +1958,13 @@ $('btnTour').onclick=e=>{e.stopPropagation();startTour();};
 $('cTour').onclick=()=>{stopTour();toast('자동 감상을 멈췄어요');};
 // 화면을 직접 움직이거나 크게 보기·위치 고치기를 누르면 자동 감상을 멈춘다
 for(const ev of ['pointerdown','wheel'])stage.addEventListener(ev,()=>stopTour(),{capture:true,passive:true});
-$('cZoom').addEventListener('click',()=>stopTour(),true);
-addEventListener('keydown',e=>{if(tour&&!e.target.closest?.('input,textarea,select'))stopTour();},true);
+// 크게 보기: 자동 감상은 멈추지 않고 잠시 쉰다. 크게 보기를 닫으면 남은 시간만큼 머문 뒤 이어서 간다.
+// 크게 보기에서 다른 작품으로 넘겨 보다 닫았으면 그 작품 앞으로 가서 이어 간다.
+$('cZoom').addEventListener('click',()=>{if(tour&&tour.paused==null){clearTimeout(tour.timer);tour.paused=Math.max(1500,tour.deadline-performance.now());}},true);
+function tourResume(){if(!tour||tour.paused==null)return;
+  const a=vList[vIdx],j=artIndex.findIndex(e=>e.art===a);
+  if(j>=0&&j!==tour.i){tour.i=j;tour.paused=null;tourShow();}else tourWait(tour.paused);}
+addEventListener('keydown',e=>{if(tour&&!viewer.classList.contains('show')&&!e.target.closest?.('input,textarea,select'))stopTour();},true);
 $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').onclick=closeCard;
 
 /* ── 액자 위치·크기 고치기 (가족 계정만): 액자를 끌어 옮기고, 막대로 크기를 바꾼 뒤 저장 ── */
@@ -2058,7 +2063,7 @@ layerClose.label=()=>{labelView.hidden=true;};
 $('labelClose').onclick=closeLabel;
 labelView.addEventListener('click',e=>{if(e.target===labelView)closeLabel();});
 function viewerStep(d){vIdx=(vIdx+d+vList.length)%vList.length;showViewer();}
-function closeViewer(){hide3D();viewer.classList.remove('show');syncClose('viewer');}
+function closeViewer(){hide3D();viewer.classList.remove('show');syncClose('viewer');tourResume();}
 let v3=null;
 function v3Tick(){if(!v3?.on)return;const box=$('vModel'),w=box.clientWidth||1,h=box.clientHeight||1;
   if(v3.w!==w||v3.h!==h){v3.w=w;v3.h=h;v3.r.setSize(w,h,false);v3.cam.aspect=w/h;v3.cam.updateProjectionMatrix();}
@@ -2082,7 +2087,7 @@ async function show3D(a){
 }
 function hide3D(){viewer.classList.remove('is3d');$('vStage').hidden=false;$('vModel').hidden=true;
   if(v3){v3.on=false;v3.cur=null;if(v3.obj){v3.sc.remove(v3.obj);v3.obj=null;}}}
-layerClose.viewer=()=>{hide3D();viewer.classList.remove('show');};
+layerClose.viewer=()=>{hide3D();viewer.classList.remove('show');tourResume();};
 $('cZoom').onclick=()=>{if(!focused)return;const list=artIndex.map(e=>e.art);openViewer(list,list.indexOf(focused.art));};
 $('vPrev').onclick=()=>viewerStep(-1);$('vNext').onclick=()=>viewerStep(1);$('vClose').onclick=closeViewer;
 // 크게 보기 화면이 가리고 있는 동안 전시실로 바로 옮기고, 그림이 벽에 걸릴 준비가 되면 닫는다 (어두워졌다 밝아지는 과정 없음)
