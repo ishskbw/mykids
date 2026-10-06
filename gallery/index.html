@@ -2581,9 +2581,27 @@ async function checkEditor(){
   }
   return false;
 }
+/* 안드로이드 공유: 구글 포토 등에서 '공유 → 공공의 미술관'을 고르면 서비스 워커(sw.js)가 사진을 받아 두고 ?share=1 로 연다.
+   가족 계정으로 확인되면 '그림 올리기' 창을 열고 그 사진들을 넣어 준다. (아이폰은 이 기능을 지원하지 않는다) */
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/gallery/sw.js',{scope:'/gallery/'}).catch(err=>console.warn(err));
+let shareState=new URLSearchParams(location.search).has('share')?'waiting':'none';
+setTimeout(()=>{if(shareState==='waiting')toast('가족 계정으로 로그인하면 공유한 사진을 바로 올릴 수 있어요');},5000);
+async function takeShared(){
+  if(shareState!=='waiting')return;
+  if(!editor)return; // 로그인해서 가족 계정으로 확인되면 다시 불린다
+  shareState='done';history.replaceState(history.state,'',location.pathname);
+  try{const cache=await caches.open('kg-share'),keys=await cache.keys(),files=[];
+    for(const k of keys){const r=await cache.match(k),b=await r.blob();
+      files.push(new File([b],decodeURIComponent(r.headers.get('X-Name')||'photo.jpg'),{type:b.type||'image/jpeg'}));}
+    for(const k of keys)await cache.delete(k);
+    if(!files.length)return toast('공유한 사진을 받지 못했어요. 다시 공유해 주세요.');
+    $('btnUpload').click();await addFiles(files);
+  }catch(err){console.warn(err);toast('공유한 사진을 열지 못했어요');}
+}
 function applyRole(){
   document.body.classList.toggle('remote',Store.remote);document.body.classList.toggle('editor',editor);
   $('btnLogin').hidden=!Store.remote||editor;
+  takeShared();
 }
 // 앱 설치: 브라우저가 설치할 수 있다고 알려 주면(안드로이드 크롬 등) 위쪽 '앱 설치' 버튼을 보여 주고,
 // 처음 한 번은 아래에서 올라오는 안내 창으로 물어본다 (답하면 30일 동안 다시 묻지 않음).
