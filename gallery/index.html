@@ -681,7 +681,7 @@ camera.rotation.order='YXZ';
 const maxAniso=renderer.capabilities.getMaxAnisotropy();
 // 화면을 돌려 세로↔가로가 바뀌면 로비 이름판(한 줄·두 줄)을 다시 그린다
 var lobbyNarrow=null;
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;if(viewShift)camera.setViewOffset(w,h,0,viewShift,w,h);camera.updateProjectionMatrix();
   if(lobbyNarrow!==null&&(camera.aspect<.85)!==lobbyNarrow){build();curRoom=null;}} // lobbyNarrow는 로비를 처음 그린 뒤에야 정해진다
 addEventListener('resize',resize); resize();
 
@@ -1867,13 +1867,20 @@ addEventListener('blur',()=>keys.clear());
 /* ───────────────────────── 작품 감상 ───────────────────────── */
 const card=$('card'),viewer=$('viewer'),fade=$('fade');
 const wp=new THREE.Vector3(),wn=new THREE.Vector3(),wq=new THREE.Quaternion();
+// 그림을 감상할 때 실제로 보이는 세로 영역(px): 위쪽 버튼·방 이름 아래부터 설명 카드 위까지.
+// 휴대폰 웹(주소창이 있는 화면)처럼 세로가 좁으면 설명 카드가 그림 아래를 가리므로, 이 영역 안에 그림을 맞춘다.
+function viewBand(){const H=innerHeight,ui=[document.querySelector('.top'),$('roomNow')].map(e=>e?.getBoundingClientRect().bottom||0);
+  const top=Math.min(H*.35,Math.max(...ui)+8),cr=card.getBoundingClientRect(),bottom=Math.max(top+H*.25,Math.min(H,cr.top-10));
+  return{top,bottom,H};}
+var viewShift=0; // var: resize() 가 이 줄보다 먼저 불린다. 화면 가운데를 보이는 영역 가운데로 옮기는 양(px). 감상 중에만, 부드럽게 바뀐다
 function viewPose(mesh){
   mesh.getWorldPosition(wp);mesh.getWorldQuaternion(wq);wn.set(0,0,1).applyQuaternion(wq);
   // 작은 실물 크기 작품(s<1)은 더 가까이 다가가고, 눈높이도 작품 가운데보다 조금 낮게 맞춘다
   const s=mesh.userData.s||1,vf=THREE.MathUtils.degToRad(camera.fov/2),hf=Math.atan(Math.tan(vf)*camera.aspect);
   const half=mesh.userData.w/2+(s<1?.5:.7),vhalf=((mesh.userData.h||0)+.5*s)/2;
-  const need=Math.max(half/Math.tan(hf),vhalf/Math.tan(vf)),minD=s<1?Math.max(1.1,3.3*s):3.3;
-  const dist=Math.min(11,Math.max(minD,need));
+  const band=viewBand(),vfit=(band.bottom-band.top)/band.H; // 세로로 보이는 비율만큼 더 물러선다
+  const need=Math.max(half/Math.tan(hf),vhalf/(Math.tan(vf)*vfit)),minD=s<1?Math.max(1.1,3.3*s):3.3;
+  const dist=Math.min(13,Math.max(minD,need));
   return{x:wp.x+wn.x*dist,z:wp.z+wn.z*dist,yaw:Math.atan2(wn.x,wn.z),pitch:mesh.userData.pitch||0,eye:mesh.userData.eye??THREE.MathUtils.clamp(wp.y-.05,1.1,3.2)};
 }
 // 화면을 어둡게 했다가 옮긴다. 옮겨 갈 방(to)을 알려 주면, 어두운 동안 그 방 그림을 먼저 받아 두고(최대 1.5초) 밝힌다
@@ -1933,7 +1940,7 @@ function clearSightline(to,mesh){
   const p=new THREE.Vector3();if(mesh)mesh.getWorldPosition(p);
   for(const rm of rooms)for(const pp of rm.people||[]){const h=pp.holder;if(!to){h.visible=true;continue;}
     const ax=to.x,az=to.z,bx=p.x-ax,bz=p.z-az,L=bx*bx+bz*bz||1,t=Math.max(0,Math.min(1,((h.position.x-ax)*bx+(h.position.z-az)*bz)/L));
-    h.visible=Math.hypot(h.position.x-(ax+bx*t),h.position.z-(az+bz*t))>.7;}
+    h.visible=Math.hypot(h.position.x-(ax+bx*t),h.position.z-(az+bz*t))>(t>0&&t<1?1.3:.7);} // 감상 자리와 그림 사이(옆으로 1.3m 안)에 선 사람은 숨긴다
 }
 function closeCard(){if(!focused)return;hideCard();syncClose('focus');}
 // 뒤로가기: 감상하던 자리에서 움직이지 않았다면 그림을 누르기 전 자리와 방향으로 돌아간다
@@ -2698,10 +2705,13 @@ let lastFrame=0,lastDraw=0,lastSig='';
 function loop(t=0){requestAnimationFrame(loop);
   if(t-lastFrame<15.5)return;lastFrame=t;
   const dt=Math.min(clock.getDelta(),.05);update(dt);
+  {const b=focused&&card.classList.contains('show')?viewBand():null,want=b?b.H/2-(b.top+b.bottom)/2:0;
+    if(Math.abs(want-viewShift)>.5){viewShift+=(want-viewShift)*Math.min(1,dt*6);
+      if(Math.abs(viewShift)<.5){viewShift=0;camera.clearViewOffset();}else camera.setViewOffset(innerWidth,innerHeight,0,viewShift,innerWidth,innerHeight);camera.updateProjectionMatrix();}}
   const here=roomAt(player.x,player.z),anim=!!here?.models?.length;
   if(anim){world?.children.forEach(o=>{if(o.userData.spin)o.rotation.y+=dt*.4;});for(const o of spinners)o.rotation.y+=dt*.25;}
   if(colOpen()||viewer.classList.contains('show'))return;
-  const sig=[player.x,player.z,player.yaw,player.pitch,player.eye,camera.aspect].map(v=>v.toFixed(4)).join();
+  const sig=[player.x,player.z,player.yaw,player.pitch,player.eye,camera.aspect,viewShift].map(v=>v.toFixed(4)).join();
   const moved=sig!==lastSig;lastSig=sig;
   if(moved||editing||(anim&&t-lastDraw>32)||t-lastDraw>500){renderer.render(scene,camera);lastDraw=t;}
 }
