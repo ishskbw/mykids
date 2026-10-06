@@ -519,9 +519,9 @@ label.f textarea{resize:vertical;min-height:38px}
   <div class="dlg">
     <header><h2>전시실 안내</h2><button class="x" data-close aria-label="닫기">×</button></header>
     <div class="body">
+      <p class="plan-legend" id="visitLine" hidden style="margin:0 0 10px"></p>
       <div class="plan-tools"><button class="btn" id="btnMoveRooms">전시실 위치 바꾸기</button><span class="muted" id="moveHint"></span></div>
       <div id="planWrap"></div>
-      <p class="plan-legend" id="visitLine" hidden></p>
       <p class="plan-legend"><span class="lg-me"></span>지금 위치와 바라보는 방향 <span class="lg-art"></span>작품 · 방이나 작품을 누르면 그곳으로 가요</p>
     </div>
   </div>
@@ -1704,7 +1704,7 @@ function buildLobby(rm,walls,hasDoor){
       const ys=lines.length>1?[h*.3,h*.52]:[h*.47];lines.forEach((l,i)=>spacedText(x,l,w/2,ys[i],track));
       x.font='500 64px "Hahmlet",serif';x.fillStyle='#7a5a2a';spacedText(x,state.name,w/2,lines.length>1?h*.7:h*.68,.12);}
     else{fitText(x,state.name,'600 {s}px "Hahmlet",serif',maxW,230);x.fillText(state.name,w/2,h*.55);}
-    const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`+(state.visits?` · 오늘 ${state.visits.today}명 · 누적 ${state.visits.total}명`:''):(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
+    const msg=state.arts.length?`작품 ${total}점 · 전시실 ${rooms.length-1}곳`:(Store.remote&&!editor?'곧 가족의 그림이 걸릴 거예요 · 지금은 예시 작품이 걸려 있어요':'예시 작품이 걸려 있어요 · 오른쪽 위 ‘그림 올리기’를 눌러 보세요');
     fitText(x,msg,'500 {s}px "Pretendard Variable",sans-serif',maxW,50);x.fillStyle='#6f5a3a';x.fillText(msg,w/2,h*.9);});
   t.position.set(0,3.6,.03);walls.N.add(t);
   // 양옆 돌 좌대 위 대리석 흉상 (가운데는 비워 입구에서 이름이 잘 보이게). 흉상은 Poly Haven 'Marble Bust 01' (CC0, gallery/statue/)
@@ -2696,7 +2696,7 @@ const fontsEarly=loadCanvasFonts(false);
     catch(err){console.error(err);toast('온라인 미술관에 연결하지 못했어요. 잠시 후 다시 열어 주세요.');}
   }
   applyRole();
-  const visitsP=countVisit().catch(()=>{});
+  countVisit().catch(()=>{}); // 방문자 수는 전시실 안내에만 보여 주므로 기다리지 않는다
   if(FIREBASE_CONFIG&&!Store.remote&&new URLSearchParams(location.search).has("local"))setTimeout(()=>toast("디자인 확인 모드 · 온라인 미술관이 아니라 예시 작품만 보여요"),1200);
   const apply=([arts,settings])=>{state.arts=(arts||[]).map(({url,surl,smallP,...a})=>a);
     if(settings){state.name=settings.name||state.name;if('nameEn' in settings)state.nameEn=settings.nameEn;state.groupBy=settings.groupBy||state.groupBy;state.roomOrder=settings.roomOrder||[];state.roomPos=settings.roomPos||{};}};
@@ -2713,7 +2713,6 @@ const fontsEarly=loadCanvasFonts(false);
   }
   $('brandName').textContent=state.name;document.title=state.name;$('loading').querySelector('h1').textContent=state.name;
   await fontsEarly;await loadCanvasFonts(); // 작품 글자 중 아직 받지 않은 것만 더 받는다
-  await Promise.race([visitsP,new Promise(r=>setTimeout(r,1500))]); // 로비 안내판에 방문자 수를 함께 쓰려고 (늦으면 기다리지 않는다)
   build();updateColCount();
   // 그래픽 연결이 끊겨 다시 불러온 경우: 서 있던 자리로 돌아간다
   try{const r=JSON.parse(sessionStorage.getItem('kg-resume')||'null');sessionStorage.removeItem('kg-resume');
