@@ -462,7 +462,7 @@ label.f textarea{resize:vertical;min-height:38px}
       <!-- 안드로이드 크롬은 image/* 를 받으면 휴대폰 사진만 보이는 시스템 사진 선택기를 연다.
            파일 형식을 정하지 않은 입력은 앱 고르기 창을 열어 구글 포토·파일 앱에서 고를 수 있다. -->
       <label class="other-app" id="otherApp" hidden>
-        <input type="file" id="fileInputAny" multiple hidden>갤러리·구글 포토 등 다른 앱에서 고르기
+        <input type="file" id="fileInputAny" accept="image/*,.glb,model/gltf-binary" multiple hidden>갤러리·구글 포토 등 다른 앱에서 고르기
       </label>
       <p class="other-app-tip" id="otherAppTip" hidden><b>파일</b>을 누른 뒤 왼쪽 위 <b>☰</b> 메뉴에서 <b>갤러리</b>나 <b>Google 포토</b>를 고르세요</p>
       <div class="common">
@@ -2477,6 +2477,7 @@ $('btnUpload').onclick=()=>{pending=[];refreshArtistList();$('commonArtist').val
 $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 $('fileInputAny').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 // 안드로이드는 image/* 일 때만 사진 선택기가 열리므로 그대로 두고, 3D 파일은 '다른 앱에서 고르기'로 고른다
+// (다른 앱에서 고르기는 사진·3D 파일만 받게 해 두어, 안드로이드 선택 창에 동영상용 '캠코더'가 나오지 않게 한다)
 if(!/android/i.test(navigator.userAgent))$('fileInput').accept='image/*,.glb';
 if(/android/i.test(navigator.userAgent))$('otherApp').hidden=$('otherAppTip').hidden=false;
 const drop=$('drop');
