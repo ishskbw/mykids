@@ -1043,6 +1043,11 @@ function groupKey(a){
   return '상설 전시';
 }
 function groupTitle(k){return state.groupBy!=='artist'?k:k.startsWith('#')?k.slice(1):`${k}의 전시실`;}
+// 같은 사람의 방이 여럿이면 로마 숫자로 나눈다 (아빠의 전시실 I, II …)
+const roman=n=>{let s='';for(const[v,r]of[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']])while(n>=v){s+=r;n-=v;}return s;};
+// 저장해 둔 방 자리·순서를 찾을 때 쓰는 이름들: 지금 이름 + 예전 아라비아 숫자 이름 + 방이 하나↔여럿으로 바뀐 경우
+function roomKeys(rm){const b=rm.base||rm.title;
+  return rm.no?[rm.title,`${b} ${rm.no}`,...(rm.no===1?[b]:[])]:[rm.title,`${b} I`,`${b} 1`];}
 function planRooms(){
   const arts=[...displayArts()].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.created||0)-(b.created||0));
   const groups=new Map();
@@ -1053,17 +1058,17 @@ function planRooms(){
   const rooms=[{title:'로비',lobby:true,arts:[],color:LOBBY_WALL}];
   keys.forEach((k,gi)=>{const list=groups.get(k),flat=list.filter(a=>!a.model),solid=list.filter(a=>a.model);
     const n=Math.max(1,Math.ceil(flat.length/PER_ROOM),Math.ceil(solid.length/PER_ROOM_3D));
-    for(let i=0;i<n;i++)rooms.push({title:groupTitle(k)+(n>1?` ${i+1}`:''),
+    for(let i=0;i<n;i++)rooms.push({title:groupTitle(k)+(n>1?' '+roman(i+1):''),base:groupTitle(k),no:n>1?i+1:0,
       arts:[...flat.slice(i*PER_ROOM,(i+1)*PER_ROOM),...solid.slice(i*PER_ROOM_3D,(i+1)*PER_ROOM_3D)],color:WALL_COLORS[gi%WALL_COLORS.length]});});
   // 가족이 '전시실 위치 바꾸기'로 정한 순서가 있으면 그 순서대로 놓는다. 순서에 없는 새 방은 뒤에 붙는다.
   if(state.roomOrder?.length){const pos=new Map(state.roomOrder.map((t,i)=>[t,i])),rest=rooms.slice(1);
-    rest.forEach((rm,i)=>rm._o=pos.has(rm.title)?pos.get(rm.title):1e6+i);rest.sort((a,b)=>a._o-b._o);rooms.splice(1,rest.length,...rest);}
+    rest.forEach((rm,i)=>{const k=roomKeys(rm).find(k=>pos.has(k));rm._o=k?pos.get(k):1e6+i;});rest.sort((a,b)=>a._o-b._o);rooms.splice(1,rest.length,...rest);}
   // 로비는 첫 줄 가운데(1,0)에 고정. 가족이 옮겨 둔 방(roomPos)은 그 자리에 놓고,
   // 나머지 방은 기본 격자 순서대로 훑으며 이미 놓인 방과 붙어 있는 첫 빈칸을 채운다 (그래서 모든 방이 로비와 이어진다).
   rooms[0].c=1;rooms[0].r=0;
-  const P=state.roomPos||{},look=t=>P[t]||P[t.replace(/ 1$/,'')]||P[t+' 1'];
+  const P=state.roomPos||{},look=rm=>P[roomKeys(rm).find(k=>P[k])];
   const taken=new Map([[cellKey(1,0),rooms[0]]]);let loose=[];
-  for(const rm of rooms.slice(1)){const p=look(rm.title);
+  for(const rm of rooms.slice(1)){const p=look(rm);
     if(Array.isArray(p)&&p[1]>=0&&!taken.has(cellKey(p[0],p[1]))){[rm.c,rm.r]=p;taken.set(cellKey(rm.c,rm.r),rm);}else loose.push(rm);}
   // 저장된 자리가 로비와 끊겨 있으면(사이 방이 없어진 경우 등) 다시 자동으로 놓는다
   const reach=connected(taken);for(const[k,rm]of[...taken])if(!reach.has(k)){taken.delete(k);loose.unshift(rm);}
