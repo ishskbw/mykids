@@ -99,6 +99,17 @@ body.col .hint-tab,body:has(.card.show) .hint-tab{opacity:0;pointer-events:none}
 .card .meta{color:var(--muted);font-size:14px;margin:0}
 .card .note{margin:8px 0 0;font-size:14px;white-space:pre-wrap}
 .card .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+/* 휴대폰: 그림을 감상하는 동안 그림이 크게 보이도록 위쪽 버튼·방 이름을 숨기고, 설명 카드는 짧게(3줄, 누르면 펼침) */
+@media (max-width:640px){
+  body:has(.card.show) .top,body:has(.card.show) .room-now{display:none}
+  .card{padding:12px 14px 12px}
+  .card h3{font-size:18px}
+  .card .meta{font-size:12.5px}
+  .card .note{font-size:13px;margin-top:6px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;cursor:pointer}
+  .card.open-note .note{display:block}
+  .card .row{gap:6px;margin-top:9px}
+  .card .row .btn{padding:6px 10px;font-size:13px}
+}
 body.remote:not(.editor) #cEdit{display:none}
 /* 액자 위치·크기 편집 막대 */
 .editbar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:6;width:min(560px,calc(100% - 32px));
@@ -1618,12 +1629,14 @@ function makeLabel(a){
   const sh=new THREE.Mesh(L.shG,L.shM);sh.position.set(.016,-.028,-LABEL_D-.002);m.add(sh);
   return m;
 }
-const SHOW_MIN=.6; // 실제 크기가 이보다 작은 그림은 긴 변을 60cm 로 키워 건다 (사람 키와 견줘도 어색하지 않을 만큼만)
+// 실제 크기 작품을 걸 크기: 1m 보다 작은 그림은 조금씩 키우되, 작은 그림일수록 더 키우고 크기 순서는 그대로 지킨다.
+// (예전엔 긴 변을 60cm 로 일괄해서 키워 A4 그림이 65cm 그림만큼 커 보였다)  긴 변 29.7cm→54cm, 39cm→60cm, 65cm→77cm, 1m 이상은 실제 크기
+const showLen=L=>L<1?L+.35*(1-L):L;
 // 벽 그림 자리: 문 양옆 기둥(문 가장자리에서 45cm, 지름 70cm)에 가리지 않도록 기둥 바깥부터 쓴다
 const HANG_IN=DOOR_W/2+.45+.45,HANG_OUT=S/2-T/2-.15;
 function hang(a,wall,slo,shi,rm,doorWall=true){
   // 크기를 적은 작품은 실제 크기(cm → m)를 바탕으로 건다. 다만 가상 공간이라 너무 작으면 잘 안 보이므로,
-  // 긴 변이 SHOW_MIN 보다 작은 그림은 그 길이까지 키워 건다 (설명판의 크기는 실제 크기 그대로).
+  // 1m 보다 작은 그림은 showLen 만큼 조금 키워 건다 (설명판의 크기는 실제 크기 그대로).
   // 둘레에는 실제 미술관처럼 매트(흰 대지)를 둘러 액자에 여유를 준다.
   const real=a.widthCm>0&&a.heightCm>0,ar=(a.w||1)/(a.h||1);
   // 액자 오른쪽 설명판까지 합친 묶음이 자리 안에 들어가도록 크기를 맞추고, 묶음을 자리 가운데에 둔다
@@ -1634,7 +1647,7 @@ function hang(a,wall,slo,shi,rm,doorWall=true){
   const fs=a.frameScale||1; // 편집에서 고른 액자 크기 배율
   const[bw,bh]=real?[a.widthCm/100,a.heightCm/100]:[maxW*fs,maxH*fs];
   let w=bw,h=w/ar;if(h>bh){h=bh;w=h*ar;}
-  if(real){const k=Math.max(1,SHOW_MIN/Math.max(w,h));w*=k;h*=k;}
+  if(real){const L=Math.max(w,h),k=showLen(L)/L;w*=k;h*=k;}
   const mat=real?THREE.MathUtils.clamp((.8*fs-Math.max(w,h))/2,.05,.12):0,iw=w+mat*2,ih=h+mat*2; // 액자 안쪽 크기
   const s=THREE.MathUtils.clamp(Math.max(iw,ih)/1.7,.35,1); // 액자 폭·두께: 작은 그림일수록 얇게
   // 걸리는 높이: 미술관처럼 크기와 상관없이 모든 액자의 가운데를 한 높이(ART_Y)에 맞춘다
@@ -1869,7 +1882,7 @@ const card=$('card'),viewer=$('viewer'),fade=$('fade');
 const wp=new THREE.Vector3(),wn=new THREE.Vector3(),wq=new THREE.Quaternion();
 // 그림을 감상할 때 실제로 보이는 세로 영역(px): 위쪽 버튼·방 이름 아래부터 설명 카드 위까지.
 // 휴대폰 웹(주소창이 있는 화면)처럼 세로가 좁으면 설명 카드가 그림 아래를 가리므로, 이 영역 안에 그림을 맞춘다.
-function viewBand(){const H=innerHeight,ui=[document.querySelector('.top'),$('roomNow')].map(e=>e?.getBoundingClientRect().bottom||0);
+function viewBand(){const H=innerHeight,ui=matchMedia('(max-width:640px)').matches?[0]:[document.querySelector('.top'),$('roomNow')].map(e=>e?.getBoundingClientRect().bottom||0); // 휴대폰은 감상 중 위쪽 버튼을 숨긴다
   const top=Math.min(H*.35,Math.max(...ui)+8),cr=card.getBoundingClientRect(),bottom=Math.max(top+H*.25,Math.min(H,cr.top-10));
   return{top,bottom,H};}
 var viewShift=0; // var: resize() 가 이 줄보다 먼저 불린다. 화면 가운데를 보이는 영역 가운데로 옮기는 양(px). 감상 중에만, 부드럽게 바뀐다
@@ -1929,6 +1942,7 @@ function focusArt(a,{instant=false,cut=false,dur=.9}={}){
   card.classList.add('show');showHint(false);
 }
 function fillCard(a){
+  card.classList.remove('open-note');
   $('cTitle').textContent=a.title||'제목 없음';
   $('cMeta').textContent=[byline(a),fmtDate(a.date),mediumLine(a)].filter(Boolean).join(' · ');
   $('cNote').textContent=a.note||'';$('cNote').hidden=!a.note;
@@ -2007,6 +2021,7 @@ function tourResume(){if(!tour)return;
   const j=artIndex.findIndex(e=>e.art===vList[vIdx]);
   if(j>=0&&artIndex[j]!==focused){tour.i=j;tourShow();}}
 addEventListener('keydown',e=>{if(tour&&!viewer.classList.contains('show')&&!(focused&&/^Arrow(Left|Right)$|^Bracket|^Key[NP]$/.test(e.code))&&!e.target.closest?.('input,textarea,select'))stopTour();},true);
+$('cNote').onclick=()=>card.classList.toggle('open-note'); // 휴대폰에서 잘린 설명을 눌러 펼치기
 $('cPrev').onclick=()=>step(-1);$('cNext').onclick=()=>step(1);$('cClose').onclick=closeCard;
 
 /* ── 액자 위치·크기 고치기 (가족 계정만): 액자를 끌어 옮기고, 막대로 크기를 바꾼 뒤 저장 ── */
