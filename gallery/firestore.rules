@@ -22,6 +22,14 @@ service cloud.firestore {
     match /originals/{id} { allow read: if true; allow write: if isFamily(); }
     match /settings/{id}  { allow read: if true; allow write: if isFamily(); }
 
+    // 방문자 수: 누구나 읽을 수 있고, 누구나 숫자(n)를 1씩만 늘릴 수 있다 (지우기는 가족만)
+    match /stats/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == 1;
+      allow update: if request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == resource.data.n + 1;
+      allow delete: if isFamily();
+    }
+
     // 로그인한 사람이 가족인지 사이트가 확인하는 용도 (문서를 만들 필요는 없다)
     match /private/{id}   { allow read: if isFamily(); }
   }
