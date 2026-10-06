@@ -1197,6 +1197,7 @@ function drawWrapped(x,text,left,top,width,lh,maxY){
 }
 
 function build(){
+  visitorNo=0;
   if(world){scene.remove(world);disposables.forEach(d=>d.dispose());}
   disposables=[];colliders=[];pickables=[];rayTargets=[];artIndex=[];spinners=[];cellMap=new Map();
   world=new THREE.Group();scene.add(world);
@@ -1321,7 +1322,10 @@ const FRAME_STYLES=[
 const FRAME_TONES=[[1,1,1],[1.06,.98,.88],[.9,.88,.84]]; // 금빛 차이: 기본 · 따뜻한 금 · 바랜 금
 /* ── 관람객: 공간의 크기가 실감 나도록 방마다 한두 명 ── */
 // 사람 모델: Microsoft Rocketbox 아바타(MIT)를 뼈대째 가볍게 줄인 GLB (gallery/people/, LICENSE.txt 참고). 자세는 불러온 뒤 사람마다 잡는다.
-const PEOPLE_ADULT=['female_adult_02','female_adult_15','male_adult_03','male_adult_14'];
+// 관람객 12명 (모두 다른 사람). 전시장 전체에서 차례로 한 명씩 세워, 12명까지는 같은 사람이 두 번 나오지 않는다.
+const PEOPLE_ADULT=['female_adult_02','male_adult_03','female_adult_15','male_adult_14','female_adult_01','male_adult_02',
+  'female_adult_03','male_adult_04','female_adult_04','male_adult_06','female_adult_07','male_adult_08'];
+let visitorNo=0;
 // 자세: 뼈마다 기본 자세에서 더 돌릴 각도(쿼터니언). curl: [왼손, 오른손] 손가락 굽힘. 모든 모델이 같은 뼈대(Bip01)라 함께 쓴다.
 const PERSON_POSES={
   relaxed:{b:{R_UpperArm:[0,-.389,0,.921],R_Forearm:[0,0,-.125,.992],L_UpperArm:[0,.389,0,.921],L_Forearm:[0,0,-.125,.992]},curl:[.3,.3]},
@@ -1354,7 +1358,7 @@ function visitorShadowMat(){
 // 키 h(m)인 사람을 (x,z)에 세운다. yaw: 바라보는 방향(앞이 +z). v: 사람을 고르는 수.
 // 모델은 그 방(이나 옆방)에 들어설 때 불러온다 (streamTextures).
 function addVisitor(x,z,yaw,h,v,rm){
-  const file=PEOPLE_ADULT[(v>>>3)%PEOPLE_ADULT.length];
+  const file=PEOPLE_ADULT[visitorNo++%PEOPLE_ADULT.length];
   const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;world.add(g);
   const S2=visitorShadowMat(),sh=new THREE.Mesh(S2.geo,S2.mat);sh.rotation.x=-Math.PI/2;sh.position.y=.004;sh.scale.set(.62,.46,1);sh.renderOrder=1;g.add(sh);
   colliders.push({x0:x-.24,x1:x+.24,z0:z-.24,z1:z+.24,holder:g}); // 그림을 가리지 않게 숨긴 관람객은 부딪히지 않는다

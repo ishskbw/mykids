@@ -1,7 +1,7 @@
 관람객 사람 모델 출처 (People models in this folder)
 
 Microsoft Rocketbox Avatar Library — https://github.com/microsoft/Microsoft-Rocketbox
-Female_Adult_02, Female_Adult_15, Male_Adult_03, Male_Adult_14
+Female_Adult_01, 02, 03, 04, 07, 15 · Male_Adult_02, 03, 04, 06, 08, 14
 텍스처를 512px로 줄이고 뼈대를 유지한 채 GLB로 변환했습니다. 자세(팔짱·턱 괴기·뒷짐 등)는 사이트에서 잡습니다.
 (Textures reduced to 512px, converted to skinned GLB; poses are applied at runtime.)
 
