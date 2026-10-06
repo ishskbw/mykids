@@ -1332,7 +1332,7 @@ const PERSON_POSES={
   cross:{b:{R_UpperArm:[-.344,-.215,-.428,.808],R_Forearm:[0,0,-.443,.896],R_Hand:[0,0,.435,.9],L_UpperArm:[.4,.201,-.436,.78],L_Forearm:[0,0,-.42,.908],L_Hand:[0,0,.435,.9]},curl:[.35,.35]}, // 팔짱
   chin:{b:{R_UpperArm:[-.125,-.34,-.501,.786],R_Forearm:[0,0,-.737,.676],R_Hand:[0,-.435,0,.9],L_UpperArm:[.433,.234,-.41,.768],L_Forearm:[0,0,-.398,.918],L_Hand:[0,0,.343,.939]},curl:[.4,.6]}, // 턱 괴기
   back:{b:{R_UpperArm:[-.714,-.329,-.18,.592],R_Forearm:[0,0,-.29,.957],L_UpperArm:[.683,.341,-.168,.624],L_Forearm:[0,0,-.27,.963]},curl:[.5,.5]}}; // 뒷짐
-const POSE_NAMES=Object.keys(PERSON_POSES);
+const POSE_NAMES=Object.keys(PERSON_POSES).filter(k=>k!=='back'); // 뒷짐은 쓰지 않는다 (어색해 보여서)
 function posePerson(o,name){
   const P=PERSON_POSES[name],q=new THREE.Quaternion(),Z=new THREE.Vector3(0,0,1);
   o.traverse(b=>{if(!b.isBone)return;const k=b.name.replace(/^Bip0\d_/,'');
