@@ -240,9 +240,6 @@ dialog::backdrop{background:rgba(10,8,6,.6)}
 .cropper .btn{color:var(--ink)}
 .item .thumb .row .btn{padding:6px 8px;font-size:12.5px;white-space:nowrap;flex:1}
 .item .thumb .row{flex-wrap:wrap}
-.item .rep-opts{display:flex;flex-direction:column;gap:6px}
-.item .rep-opts .btn{font-size:12.5px;padding:7px 8px;text-align:center}
-.item .rep-opts[hidden]{display:none}
 .item .del-ask{border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center;font-size:13px}
 .item .del-ask p{margin:0 0 6px}.item .del-ask small{color:var(--muted)}
 .item .del-ask div{display:flex;gap:6px}.item .del-ask .btn{flex:1;padding:6px}
@@ -2777,20 +2774,16 @@ function artEditItem(a,after){
     const ask=document.createElement('div');ask.className='del-ask';ask.hidden=true;
     ask.innerHTML='<p>정말 삭제할까요?<br><small>되돌릴 수 없어요</small></p><div><button type="button" class="btn danger">예</button><button type="button" class="btn">아니오</button></div>';
     const[yes,no]=ask.querySelectorAll('button');
-    del.onclick=()=>{ask.hidden=false;opts.hidden=true;};no.onclick=()=>{ask.hidden=true;};
+    del.onclick=()=>{ask.hidden=false;};no.onclick=()=>{ask.hidden=true;};
     yes.onclick=async()=>{yes.disabled=true;
       try{await Store.del(a.id,a.modelParts||0);modelCache.delete(a.id);}catch(err){console.error(err);yes.disabled=false;return toast('지우지 못했어요. 인터넷 연결이나 로그인을 확인해 주세요.');}
       state.arts=state.arts.filter(x=>x!==a);if(a.url)URL.revokeObjectURL(a.url);if(a.surl)URL.revokeObjectURL(a.surl);dirty=true;after(null);};
-    // 사진 바꾸기: 그림 올리기처럼 고르는 방법을 보여 준다 (카메라로 찍기 / 사진 선택 / 안드로이드는 다른 앱에서 고르기)
-    const rep=document.createElement('button');rep.type='button';rep.className='btn';rep.textContent='사진 바꾸기';rep.hidden=!!a.model;
-    const opts=document.createElement('div');opts.className='rep-opts';opts.hidden=true;
-    const pick=(label,accept,capture)=>{const l=document.createElement('label');l.className='btn';l.textContent=label;
-      const i=document.createElement('input');i.type='file';i.accept=accept;if(capture)i.setAttribute('capture','environment');i.hidden=true;l.append(i);
-      i.onchange=()=>{const f=i.files[0];i.value='';opts.hidden=true;if(f)replaceArtImage(a,f,after);};opts.append(l);};
-    pick('📷 카메라로 찍기','image/*',true);pick('🖼 사진 선택','image/*');
-    if(/android/i.test(navigator.userAgent))pick('갤러리·구글 포토 등 다른 앱','image/*,.glb,model/gltf-binary');
-    rep.onclick=()=>{opts.hidden=!opts.hidden;};
-    row.append(go,rep,del);th.append(row,opts,ask);
+    // 사진 바꾸기: 누르면 바로 휴대폰의 '작업 선택' 창(카메라·파일 등)이 뜬다.
+    // 안드로이드는 image/* 만 쓰면 구글 포토 선택기로 바로 넘어가므로, 다른 형식을 하나 섞어 선택 창이 뜨게 한다.
+    const rep=document.createElement('label');rep.className='btn';rep.textContent='사진 바꾸기';rep.hidden=!!a.model;
+    const rf=document.createElement('input');rf.type='file';rf.hidden=true;rf.accept=/android/i.test(navigator.userAgent)?'image/*,.glb,model/gltf-binary':'image/*';rep.append(rf);
+    rf.onchange=()=>{const f=rf.files[0];rf.value='';if(f)replaceArtImage(a,f,after);};
+    row.append(go,rep,del);th.append(row,ask);
     const fs=document.createElement('div');fs.className='fields';
     const save=()=>{dirty=true;Store.put(a).catch(err=>{console.error(err);toast('고친 내용을 저장하지 못했어요');});};
     const[l1,t]=field('작품 제목','text',a.title,'wide');t.onchange=()=>{a.title=t.value.trim()||'제목 없음';save();};
