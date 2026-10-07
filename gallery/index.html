@@ -226,6 +226,21 @@ html,body{touch-action:manipulation} /* 두 번 톡 눌러 확대 막기 */
 /* 대화상자 */
 dialog{border:none;border-radius:16px;padding:0;background:var(--panel);color:var(--ink);width:min(720px,calc(100% - 24px));max-height:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
 dialog::backdrop{background:rgba(10,8,6,.6)}
+.cropper{position:fixed;inset:0;z-index:50;background:rgba(20,16,13,.97);color:#efe7d8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
+.cropper .cr-hint{margin:0;font-size:14px;text-align:center}
+.cropper .cr-stage{position:relative;touch-action:none;cursor:crosshair}
+.cropper canvas{display:block;border-radius:4px}
+.cropper svg{position:absolute;inset:0;width:100%;height:100%}
+.cropper .cr-ruler{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:14px}
+.cropper .cr-ruler input{width:72px;padding:6px;border-radius:8px;border:1px solid #6b5a44;background:#2a231d;color:#efe7d8;font-size:15px}
+.cropper .cr-ruler[hidden]{display:none}
+.cropper .cr-res{color:#e8c77a;font-weight:600}
+.cropper .cr-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(900px,100%)}
+.cropper .cr-row .spacer{flex:1}
+.cropper .btn{color:var(--ink)}
+.item .thumb .row .btn{padding:6px 8px;font-size:12.5px;white-space:nowrap;flex:1}
+.item .thumb .row{flex-wrap:wrap}
+.item .auto-crop{margin:2px 0 0;font-size:11.5px;color:var(--muted);line-height:1.35}
 .dlg{display:flex;flex-direction:column;max-height:calc(100dvh - 32px)}
 .dlg header{display:flex;align-items:center;gap:8px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
 .dlg header h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0;flex:1}
@@ -2446,6 +2461,194 @@ function refreshArtistList(){const dl=$('artistList');dl.replaceChildren();
   [...new Set([...KIDS.map(artistOf),...state.arts.map(a=>a.artist).filter(Boolean)])].forEach(n=>{const o=document.createElement('option');o.value=n;dl.append(o);});}
 function field(label,type,value,cls=''){const l=document.createElement('label');l.className='f '+cls;l.textContent=label;
   const i=document.createElement(type==='textarea'?'textarea':'input');if(type!=='textarea')i.type=type;i.value=value||'';l.append(i);return[l,i];}
+/* ── 그림만 자르기: 사진에서 그림(종이·캔버스)의 네 모서리를 찾아 반듯하게 펴고 바깥 배경을 잘라 낸다.
+   모든 계산은 이 기기 안에서만 한다. 자동으로 못 찾거나 틀리면 모서리 점을 끌어 고친다.
+   자로 크기 재기: 그림 옆(같은 면)에 놓은 자의 두 눈금을 짚으면, 반듯하게 편 그림의 가로×세로(cm)를 계산한다. ── */
+const CROP_SRC_MAX=2600;
+// 배경 = 사진 가장자리에서 이어지는 비슷한 색. 그 안쪽에서 가장 큰 덩어리를 그림으로 보고, 덩어리의 네 끝점을 모서리로 쓴다.
+// 먼저 색(배경 한 가지)으로 찾아 보고, 안 되면 곧은 테두리 선으로 찾는다
+function detectQuad(src){return detectQuadColor(src)||detectQuadEdges(src);}
+function detectQuadColor(src){
+  const S=360,k=Math.min(1,S/Math.max(src.width,src.height)),w=Math.max(8,Math.round(src.width*k)),h=Math.max(8,Math.round(src.height*k));
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});g.filter='blur(1.5px)';g.drawImage(src,0,0,w,h);
+  const D=g.getImageData(0,0,w,h).data,N=w*h;
+  // 가장자리 색의 중간값 = 배경색
+  const bor=[[],[],[]],bw=Math.max(2,Math.round(Math.min(w,h)*.03));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x>=bw&&x<w-bw&&y>=bw&&y<h-bw)continue;const i=(y*w+x)*4;bor[0].push(D[i]);bor[1].push(D[i+1]);bor[2].push(D[i+2]);}
+  const med=bor.map(a=>{a.sort((p,q)=>p-q);return a[a.length>>1];});
+  const dist=new Float32Array(N),hist=new Float64Array(256);
+  for(let i=0;i<N;i++){const r=D[i*4]-med[0],gg=D[i*4+1]-med[1],b=D[i*4+2]-med[2],d=Math.sqrt(r*r+gg*gg+b*b);dist[i]=d;hist[Math.min(255,d|0)]++;}
+  // 배경과 그림을 가르는 색 차이 기준 (오츠 방법)
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sB=0,wB=0,best=0,th=30;
+  for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=N-wB;if(!wF)break;sB+=i*hist[i];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;th=i;}}
+  th=Math.max(22,Math.min(90,th));
+  // 가장자리에서부터 배경 채우기
+  const bg=new Uint8Array(N),q=new Int32Array(N);let qh=0,qt=0;
+  const push=i=>{if(!bg[i]&&dist[i]<th){bg[i]=1;q[qt++]=i;}};
+  for(let x=0;x<w;x++){push(x);push((h-1)*w+x);}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1);}
+  while(qh<qt){const i=q[qh++],x=i%w,y=(i/w)|0;if(x>0)push(i-1);if(x<w-1)push(i+1);if(y>0)push(i-w);if(y<h-1)push(i+w);}
+  let bgN=0;for(let i=0;i<N;i++)if(bg[i])bgN++;
+  if(bgN<N*.04)return null; // 배경이 거의 없다 = 이미 그림만 찍힌 사진
+  // 배경이 아닌 곳 중 가장 큰 덩어리
+  const lab=new Int32Array(N);let bestL=0,bestN=0,L=0;
+  for(let s=0;s<N;s++){if(bg[s]||lab[s])continue;L++;let n=0;qh=qt=0;q[qt++]=s;lab[s]=L;
+    while(qh<qt){const i=q[qh++];n++;const x=i%w,y=(i/w)|0;
+      if(x>0&&!bg[i-1]&&!lab[i-1]){lab[i-1]=L;q[qt++]=i-1;}
+      if(x<w-1&&!bg[i+1]&&!lab[i+1]){lab[i+1]=L;q[qt++]=i+1;}
+      if(y>0&&!bg[i-w]&&!lab[i-w]){lab[i-w]=L;q[qt++]=i-w;}
+      if(y<h-1&&!bg[i+w]&&!lab[i+w]){lab[i+w]=L;q[qt++]=i+w;}}
+    if(n>bestN){bestN=n;bestL=L;}}
+  if(bestN<N*.08)return null;
+  // 덩어리가 사진 가장자리에 닿아 있으면 배경 위에 놓인 그림이 아니다 (풍경 사진의 땅, 그림만 꽉 차게 찍은 사진 등)
+  let edge=0;for(let x=0;x<w;x++){if(lab[x]===bestL)edge++;if(lab[(h-1)*w+x]===bestL)edge++;}for(let y=0;y<h;y++){if(lab[y*w]===bestL)edge++;if(lab[y*w+w-1]===bestL)edge++;}
+  if(edge>(w+h)*2*.02)return null;
+  // 네 끝점 (왼위·오른위·오른아래·왼아래)
+  const ext=[[Infinity,0,0],[-Infinity,0,0],[-Infinity,0,0],[-Infinity,0,0]];
+  for(let i=0;i<N;i++){if(lab[i]!==bestL)continue;const x=i%w,y=(i/w)|0;
+    if(x+y<ext[0][0])ext[0]=[x+y,x,y];if(x-y>ext[1][0])ext[1]=[x-y,x,y];if(x+y>ext[2][0])ext[2]=[x+y,x,y];if(y-x>ext[3][0])ext[3]=[y-x,x,y];}
+  const small=ext.map(e=>[e[1]+.5,e[2]+.5]),area=polyArea(small),fill=bestN/area;
+  // 믿을 만할 때만: 사각형을 덩어리가 잘 채우고, 사진 거의 전부를 덮지는 않을 때
+  if(area>N*.97||fill<.82||fill>1.15)return null;
+  return small.map(([x,y])=>[x/k,y/k]);
+}
+// 배경이 여러 가지(벽·선반·책 등)라 색으로 못 가를 때: 사진에서 곧은 선(액자·종이 테두리)을 찾아,
+// 네 변이 모두 뚜렷한 선 위에 놓이는 가장 그럴듯한 사각형을 고른다 (허프 변환).
+function detectQuadEdges(src){
+  const S=480,k=Math.min(1,S/Math.max(src.width,src.height)),w=Math.max(16,Math.round(src.width*k)),h=Math.max(16,Math.round(src.height*k));
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});g.filter='blur(1.2px)';g.drawImage(src,0,0,w,h);
+  const D=g.getImageData(0,0,w,h).data,N=w*h,Y=new Float32Array(N);
+  for(let i=0;i<N;i++)Y[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
+  const mag=new Float32Array(N),gx=new Float32Array(N),gy=new Float32Array(N);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;
+    const ax=Y[i-w+1]+2*Y[i+1]+Y[i+w+1]-Y[i-w-1]-2*Y[i-1]-Y[i+w-1],ay=Y[i+w-1]+2*Y[i+w]+Y[i+w+1]-Y[i-w-1]-2*Y[i-w]-Y[i-w+1];
+    gx[i]=ax;gy[i]=ay;mag[i]=Math.hypot(ax,ay);}
+  // 강한 테두리 기준: 상위 12%
+  const sorted=Float32Array.from(mag).sort(),thr=Math.max(40,sorted[Math.floor(N*.88)]);
+  // 허프 누적 (선의 기울기는 밝기가 바뀌는 방향과 수직 → 그 방향 ±8°만 투표)
+  const NT=180,diag=Math.ceil(Math.hypot(w,h)),NR=diag*2+1,acc=new Float32Array(NT*NR),cs=new Float32Array(NT),sn=new Float32Array(NT);
+  for(let t=0;t<NT;t++){cs[t]=Math.cos(t*Math.PI/NT);sn[t]=Math.sin(t*Math.PI/NT);}
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(mag[i]<thr)continue;
+    let a=Math.atan2(gy[i],gx[i]);if(a<0)a+=Math.PI;const t0=Math.round(a/Math.PI*NT);
+    for(let d=-8;d<=8;d++){const t=(t0+d+NT)%NT,r=Math.round(x*cs[t]+y*sn[t])+diag;acc[t*NR+r]+=1;}}
+  // 봉우리 = 뚜렷한 선 (주변 7×7 안에서 가장 큰 값)
+  const peaks=[];
+  for(let t=0;t<NT;t++)for(let r=3;r<NR-3;r++){const v=acc[t*NR+r];if(v<Math.min(w,h)*.12)continue;let mx=true;
+    for(let dt=-3;dt<=3&&mx;dt++)for(let dr=-3;dr<=3;dr++){if(!dt&&!dr)continue;const tt=t+dt,rr=r+dr;if(tt<0||tt>=NT||rr<0||rr>=NR)continue;if(acc[tt*NR+rr]>v){mx=false;break;}}
+    if(mx)peaks.push({t,r:r-diag,v});}
+  peaks.sort((a,b)=>b.v-a.v);
+  const hor=[],ver=[];for(const p of peaks.slice(0,60)){const deg=p.t*180/NT;(Math.abs(deg-90)<35?hor:(deg<35||deg>145)?ver:[]).push(p);}
+  const H=hor.slice(0,10),V=ver.slice(0,10);if(H.length<2||V.length<2)return null;
+  const cross=(a,b)=>{const t1=a.t*Math.PI/NT,t2=b.t*Math.PI/NT,c1=Math.cos(t1),s1=Math.sin(t1),c2=Math.cos(t2),s2=Math.sin(t2),det=c1*s2-s1*c2;if(Math.abs(det)<1e-6)return null;
+    return[(a.r*s2-b.r*s1)/det,(c1*b.r-c2*a.r)/det];};
+  // 한 변이 실제 테두리 위에 놓인 비율 (그 자리의 밝기 변화가 강하고, 방향도 변과 수직)
+  const support=(p,q)=>{const dx=q[0]-p[0],dy=q[1]-p[1],L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,n=Math.max(20,Math.round(L/3));let ok=0;
+    for(let s=0;s<n;s++){const x=Math.round(p[0]+dx*(s+.5)/n),y=Math.round(p[1]+dy*(s+.5)/n);let hit=false;
+      for(let oy=-2;oy<=2&&!hit;oy++)for(let ox=-2;ox<=2;ox++){const xx=x+ox,yy=y+oy;if(xx<1||yy<1||xx>=w-1||yy>=h-1)continue;const i=yy*w+xx;
+        if(mag[i]>=thr*.7&&Math.abs(gx[i]*ux+gy[i]*uy)<mag[i]*.5){hit=true;break;}}
+      if(hit)ok++;}
+    return ok/n;};
+  let best=null;
+  for(let a=0;a<H.length;a++)for(let b=a+1;b<H.length;b++)for(let cI=0;cI<V.length;cI++)for(let d=cI+1;d<V.length;d++){
+    let[top,bot]=[H[a],H[b]],[lef,rig]=[V[cI],V[d]];
+    // 위·아래, 왼·오른쪽 정하기: 사진 가운데 줄에서의 위치로
+    const yAt=l=>{const t=l.t*Math.PI/NT;return(l.r-(w/2)*Math.cos(t))/Math.sin(t);},xAt=l=>{const t=l.t*Math.PI/NT;return(l.r-(h/2)*Math.sin(t))/Math.cos(t);};
+    if(yAt(top)>yAt(bot))[top,bot]=[bot,top];if(xAt(lef)>xAt(rig))[lef,rig]=[rig,lef];
+    const q=[cross(top,lef),cross(top,rig),cross(bot,rig),cross(bot,lef)];if(q.some(v=>!v||v[0]<-w*.02||v[1]<-h*.02||v[0]>w*1.02||v[1]>h*1.02))continue;
+    const ar=polyArea(q)/N;if(ar<.08||ar>.96)continue;
+    const sw=dist2(q[0],q[1]),sh=dist2(q[0],q[3]);if(sw<w*.15||sh<h*.15)continue;
+    const sp=[support(q[0],q[1]),support(q[1],q[2]),support(q[2],q[3]),support(q[3],q[0])],mn=Math.min(...sp),avg=(sp[0]+sp[1]+sp[2]+sp[3])/4;
+    if(mn<.55)continue;
+    const score=mn*.5+avg*.3+Math.sqrt(ar)*.35;
+    if(!best||score>best.score)best={score,q};}
+  return best?best.q.map(([x,y])=>[x/k,y/k]):null;
+}
+function polyArea(P){let a=0;for(let i=0;i<P.length;i++){const[x1,y1]=P[i],[x2,y2]=P[(i+1)%P.length];a+=x1*y2-x2*y1;}return Math.abs(a)/2;}
+// 네 점 → 네 점 원근 변환 (src[i] 를 dst[i] 로 보낸다)
+function homography(src,dst){
+  const A=[],b=[];for(let i=0;i<4;i++){const[x,y]=src[i],[u,v]=dst[i];A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v);}
+  for(let c=0;c<8;c++){let p=c;for(let r=c+1;r<8;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];[b[c],b[p]]=[b[p],b[c]];
+    for(let r=0;r<8;r++)if(r!==c){const f=A[r][c]/A[c][c];for(let j=c;j<8;j++)A[r][j]-=f*A[c][j];b[r]-=f*b[c];}}
+  return [...b.map((v,i)=>v/A[i][i]),1];
+}
+const applyH=(m,x,y)=>{const z=m[6]*x+m[7]*y+1;return[(m[0]*x+m[1]*y+m[2])/z,(m[3]*x+m[4]*y+m[5])/z];};
+const dist2=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+// 반듯하게 폈을 때의 가로·세로(px): 마주 보는 변 길이의 평균
+function rectSize(q){return[(dist2(q[0],q[1])+dist2(q[3],q[2]))/2,(dist2(q[0],q[3])+dist2(q[1],q[2]))/2];}
+// 사각형 안쪽을 반듯하게 펴서 새 캔버스로 (가장자리를 1% 더 잘라 배경 찌꺼기를 없앤다)
+function warpQuad(src,quad,inset=.01){
+  let[W,H]=rectSize(quad);const k=Math.min(1,2400/Math.max(W,H));W=Math.max(16,Math.round(W*k));H=Math.max(16,Math.round(H*k));
+  const m=homography([[0,0],[W,0],[W,H],[0,H]],quad);
+  const sw=src.width,sh=src.height,sc=document.createElement('canvas');sc.width=sw;sc.height=sh;const sg=sc.getContext('2d',{willReadFrequently:true});sg.drawImage(src,0,0);
+  const S=sg.getImageData(0,0,sw,sh).data,out=document.createElement('canvas');out.width=W;out.height=H;const og=out.getContext('2d'),O=og.createImageData(W,H),od=O.data;
+  const ix=W*inset,iy=H*inset,fx=(W-2*ix)/W,fy=(H-2*iy)/H;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const[u,v]=applyH(m,ix+x*fx,iy+y*fy),x0=Math.max(0,Math.min(sw-2,Math.floor(u))),y0=Math.max(0,Math.min(sh-2,Math.floor(v))),ax=Math.max(0,Math.min(1,u-x0)),ay=Math.max(0,Math.min(1,v-y0));
+    const i00=(y0*sw+x0)*4,i10=i00+4,i01=i00+sw*4,i11=i01+4,o=(y*W+x)*4;
+    for(let c=0;c<3;c++)od[o+c]=(S[i00+c]*(1-ax)+S[i10+c]*ax)*(1-ay)+(S[i01+c]*(1-ax)+S[i11+c]*ax)*ay;
+    od[o+3]=255;}
+  og.putImageData(O,0,0);return out;
+}
+// 올리기 목록의 한 장(p)에 자르기를 적용하거나 되돌린다. p.orig = 처음 고른 사진, p.cropRot = 자를 때의 돌림 각도
+function autoCrop(bitmap){try{const base=drawRotated(bitmap,0,CROP_SRC_MAX),quad=detectQuad(base);return quad?{quad,canvas:warpQuad(base,quad)}:null;}catch(err){console.warn(err);return null;}}
+function cropBase(p){return drawRotated(p.orig,p.cropped?p.cropRot:p.rot,CROP_SRC_MAX);}
+function applyCrop(p,base,quad){p.cropRot=p.cropped?p.cropRot:p.rot;p.quad=quad;p.bitmap=warpQuad(base,quad);p.cropped=true;p.rot=0;}
+function undoCrop(p){if(!p.cropped)return;p.bitmap=p.orig;p.rot=p.cropRot||0;p.cropped=false;p.auto=false;p.quad=null;}
+// 자로 잰 크기: 자의 두 눈금(사진 좌표)과 그 사이 길이(cm) → 그림 가로×세로(cm, 0.5cm 단위)
+function rulerSize(quad,a,b,cm){
+  const[W,H]=rectSize(quad),m=homography(quad,[[0,0],[W,0],[W,H],[0,H]]),pa=applyH(m,a[0],a[1]),pb=applyH(m,b[0],b[1]),px=dist2(pa,pb);
+  if(!(px>2)||!(cm>0))return null;const r=v=>Math.round(v*cm/px*2)/2;return[r(W),r(H)];
+}
+// 흔한 종이·캔버스 크기와 거의 같으면(5% 안쪽) 그 크기를 알려 준다 (가로세로 방향은 맞춰서)
+const COMMON_SIZES=[['8절',39.4,27.2],['4절',54.5,39.4],['16절',27.2,19.7],['A4',29.7,21],['A3',42,29.7],['캔버스 6호',41,31.8],['캔버스 8호',45.5,37.9],['캔버스 10호',53,45.5],['캔버스 12호',60.6,50],['캔버스 15호',65.1,53],['캔버스 20호',72.7,60.6]];
+function nearSize(w,h){for(const[n,a,b]of COMMON_SIZES){const[A,B]=w>=h?[a,b]:[b,a];if(Math.abs(w-A)/A<.05&&Math.abs(h-B)/B<.05)return[n,A,B];}return null;}
+
+// 자르기 편집 화면 (올리기 창 위에 뜬다)
+function openCropper(p,onDone){
+  const base=cropBase(p),bw=base.width,bh=base.height;
+  let quad=(p.cropped&&p.quad)?p.quad.map(v=>v.slice()):(detectQuad(base)||[[bw*.08,bh*.08],[bw*.92,bh*.08],[bw*.92,bh*.92],[bw*.08,bh*.92]]);
+  let mode='crop',ra=null,rb=null,measured=null,dragI=-1;
+  const ov=document.createElement('div');ov.className='cropper';
+  ov.innerHTML=`<p class="cr-hint"></p><div class="cr-stage"><canvas></canvas><svg></svg></div>
+    <div class="cr-ruler" hidden><label>두 눈금 사이 <input type="number" min="1" step="0.5" value="10" inputmode="decimal"> cm</label><span class="cr-res"></span></div>
+    <div class="cr-row"><button type="button" class="btn" data-a="auto">자동으로 다시 찾기</button><button type="button" class="btn" data-a="ruler">📏 자로 크기 재기</button>
+    <span class="spacer"></span><button type="button" class="btn" data-a="orig">원본 그대로</button><button type="button" class="btn" data-a="cancel">취소</button><button type="button" class="btn primary" data-a="ok">적용</button></div>`;
+  $('dlgUpload').append(ov);
+  const cv=ov.querySelector('canvas'),svg=ov.querySelector('svg'),stageEl=ov.querySelector('.cr-stage'),hint=ov.querySelector('.cr-hint'),
+    rulerBox=ov.querySelector('.cr-ruler'),lenIn=rulerBox.querySelector('input'),res=ov.querySelector('.cr-res');
+  const NS='http://www.w3.org/2000/svg',el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);svg.append(e);return e;};
+  const R=()=>bw/cv.width; // 화면 1px = 사진 몇 px
+  const fit=()=>{const mw=Math.min(innerWidth-32,900),mh=innerHeight*.6,s=Math.min(mw/bw,mh/bh);cv.width=Math.round(bw*s);cv.height=Math.round(bh*s);
+    cv.getContext('2d').drawImage(base,0,0,cv.width,cv.height);svg.setAttribute('viewBox',`0 0 ${bw} ${bh}`);stageEl.style.width=cv.width+'px';stageEl.style.height=cv.height+'px';draw();};
+  function measure(){measured=ra&&rb?rulerSize(quad,ra,rb,parseFloat(lenIn.value)):null;res.textContent=measured?`→ 그림 크기 약 ${measured[0]}×${measured[1]} cm`:'';}
+  function draw(){svg.replaceChildren();const r=R(),pts=quad.map(v=>v.join(',')).join(' ');
+    el('path',{d:`M0,0H${bw}V${bh}H0Z M${quad.map(v=>v.join(',')).join(' L')} Z`,'fill-rule':'evenodd',fill:'rgba(0,0,0,.45)'});
+    el('polygon',{points:pts,fill:'none',stroke:'#e8c77a','stroke-width':2.5*r});
+    for(const v of quad)el('circle',{cx:v[0],cy:v[1],r:12*r,fill:'rgba(232,199,122,.35)',stroke:'#e8c77a','stroke-width':2.5*r});
+    if(ra)el('circle',{cx:ra[0],cy:ra[1],r:6*r,fill:'#d64535'});
+    if(ra&&rb){el('line',{x1:ra[0],y1:ra[1],x2:rb[0],y2:rb[1],stroke:'#d64535','stroke-width':3*r});el('circle',{cx:rb[0],cy:rb[1],r:6*r,fill:'#d64535'});}
+    hint.textContent=mode==='crop'?'노란 모서리 점을 끌어 그림의 네 모서리에 맞추세요':!ra?'자의 한 눈금(예: 0cm)을 누르세요':!rb?'다른 눈금(예: 10cm)을 누르세요':'두 눈금 사이 길이를 확인하고 적용을 누르세요';
+    measure();}
+  const toImg=e=>{const b=cv.getBoundingClientRect();return[(e.clientX-b.left)*R(),(e.clientY-b.top)*R()];};
+  stageEl.addEventListener('pointerdown',e=>{e.preventDefault();const pt=toImg(e);
+    if(mode==='ruler'){if(!ra||rb){ra=pt;rb=null;}else rb=pt;draw();return;}
+    let bi=-1,bd=44*R();quad.forEach((v,i)=>{const d=dist2(v,pt);if(d<bd){bd=d;bi=i;}});dragI=bi;if(bi>=0)stageEl.setPointerCapture(e.pointerId);});
+  stageEl.addEventListener('pointermove',e=>{if(dragI<0)return;const[x,y]=toImg(e);quad[dragI]=[Math.max(0,Math.min(bw,x)),Math.max(0,Math.min(bh,y))];draw();});
+  for(const ev of ['pointerup','pointercancel'])stageEl.addEventListener(ev,()=>dragI=-1);
+  lenIn.oninput=measure;
+  const close=()=>{ov.remove();removeEventListener('resize',fit);};
+  ov.querySelector('.cr-row').onclick=e=>{const btn=e.target.closest('button'),a=btn?.dataset.a;if(!a)return;
+    if(a==='auto'){const qd=detectQuad(base);if(qd){quad=qd;draw();}else toast('그림 테두리를 찾지 못했어요. 모서리 점을 직접 끌어 맞춰 주세요');}
+    else if(a==='ruler'){mode=mode==='ruler'?'crop':'ruler';rulerBox.hidden=mode!=='ruler';btn.classList.toggle('primary',mode==='ruler');draw();}
+    else if(a==='orig'){undoCrop(p);close();onDone();}
+    else if(a==='cancel')close();
+    else if(a==='ok'){applyCrop(p,base,quad);p.auto=false;
+      if(measured){let[w,h]=measured;const n=nearSize(w,h);
+        if(n&&confirm(`잰 크기 ${w}×${h}cm가 ${n[0]}(${n[1]}×${n[2]}cm)와 거의 같아요. ${n[0]} 크기로 맞출까요?`)){w=n[1];h=n[2];}
+        p.size=`${w}×${h}`;}
+      close();onDone();}};
+  addEventListener('resize',fit);fit();
+}
+
 function renderPending(){
   const ul=$('pending');ul.replaceChildren();
   pending.forEach((p,idx)=>{
@@ -2455,7 +2658,10 @@ function renderPending(){
     const row=document.createElement('div');row.className='row';
     const rot=document.createElement('button');rot.type='button';rot.className='btn';rot.textContent='↻ 돌리기';rot.hidden=!!p.model;rot.onclick=()=>{p.rot=(p.rot+90)%360;cv.replaceWith(drawRotated(p.bitmap,p.rot,240));renderPending();};
     const rm=document.createElement('button');rm.type='button';rm.className='btn danger';rm.textContent='빼기';rm.onclick=()=>{pending.splice(idx,1);renderPending();};
-    row.append(rot,rm);th.append(row);
+    const cut=document.createElement('button');cut.type='button';cut.className='btn';cut.textContent='✂ 자르기';cut.hidden=!!p.model||!p.orig;
+    cut.onclick=()=>openCropper(p,renderPending);
+    row.append(rot,cut,rm);th.append(row);
+    if(p.auto){const note=document.createElement('p');note.className='auto-crop';note.textContent='배경을 자동으로 잘랐어요 · 이상하면 ✂로 고치기';th.append(note);}
     const fs=document.createElement('div');fs.className='fields';
     const[l1,t]=field('작품 제목','text',p.title,'wide');t.placeholder='예: 우리 집 강아지';t.oninput=()=>p.title=t.value;
     const[l2,ar]=field('그린 사람','text',p.artist);ar.setAttribute('list','artistList');ar.oninput=()=>p.artist=ar.value;
@@ -2482,7 +2688,8 @@ async function addFiles(files){
       catch(err){console.error(err);toast(`${f.name} 3D 파일을 열 수 없었어요`);}
       continue;}
     try{const bitmap=await loadBitmap(f),ex=await readExif(f),medium=$("commonMedium").value;
-    pending.push({bitmap,rot:0,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,room:$("commonRoom").value,note:""});}
+    const auto=!isPhoto(medium)?autoCrop(bitmap):null;
+    pending.push({bitmap:auto?.canvas||bitmap,orig:bitmap,rot:0,cropRot:0,cropped:!!auto,auto:!!auto,quad:auto?.quad||null,gear:ex?.gear||'',title:f.name.replace(/\.[^.]+$/,'').replace(/^(IMG|DSC|PXL|KakaoTalk)_?[\d_-]*$/i,''),artist:$('commonArtist').value,date:$('commonDate').value||ex?.date||fileDate(f),medium:isPhoto(medium)?photoMedium(ex?.gear):medium,size:$("commonSize").value,room:$("commonRoom").value,note:""});}
     catch{toast(`${f.name} 파일은 열 수 없었어요`);}}
   renderPending();
 }
