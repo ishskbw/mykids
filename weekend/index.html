@@ -527,7 +527,8 @@ fetch("/weekend/data.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw 0;return 
   state.weekends=upcoming.length?upcoming:all.slice(-2);
   state.wk=state.weekends[0]||null; state.days=state.wk?[...(state.wk.days||[])]:[];
   const up=data.updatedAt||all.map(w=>w.updatedAt).filter(Boolean).sort().slice(-1)[0];
-  $("fresh").textContent=up?`행사 자료 업데이트 ${String(up).slice(0,10).replace(/-/g,".")} · 매주 목요일 갱신`:"";
+  $("fresh").textContent=!upcoming.length?"아직 이번 주말 자료가 없어요. 지난 주말 행사를 보여드려요."
+    :up?`행사 자료 업데이트 ${String(up).slice(0,10).replace(/-/g,".")} · 매주 월·목 갱신`:"";
   renderWeekends();renderDays();render();
 }).catch(()=>{$("fresh").textContent="행사 자료를 불러오지 못했어요. 새로고침해 보세요.";});
 })();
