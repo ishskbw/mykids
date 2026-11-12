@@ -1031,38 +1031,42 @@ const TOP=0x8c918d;
 // 싱크대 하부장: 짙은 푸른색
 function counter(x0,y0,x1,y1,c){box(x0,y0,x1,y1,0.86,c||0x253349);box(x0-0.02,y0-0.02,x1+0.02,y1+0.02,0.04,TOP,0.86);}
 counter(8.1,1.95,10.85,2.55);            // 위쪽 줄 (개수대)
-{ // 개수대 줄: 왼쪽 그릇 건조대 · 가운데 사각 싱크볼 + 거위목 수전 · 오른쪽 정수기, 정수기 아래 식기세척기
- const ST=new THREE.MeshStandardMaterial({color:0xc4c8cb,metalness:0.75,roughness:0.32}),CH=CHROME,tp=0.9;
+{ // 개수대 줄: 왼쪽 끝 정수기(테라스 중문을 바라봄) · 그 오른쪽 그릇 건조대(90도 돌려 놓음) · 가운데 은색 스틸 싱크볼 + 거위목 수전 · 검은색 식기세척기
+ const ST=new THREE.MeshStandardMaterial({color:0xd3d7da,metalness:0.85,roughness:0.25}),CH=CHROME,tp=0.9;
  const add=(geo,m,x,y,z,ry)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);if(ry)o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;scene.add(o);fullOnly.push(o);return o;};
  // 싱크볼 (상판에 묻힌 사각 볼: 테두리 + 안쪽 어두운 스테인리스 + 배수구)
  const sx0=8.95,sx1=9.65,sy0=2.05,sy1=2.45;
  box(sx0,sy0,sx1,sy1,0.004,ST,tp);
- box(sx0+0.025,sy0+0.025,sx1-0.025,sy1-0.025,0.002,new THREE.MeshStandardMaterial({color:0x8d9296,metalness:0.6,roughness:0.4}),tp+0.003);
+ box(sx0+0.025,sy0+0.025,sx1-0.025,sy1-0.025,0.002,new THREE.MeshStandardMaterial({color:0xc9cdd0,metalness:0.85,roughness:0.22}),tp+0.003);   // 은색 스틸 볼 안쪽
  add(new THREE.CylinderGeometry(0.035,0.035,0.004,20),new THREE.MeshStandardMaterial({color:0x4a4e52,metalness:0.6,roughness:0.4}),W((sx0+sx1)/2),tp+0.006,Z((sy0+sy1)/2+0.04));
  // 거위목 수전 (뒤쪽 가운데에서 올라와 볼 위로 휘어짐) + 옆 레버
  {const fx=W((sx0+sx1)/2),fz=Z(1.99);add(new THREE.CylinderGeometry(0.025,0.03,0.05,16),CH,fx,tp+0.025,fz);
   const c=new THREE.CatmullRomCurve3([[0,0.04,0],[0,0.3,0],[0,0.4,0.06],[0,0.38,0.17],[0,0.3,0.2]].map(v=>new THREE.Vector3(v[0]+fx,v[1]+tp,v[2]+fz)));
   const t=new THREE.Mesh(new THREE.TubeGeometry(c,30,0.014,10,false),CH);t.castShadow=true;scene.add(t);fullOnly.push(t);
   const lv=add(new THREE.BoxGeometry(0.015,0.015,0.1),CH,fx+0.04,tp+0.14,fz+0.04);lv.rotation.x=-0.4;}
- // 그릇 건조대 (싱크 왼쪽): 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
- {const x0=8.32,x1=8.85,y0=2.0,y1=2.42,WR=new THREE.MeshStandardMaterial({color:0xe9eaea,metalness:0.6,roughness:0.35});
-  box(x0,y0,x1,y1,0.025,0x9aa0a4,tp);                                                              // 물받이
-  const X0=W(x0),X1=W(x1),Z0=Z(y0),Z1=Z(y1),hh=0.17;
-  [[X0,Z0],[X1,Z0],[X0,Z1],[X1,Z1]].forEach(([x,z])=>add(new THREE.CylinderGeometry(0.004,0.004,hh,6),WR,x,tp+0.025+hh/2,z));
-  [Z0,Z1].forEach(z=>{const r=add(new THREE.CylinderGeometry(0.004,0.004,X1-X0,6),WR,(X0+X1)/2,tp+0.025+hh,z);r.rotation.z=Math.PI/2;});
-  [X0,X1].forEach(x=>{const r=add(new THREE.CylinderGeometry(0.004,0.004,Z1-Z0,6),WR,x,tp+0.025+hh,(Z0+Z1)/2);r.rotation.x=Math.PI/2;});
-  for(let i=0;i<12;i++){const x=X0+0.03+i*(X1-X0-0.06)/11;add(new THREE.CylinderGeometry(0.003,0.003,0.09,5),WR,x,tp+0.07,(Z0+Z1)/2-0.04);}   // 접시 꽂는 살
-  [0xf6f5f0,0xf6f5f0,0xdfe9ef,0xf6f5f0,0xf2e3c6].forEach((c,i)=>{const pl=add(new THREE.CylinderGeometry(0.11-i%2*0.02,0.11-i%2*0.02,0.012,28),fmat(c),X0+0.07+i*0.045,tp+0.13,(Z0+Z1)/2-0.04);pl.rotation.z=Math.PI/2;pl.rotation.y=0.08;});   // 세워 둔 접시
-  [[X1-0.08,Z1-0.07,0x6f9fd8],[X1-0.17,Z1-0.07,0xffffff],[X1-0.12,Z1-0.16,0xe36b5a]].forEach(([x,z,c])=>add(new THREE.CylinderGeometry(0.035,0.03,0.09,16),fmat(c),x,tp+0.07,z));}   // 엎어 둔 컵
- // 정수기 (싱크 오른쪽): 슬림한 흰 본체 + 은색 앞판, 물 나오는 꼭지와 작은 표시창
- {const x0=9.82,x1=9.98,y0=1.97,y1=2.38,h=0.4;
-  box(x0,y0,x1,y1,h,0xf3f3f1,tp);box(x0+0.005,y1-0.003,x1-0.005,y1+0.004,h-0.02,ST,tp+0.01);
-  box((x0+x1)/2-0.025,y1+0.004,(x0+x1)/2+0.025,y1+0.05,0.03,0xd9dcde,tp+0.2);                        // 꼭지
-  box((x0+x1)/2-0.03,y1+0.004,(x0+x1)/2+0.03,y1+0.007,0.05,new THREE.MeshStandardMaterial({color:0x101418,emissive:0x2f7fd0,emissiveIntensity:0.5}),tp+0.3);   // 표시창
-  box((x0+x1)/2-0.05,y1-0.06,(x0+x1)/2+0.05,y1+0.06,0.01,0xbfc3c6,tp);}                              // 물받이
- // 식기세척기 (정수기 아래, 하부장 사이): 스테인리스 문 + 위쪽 조작부 + 가로 손잡이
+ // 그릇 건조대: 정수기 오른쪽, 90도 돌려 긴 쪽이 아일랜드 방향 — 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
+ {const G=new THREE.Group();G.position.set(W(8.36),tp,Z(2.52));G.rotation.y=Math.PI/2;scene.add(G);fullOnly.push(G);
+  const WR=new THREE.MeshStandardMaterial({color:0xe9eaea,metalness:0.6,roughness:0.35}),L=0.58,D=0.4,hh=0.17;
+  const ga=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;G.add(o);return o;};
+  ga(new THREE.BoxGeometry(L,0.025,D),fmat(0x9aa0a4),0,0.0125,0);                                  // 물받이
+  [[-L/2,-D/2],[L/2,-D/2],[-L/2,D/2],[L/2,D/2]].forEach(([x,z])=>ga(new THREE.CylinderGeometry(0.004,0.004,hh,6),WR,x,0.025+hh/2,z));
+  [-D/2,D/2].forEach(z=>ga(new THREE.CylinderGeometry(0.004,0.004,L,6),WR,0,0.025+hh,z).rotation.z=Math.PI/2);
+  [-L/2,L/2].forEach(x=>ga(new THREE.CylinderGeometry(0.004,0.004,D,6),WR,x,0.025+hh,0).rotation.x=Math.PI/2);
+  for(let i=0;i<12;i++)ga(new THREE.CylinderGeometry(0.003,0.003,0.09,5),WR,-L/2+0.03+i*(L-0.06)/11,0.07,-0.06);   // 접시 꽂는 살
+  [0xf6f5f0,0xf6f5f0,0xdfe9ef,0xf6f5f0,0xf2e3c6].forEach((c,i)=>{const r=0.11-(i%2)*0.02,pl=ga(new THREE.CylinderGeometry(r,r,0.012,28),fmat(c),-L/2+0.07+i*0.045,0.025+r+0.005,-0.06);pl.rotation.z=Math.PI/2;});   // 세워 둔 접시
+  [[L/2-0.08,0.11,0x6f9fd8],[L/2-0.17,0.11,0xffffff],[L/2-0.12,0.02,0xe36b5a]].forEach(([x,z,c])=>ga(new THREE.CylinderGeometry(0.035,0.03,0.09,16),fmat(c),x,0.07,z));}   // 엎어 둔 컵
+ // 정수기: 상판 왼쪽 끝, 테라스로 나가는 중문 가까이에서 중문 쪽을 바라봄 (흰 본체 + 은색 앞판, 꼭지·표시창·물받이)
+ {const G=new THREE.Group();G.position.set(W(8.13)+0.2,tp,Z(2.07));G.rotation.y=-Math.PI/2;scene.add(G);fullOnly.push(G);   // 앞(+z)이 중문 쪽(-x)
+  const ga=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;G.add(o);return o;};
+  const w=0.18,d=0.4,h=0.4;
+  ga(new THREE.BoxGeometry(w,h,d),fmat(0xf3f3f1),0,h/2,0);
+  ga(new THREE.BoxGeometry(w-0.01,h-0.02,0.006),ST,0,h/2,d/2+0.003);                                // 은색 앞판
+  ga(new THREE.BoxGeometry(0.05,0.03,0.05),fmat(0xd9dcde),0,0.2,d/2+0.03);                           // 꼭지
+  ga(new THREE.BoxGeometry(0.06,0.05,0.004),new THREE.MeshStandardMaterial({color:0x101418,emissive:0x2f7fd0,emissiveIntensity:0.5}),0,0.3,d/2+0.007);   // 표시창
+  ga(new THREE.BoxGeometry(0.1,0.01,0.1),fmat(0xbfc3c6),0,0.005,d/2+0.02);}                          // 물받이
+ // 식기세척기 (싱크볼 오른쪽 아래, 하부장 사이): 검은색 문 + 위쪽 조작부 + 가로 손잡이
  {const x0=9.68,x1=10.18,yf=2.55;
-  box(x0,yf,x1,yf+0.018,0.76,ST,0.08);
+  box(x0,yf,x1,yf+0.018,0.76,new THREE.MeshStandardMaterial({color:0x1b1c1e,metalness:0.3,roughness:0.35}),0.08);   // 검은색 문
   box(x0+0.01,yf+0.018,x1-0.01,yf+0.022,0.06,0x2a2c2f,0.76);                                          // 조작부
   box(x0+0.12,yf+0.022,x0+0.18,yf+0.026,0.012,new THREE.MeshStandardMaterial({color:0x101418,emissive:0x7ee2a8,emissiveIntensity:0.6}),0.785);
   box(x0+0.05,yf+0.03,x1-0.05,yf+0.05,0.02,CH,0.7);}                                                  // 손잡이
