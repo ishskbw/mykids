@@ -2719,8 +2719,12 @@ function setBtns(list){btns.innerHTML='';list.forEach(([t,fn,pri])=>{const b=doc
 const EYE={stand:1.3,sit:0.55,prone:0.06};
 function setPose(p,quiet){S.pose=p;WALK.eye=EYE[p];camera.position.y=WALK.eye;camera.near=p==='prone'?0.01:0.05;camera.updateProjectionMatrix();S.cam=null;S.camHold=null;if(p==='prone')WALK.pitch=0;else if(p==='sit')WALK.pitch=Math.max(WALK.pitch,-0.2);applyLook();if(!quiet)refreshBtns();}
 const poseBtns=()=>[S.pose!=='stand'?['🧍 일어서기',()=>setPose('stand')]:null,S.pose!=='sit'?['🧎 앉아서 보기',()=>setPose('sit')]:null,S.pose!=='prone'?['🐛 엎드려 보기',()=>setPose('prone')]:null].filter(Boolean);
-function refreshBtns(){if(S.phase==='hide')setBtns([...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,true]]);
-  else if(S.phase==='seek')setBtns([...poseBtns(),['🔥 힌트',hint],['🏳️ 그만하기',()=>endGame(false,true)]]);
+// 열려 있는 가구 한 번에 닫기 (열린 문짝이 화면 밖으로 빠져 누르기 어려울 때)
+const anyOpen=()=>CONTS.some(c=>!c.fixed&&c.tgt>0.5);
+function closeOpen(){CONTS.forEach(c=>{if(!c.fixed)c.tgt=0;});sOpen();refreshBtns();}
+const closeBtn=()=>anyOpen()?[['🚪 열린 것 닫기',closeOpen,true]]:[];
+function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()]]);
+  else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),['🔥 힌트',hint],['🏳️ 그만하기',()=>endGame(false,true)]]);
   else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
 
 function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
@@ -2865,6 +2869,9 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
     if(d.bump)d.bump.visible=d.cont&&d.cont.amt<0.03;
     if(d.found)return;if(d.cont)d.g.visible=d.cont.amt>(d.cont.gate||0.3);});
   beacons.forEach((b,i)=>{b.material.opacity=0.2+0.12*Math.sin(now/300+i);});
+  if(S.phase==='hide'||S.phase==='seek'){let n=0;const cp=camera.position,wp=new THREE.Vector3();
+    CONTS.forEach(c=>{if(c.fixed||c.tgt<=0.5)return;(c.mov||c.G).getWorldPosition(wp);if(!S.cam&&Math.hypot(wp.x-cp.x,wp.z-cp.z)>4.2)c.tgt=0;else n++;});
+    if(n!==S.openN){S.openN=n;refreshBtns();}}
   if(S.cam){const C=S.cam;C.t+=dt;const k=THREE.MathUtils.smootherstep(Math.min(1,C.t/C.dur),0,1);camera.position.lerpVectors(C.p0,C.p1,k);
     WALK.yaw=C.y0+(C.y1-C.y0)*k;WALK.pitch=C.q0+(C.q1-C.q0)*k;applyLook();WALK.auto=null;if(C.t>=C.dur){S.cam=null;S.camHold={x:camera.position.x,z:camera.position.z};}}
   else if(S.camHold){const m=Math.hypot(camera.position.x-S.camHold.x,camera.position.z-S.camHold.z);
