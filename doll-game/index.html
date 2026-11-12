@@ -2460,6 +2460,7 @@ function buildFurn(){const nx=FG.nx,nz=FG.nz,occ=new Uint8Array(nx*nz),b=new THR
     if(b.min.y>1.0||b.max.y<0.12)return;                         // 머리 위에 달린 것, 바닥에 깔린 것
     if(Math.min(sz.x,sz.z)<0.06&&sz.y>1.5)return;                 // 창틀·유리 칸막이 같은 얇고 높은 것
     if(sz.x>6||sz.z>6)return;
+    if(b.max.y<0.62&&Math.max(sz.x,sz.z)<0.75)return;           // 어질러진 장난감·인형·유아 의자 같은 작고 낮은 것은 밟고 지나감
     mark(b.min.x,b.min.z,b.max.x,b.max.z);FURN.push(o);});
   UNIT_BOX.forEach(([x0,z0,x1,z1,bt])=>{if(bt<1.0)mark(x0,z0,x1,z1);});
   UNIT_IM.forEach(im=>FURN.push(im));
