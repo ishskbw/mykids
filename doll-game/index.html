@@ -2844,7 +2844,8 @@ const css=document.createElement('style');css.textContent=`
 .gx[hidden]{display:none!important}
 body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!important}
 .gx{position:fixed;z-index:30;font-family:var(--f-body),system-ui,sans-serif;color:#2b2420}
-#gMenu,#gMsg{inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,18,16,.55);backdrop-filter:blur(3px);padding:16px}
+#gLeaveBox{z-index:45}
+#gMenu,#gMsg,#gLeaveBox{inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,18,16,.55);backdrop-filter:blur(3px);padding:16px}
 .gcard{background:#fffaf2;border-radius:22px;padding:22px 20px 18px;max-width:440px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.35);max-height:92vh;overflow:auto}
 .gcard h1{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}.gcard p.s{margin:0 0 14px;color:#7a6d60;font-size:14px;line-height:1.5}
 .grow{margin:14px 0}.grow>b{display:block;font-size:14px;margin-bottom:8px;color:#5a4d40}
@@ -2934,12 +2935,23 @@ function askQuit(){if(S.phase!=='seek'||S.paused)return;S.paused=performance.now
    <button class="gbig" id="gKeep">계속 찾기</button><button class="gbig sec" id="gQuit">그만하기</button></div>`;
   $('#gKeep').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;msg.hidden=true;aim.hidden=false;};
   $('#gQuit').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;endGame(false,true);};}
+// 뒤로 가기: 게임 중이면 바로 나가지 않고 확인 창 (계속하기 / 나가기)
+const inGame=()=>['hide','handover','seek','reveal'].includes(S.phase);
+const leaveBox=el('gLeaveBox','');leaveBox.hidden=true;
+function armBack(){if(S.backArmed)return;try{history.pushState({dollGame:1},'');S.backArmed=true;}catch(_){}}
+window.addEventListener('popstate',()=>{if(!S.backArmed)return;S.backArmed=false;if(inGame())askLeave();});
+window.addEventListener('beforeunload',e=>{if(inGame()){e.preventDefault();e.returnValue='';}});   // 새로고침·창 닫기: 브라우저 기본 확인
+function askLeave(){const t=S.phase==='seek'&&!S.paused?performance.now():0;if(t)S.paused=t;leaveBox.hidden=false;
+  leaveBox.innerHTML=`<div class="gcard" style="text-align:center"><h1>🚪 게임에서 나가시겠어요?</h1><p class="s">나가면 지금 판은 끝나고 처음 화면으로 돌아가요.</p>
+   <button class="gbig" id="gStay">계속하기</button><button class="gbig sec" id="gOut">나가기</button></div>`;
+  $('#gStay').onclick=()=>{if(t){S.t0+=performance.now()-S.paused;S.paused=0;}leaveBox.hidden=true;armBack();};
+  $('#gOut').onclick=()=>{leaveBox.hidden=true;goHome();};}
 function goHome(){S.paused=0;clearDolls();closeAll(true);beacons.forEach(b=>scene.remove(b));beacons=[];msg.hidden=true;showMenu();}
 function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()],['🏠 처음으로',goHome]]);
   else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),...(noHint()?[]:[['🔥 힌트',hint]]),['🏳️ 그만하기',askQuit]]);
   else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
 
-function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
+function startHide(){armBack();clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
   for(let i=0;i<S.n;i++)S.dolls.push({g:null,found:false,where:''});
   top_.hidden=false;btns.hidden=false;
   if(!WALK.on)walkStart(7.0,7.3,Math.PI);camera.position.y=WALK.eye;
@@ -3140,12 +3152,13 @@ let PSPOTS=null;
 function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE.Vector3(x,y,z);
   const fixed=(name,x,y,z,ry,pose,fits)=>L.push({name,fits:fits||(()=>true),res:p=>({parent:scene,pos:V(x,y,z),ry,pose:p.baby?'lie':pose})});
   const kids=p=>p.H<=1.25,small=p=>p.H<=1.46;
+  const lieC=(cx,y,cz,ry,p,s)=>{const L=p.baby?0:p.H*(s||1);return V(cx+Math.sin(ry)*L/2,y,cz+Math.cos(ry)*L/2);};   // 누운 몸 가운데를 (cx,cz)에
   // 샤워 공간 3곳
   fixed('안방 샤워부스',W(2.42),0,Z(0.93),Math.PI,'stand');
   L.push({name:'공용 욕실 샤워 공간',fits:()=>true,shut:[15.05,7.25],res:p=>({parent:scene,pos:V(W(17.33),0,Z(6.42)),ry:-Math.PI/2,pose:p.baby?'lie':'stand'})});   // 불투명 유리 뒤 안쪽 + 욕실 문 닫아 둠
   fixed('작은 욕실 샤워부스',W(17.15),0,Z(13.25),-Math.PI/2,'stand');
   // 안방 욕조 안에 누움
-  L.push({name:'안방 욕조 안',fits:()=>true,res:p=>({parent:scene,pos:V(W(1.0)+Math.min(1.5,p.H)/2,0.125,Z(0.48)),ry:-Math.PI/2,pose:'lie',s:Math.min(1,1.5/p.H)})});
+  L.push({name:'안방 욕조 안',fits:()=>true,res:p=>({parent:scene,pos:lieC(W(1.0),0.125,Z(0.48),-Math.PI/2,p,Math.min(1,1.5/p.H)),ry:-Math.PI/2,pose:'lie',s:Math.min(1,1.5/p.H)})});
   // 드레스룸: 서랍장 옆면과 옷걸이 오픈장 사이
   L.push({name:'파우더룸 화장대 밑',fits:kids,res:p=>({parent:scene,pos:V(W(0.36),0,Z(3.8)),ry:p.baby?0:Math.PI/2,pose:p.baby?'lie':'crouch',s:p.baby?1:0.7})});   // 높이 68cm 빈 공간
   fixed('드레스룸 서랍장과 옷걸이 사이',W(1.66),0,Z(7.12),Math.PI,'crouch');
@@ -3153,7 +3166,7 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   fixed('다용도실 구석',W(10.55)-0.12,0,Z(1.5),-Math.PI/2,'crouch');   // 문에서 먼 안쪽 구석
   // 현관: 구석 + 띄워 놓은 신발장 밑(35cm)
   fixed('현관 구석',W(12.55),0,Z(2.15),Math.PI,'crouch');
-  fixed('현관 신발장 밑',W(11.12),0,Z(3.4),0,'lie');
+  L.push({name:'현관 신발장 밑',fits:()=>true,res:p=>({parent:scene,pos:lieC(W(11.12),0,Z(3.6),0,p),ry:0,pose:'lie'})});
   // 책상·테이블 밑 (아이만)
   fixed('서재 책상 밑',W(1.9),0,Z(11.28),0,'crouch',kids);
   fixed('서재 아이 책상 밑',W(4.07),0,Z(8.95),-Math.PI/2,'crouch',kids);
@@ -3176,14 +3189,14 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   // 큰 소파 밑(다리 7cm라 납작하게) · 트램펄린 밑
   L.push({name:'큰 소파 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.4),0.002,Z(8.36+Math.min(2.3,p.H*1.02))),ry:0,pose:'lie',sy:p.baby?0.35:0.27})});
   L.push({name:'큰 소파 카우치 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(8.05)+Math.min(1.7,p.H*1.02),0.002,Z(11.55)),ry:Math.PI/2,pose:'lie',sy:p.baby?0.35:0.27})});
-  L.push({name:'트램펄린 밑',fits:kids,res:p=>({parent:scene,pos:V(W(5.12),0.002,Z(11.72)),ry:Math.PI/6,pose:'lie'})});
+  L.push({name:'트램펄린 밑',fits:kids,res:p=>({parent:scene,pos:lieC(W(5.12),0.002,Z(11.72),Math.PI/6,p),ry:Math.PI/6,pose:'lie'})});
   // 웃긴 자리들
   L.push({name:'드레스룸 서랍장 위',fits:()=>true,res:p=>({parent:scene,pos:V(W(1.66),1.252,Z(5.65)),ry:Math.PI/2,pose:p.baby?'lie':'curl',s:p.baby?1:Math.min(1,1.1/(0.6*p.H))})});   // 가슴 높이 서랍장 위에 고양이처럼
   L.push({name:'드레스룸 옷걸이 봉',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(W(1.3),1.8,Z(7.74)-0.12),ry:Math.PI,pose:'hang',s:Math.min(1,1.74/(p.H*1.28))})});   // 옷 사이에 옷걸이처럼 매달림
   L.push({name:'주방 발코니 빨래 바구니 속',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.22),0.03,Z(0.64)),ry:Math.PI,pose:p.baby?'lie':'crouch',s:p.baby?1:Math.min(1,0.66/(0.58*p.H)),extra:p.baby?null:sockOnHead})});
   L.push({name:'식탁 밑',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(W(6.375),0.002,Z(4.55)+0.9+0.32),ry:0,pose:'lie'})});   // 누워서 다리만 식탁 끝으로 삐죽
   // 안방 침대 밑
-  (window.BEDS||[]).forEach(b=>{if(b.top>0.5)fixed('안방 침대 밑',(b.X0+b.X1)/2-OXN,0.0,Z((b.y0+b.y1)/2),-Math.PI/2,'lie');});
+  (window.BEDS||[]).forEach(b=>{if(b.top>0.5)L.push({name:'안방 침대 밑',fits:()=>true,res:p=>({parent:scene,pos:lieC((b.X0+b.X1)/2-OXN-0.1,0,Z((b.y0+b.y1)/2),-Math.PI/2,p),ry:-Math.PI/2,pose:'lie'})});});   // 몸 가운데를 침대 가운데(머리판 쪽 조금 피함)에
   // 열어야 보이는 곳 (장·냉장고·세탁기·이불·보관장)
   CONTS.forEach(c=>{
     if(c.person){L.push({name:c.name,fits:()=>true,res:p=>Object.assign(c.person(p),{cont:c,pose:p.baby?'lie':'stand'})});return;}
