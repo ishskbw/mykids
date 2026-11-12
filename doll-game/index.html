@@ -2516,10 +2516,10 @@ function buildFurn(){const nx=FG.nx,nz=FG.nz,occ=new Uint8Array(nx*nz),b=new THR
   FG.d=d;}
 const furnDepth=(x,z)=>{if(!FG.d)return 0;const i=Math.floor((x-FG.x0)/FG.res),j=Math.floor((z-FG.z0)/FG.res);if(i<0||j<0||i>=FG.nx||j>=FG.nz)return 0;return FG.d[j*FG.nx+i];};
 // 자세에 따른 불리함: 앉으면 느리게, 엎드리면 더 느리고 위를 못 봄 (게임 중에만)
-const poseK=()=>['hide','seek','reveal'].includes(S.phase)?(S.pose==='prone'?0.35:S.pose==='sit'?0.6:1):1;
+const poseK=()=>['hide','seek','reveal'].includes(S.phase)?(S.pose==='prone'?0.2:S.pose==='sit'?0.6:1):1;
 Object.defineProperty(WALK,'spK',{get:poseK,configurable:true});   // 집 코드(자동 걷기 시간 제한)에서도 씀
 {const mb=moveBy;moveBy=function(dx,dz){const k=poseK();return mb(dx*k,dz*k);};
- const al=applyLook;applyLook=function(){if(S.pose==='prone'&&['hide','seek','reveal'].includes(S.phase))WALK.pitch=Math.min(WALK.pitch,0.12);al();};}
+ const al=applyLook;applyLook=function(){if(S.pose==='prone'&&['hide','seek','reveal'].includes(S.phase))WALK.pitch=Math.min(WALK.pitch,-0.08);al();};}
 {const wallBlocked=blocked;
  blocked=function(dx,dz,dist){if(wallBlocked(dx,dz,dist))return true;const l=Math.hypot(dx,dz)||1,cx=camera.position.x,cz=camera.position.z;
    const ux=dx/l,uz=dz/l,d0=furnDepth(cx,cz);if(d0===255)return false;
