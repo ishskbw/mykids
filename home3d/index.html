@@ -655,17 +655,44 @@ dryBox(2.84,3.22,11.94,12.28,0.62,[0.32]);           // 오른쪽(어른 책상 
  scene.add(im);fullOnly.push(im);}
 // 침실 2 + 붙박이장
 // 침실 2 = 아이들 장난감 방
-{ // 창문 쪽 벽: 플라스틱 바구니를 레일에 끼워 거는 장난감 정리대 (원목 프레임, 4칸 × 3단)
- const x0=13.05,x1=15.0,y0=1.94,y1=2.38,h=0.9,FW=0xe3cfae,cols=4,cw=(x1-x0)/cols,TH=0.018;
- const PL=[0xf4f4f1,0xbfe3d6,0xf3dd8c,0xf6c7c0,0xbcd0ee];
- box(x0,y0,x1,y1,0.03,FW,h-0.03); box(x0,y0,x1,y0+0.012,h-0.03,0xefe6d6);           // 윗판 + 얇은 뒤판
- for(let i=0;i<=cols;i++){const x=x0+i*cw;box(Math.max(x0,x-TH/2),y0,Math.min(x1,x+TH/2),y1,h-0.03,FW);}   // 옆판·칸막이
- let k=0;[0.04,0.32,0.6].forEach(z=>{for(let i=0;i<cols;i++){const a=x0+i*cw+TH/2+0.008,b=x0+(i+1)*cw-TH/2-0.008,c=PL[(k++*3)%PL.length];
-   box(a,y0+0.03,b,y1-0.01,0.22,c,z);                                                      // 바구니 몸통
-   box(a+0.004,y1-0.01,b-0.004,y1-0.002,0.05,c,z+0.17);                                    // 앞쪽 손잡이 턱
-   box((a+b)/2-0.06,y1-0.004,(a+b)/2+0.06,y1+0.001,0.025,0x8a8d90,z+0.19);                 // 손잡이 홈
-   box(a-0.006,y0+0.03,a,y1-0.02,0.012,0xcdb894,z+0.21);box(b,y0+0.03,b+0.006,y1-0.02,0.012,0xcdb894,z+0.21);}});   // 바구니를 거는 레일
- [[13.25,0xe36b5a],[13.6,0x6f9fd8],[14.45,0xe9cf74]].forEach(([x,c])=>box(x,2.08,x+0.14,2.22,0.12,c,h));}  // 위에 올려둔 장난감
+{ // 창문 밑: 아이보리 플라스틱 장난감 정리함 2개를 나란히 (높은 스타일) — 왼쪽 기본형 735×350×920, 오른쪽 확장형 1110×350×920
+  // 기본형: 바구니 2열 × 4단(위 3단은 앞으로 기운 바구니, 맨 아래는 평평한 바구니 2개)
+  // 확장형: 같은 바구니 2열 × 3단 + 맨 아래는 2칸을 하나로 합친 넓은 바구니, 오른쪽에 오픈 선반 칸
+ const IV=new THREE.MeshStandardMaterial({color:0xf2ede3,roughness:0.55}),BW=new THREE.MeshStandardMaterial({color:0xfbfaf7,roughness:0.4}),
+   BIN_IN=new THREE.MeshStandardMaterial({color:0xe9e6df,roughness:0.6});
+ const y0=1.94,D=0.35,y1=y0+D,H2=0.92,T=0.03,X0=MX(12.84)+0.13;   // 왼쪽 벽 면에서 살짝 띄움 (창 가운데쯤에 맞춰짐)
+ const side=(x)=>{boxN(x,y0,x+T,y1,H2-0.03,IV,0);const c=new THREE.Mesh(new THREE.CylinderGeometry(T/2+0.004,T/2+0.004,D,16),IV);c.rotation.x=Math.PI/2;c.position.set(x+T/2-OXN,H2-0.03,Z((y0+y1)/2));c.castShadow=true;scene.add(c);fullOnly.push(c);};   // 옆판 + 둥근 윗모서리
+ const bin=(xa,xb,zb,tilt,hh)=>{const w=xb-xa,d=D-0.05,g=new THREE.Group();g.position.set((xa+xb)/2-OXN,zb,Z(y0+0.025+d/2));g.rotation.x=tilt;scene.add(g);fullOnly.push(g);
+   const add=(gx,gy,gz,px,py,pz,m)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(gx,gy,gz),m||BW);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;g.add(o);};
+   add(w,0.01,d,0,0.005,0,BIN_IN);                                        // 바닥
+   add(w,hh,0.01,0,hh/2,-d/2+0.005);                                       // 뒤
+   add(0.01,hh,d,-w/2+0.005,hh/2,0);add(0.01,hh,d,w/2-0.005,hh/2,0);      // 옆
+   add(w,hh*0.62,0.012,0,hh*0.31,d/2-0.006);                               // 앞(낮게)
+   add(w*0.32,0.012,0.02,0,hh*0.62-0.01,d/2+0.004,BIN_IN);                 // 앞 손잡이 홈
+   let sd=Math.round(xa*1000+zb*100);const r=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};   // 안에 든 장난감 몇 개
+   const TC=[0xe36b5a,0x6f9fd8,0xf2d04b,0x8fbfb0,0xf4a3b5,0xb48a5e];
+   for(let i=0;i<2+Math.floor(r()*2);i++){const sz=0.04+r()*0.05,o=new THREE.Mesh(r()<0.5?new THREE.SphereGeometry(sz/2,12,8):new THREE.BoxGeometry(sz,sz,sz),fmat(TC[Math.floor(r()*TC.length)]));
+     o.position.set((r()-0.5)*(w-0.1),0.01+sz/2+hh*0.15,(r()-0.5)*(d-0.12));g.add(o);}};
+ const rowsZ=[0.05,0.27,0.48,0.69],TILT=0.28,BH=0.16;
+ // 기본형 (폭 0.735)
+ {const xa=X0,xb=X0+0.735,cw=(xb-xa-3*T)/2;
+  side(xa);side(xb-T);boxN(xa+T,y0,xb-T,y0+0.012,H2-0.04,IV,0.02);boxN(xa+T,y0,xb-T,y1,0.02,IV,0.02);   // 옆판·뒤판·바닥판
+  boxN(xa+T+cw,y0,xa+2*T+cw,y1,H2-0.08,IV,0.02);                                                     // 가운데 칸막이
+  boxN(xa,y0,xb,y1,0.025,IV,H2-0.045);                                                               // 윗판
+  [0,1].forEach(c=>{const ba=xa+T+c*(cw+T)+0.006,bb=ba+cw-0.012;bin(ba,bb,rowsZ[0]-0.02,0,BH);[1,2,3].forEach(rw=>bin(ba,bb,rowsZ[rw],TILT,BH));});}
+ // 확장형 (폭 1.11): 왼쪽 바구니 구역 + 오른쪽 오픈 선반
+ {const xa=X0+0.735+0.004,xb=xa+1.11,cw=(0.735-3*T)/2,xs=xa+0.735-T;   // xs: 바구니 구역과 선반 사이 칸막이
+  side(xa);side(xb-T);boxN(xa+T,y0,xb-T,y0+0.012,H2-0.04,IV,0.02);boxN(xa+T,y0,xb-T,y1,0.02,IV,0.02);
+  boxN(xa+T+cw,y0,xa+2*T+cw,y1,H2-0.08,IV,0.25);                                                    // 바구니 칸막이 (맨 아래 넓은 바구니 위부터)
+  boxN(xs,y0,xs+T,y1,H2-0.08,IV,0.02);
+  boxN(xa,y0,xb,y1,0.025,IV,H2-0.045);
+  bin(xa+T+0.006,xs-0.006,rowsZ[0]-0.02,0,BH);                                                       // 맨 아래: 2칸을 합친 넓은 바구니 하나
+  [0,1].forEach(c=>{const ba=xa+T+c*(cw+T)+0.006,bb=ba+cw-0.012;[1,2,3].forEach(rw=>bin(ba,bb,rowsZ[rw],TILT,BH));});
+  [0.24,0.47,0.69].forEach(z=>boxN(xs+T,y0,xb-T,y1,0.02,IV,z));                                     // 오픈 선반 3단
+  boxN(xs+T+0.04,y0+0.05,xb-T-0.04,y0+0.3,0.03,0xf3e7c4,0.04); boxN(xs+T+0.05,y0+0.06,xb-T-0.05,y0+0.29,0.025,0xa7c7e7,0.07);   // 맨 아래 칸: 접은 담요·책
+  [[0.06,0xe36b5a],[0.1,0x4caf7a],[0.13,0xf2d04b],[0.17,0x6f9fd8]].forEach(([o,c])=>boxN(xs+T+o,y0+0.04,xs+T+o+0.025,y0+0.24,0.19,c,0.26));   // 가운데 칸: 그림책
+  {const m=new THREE.Mesh(new THREE.SphereGeometry(0.07,16,12),fmat(0xd9b38c));m.position.set((xs+xb)/2-OXN,0.56,Z(y0+0.17));m.castShadow=true;scene.add(m);fullOnly.push(m);}   // 위 칸: 인형
+  [[xa+0.2,0xe36b5a],[xa+0.55,0x6f9fd8]].forEach(([x,c])=>boxN(x,y0+0.12,x+0.12,y0+0.24,0.1,c,H2-0.02));}}   // 위에 올려둔 장난감
 { // 왼쪽 벽: 어른 가슴 높이(약 1.25m) 흰색 수납장 — 문 3칸 × 위아래 2짝, 아래 걸레받이
  const x0=12.94,x1=13.34,y0=2.6,y1=4.6,h=1.25,WH=0xf6f5f1,LN=0xd4d2cc,n=3,dw=(y1-y0)/n;
  box(x0+0.02,y0+0.02,x1-0.04,y1-0.02,0.06,0xe6e4de); box(x0,y0,x1,y1,h-0.06,WH,0.06);
@@ -1616,19 +1643,28 @@ const SUG=new THREE.Group();scene.add(SUG);
   ph(Z(8.1)+0.06+0.008,14.86,17.63);
   pv(W(17.69)-0.11-0.008,8.21,12.29,-Math.PI/2);
   ph(Z(12.4)-0.11-0.008,15.98,17.63);}
- // 게스트룸 디자인 체어: 침대 옆 협탁·벽등 아래 독서 코너 (원목 다리 + 부클레 쉘)
+ // 게스트룸 라운지 체어: 침대 옆 협탁·벽등 아래 독서 코너 — 월넛 원목 프레임(넓은 팔걸이) + 코냑색 가죽 방석·등쿠션, 등받이가 뒤로 기운 미드센추리 형태
  {const cx=W(15.22),cz=Z(8.85),G=new THREE.Group();G.position.set(cx,0,cz);G.rotation.y=0.35;SUG.add(G);
-  const BOU=new THREE.MeshStandardMaterial({color:0xece6da,roughness:1,map:(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='#ece6da';x.fillRect(0,0,128,128);
-    for(let i=0;i<900;i++){x.fillStyle=Math.random()<0.5?'rgba(255,255,255,0.6)':'rgba(170,160,145,0.35)';x.beginPath();x.arc(Math.random()*128,Math.random()*128,1+Math.random()*1.6,0,7);x.fill();}
-    const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);return t;})()});
-  const OAKc=sm(0xb98d62,0.55,{map:GRAIN});const ga=(g,m,x,y,z)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;G.add(o);return o;};
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,j])=>{const l=ga(new THREE.CylinderGeometry(0.018,0.013,0.3,12),OAKc,i*0.25,0.15,j*0.22);l.rotation.z=-i*0.12;l.rotation.x=j*0.12;});
-  ga(new THREE.BoxGeometry(0.5,0.03,0.42),OAKc,0,0.3,0);
-  ga(new THREE.RoundedBoxGeometry(0.66,0.13,0.6,4,0.06),BOU,0,0.38,0.03);                        // 좌석
-  const sh=new THREE.Shape();sh.absarc(0,0,0.35,Math.PI*1.08,Math.PI*1.92,false);sh.absarc(0,0,0.26,Math.PI*1.92,Math.PI*1.08,true);
-  const bk=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:0.4,bevelEnabled:true,bevelThickness:0.03,bevelSize:0.03,bevelSegments:4,curveSegments:24}),BOU);
-  bk.rotation.x=-Math.PI/2;bk.position.set(0,0.4,0.08);bk.castShadow=true;G.add(bk);                 // 감싸는 등받이·팔걸이
-  ga(new THREE.RoundedBoxGeometry(0.34,0.3,0.1,3,0.04),sm(0x8a6f55,0.95),0,0.6,-0.12).rotation.x=-0.25;}   // 작은 쿠션
+  const WAL=sm(0x5e4130,0.5,{map:GRAIN}),LEA=sm(0x9a5a32,0.48),SEAM=sm(0x6e3d1f,0.7);
+  const ga=(g,m,x,y,z,par)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;(par||G).add(o);return o;};
+  const RB=(w,h,d,r)=>new THREE.RoundedBoxGeometry(w,h,d,4,r);
+  [-1,1].forEach(i=>{const x=i*0.34;
+    ga(new THREE.CylinderGeometry(0.02,0.016,0.56,12),WAL,x,0.28,0.27);                             // 앞다리
+    const bl=ga(new THREE.CylinderGeometry(0.02,0.016,0.6,12),WAL,x,0.29,-0.27);bl.rotation.x=0.22;  // 뒷다리 (뒤로 벌어짐)
+    ga(RB(0.075,0.032,0.72,0.014),WAL,x,0.575,0.0);                                                 // 넓은 팔걸이
+    ga(RB(0.035,0.05,0.58,0.012),WAL,x,0.27,0.0);});                                                // 옆 레일
+  ga(RB(0.66,0.045,0.035,0.012),WAL,0,0.27,0.27); ga(RB(0.66,0.045,0.035,0.012),WAL,0,0.27,-0.26);  // 앞·뒤 레일
+  const seat=ga(RB(0.6,0.12,0.58,0.045),LEA,0,0.35,0.02);seat.rotation.x=-0.07;                      // 가죽 방석 (뒤로 살짝 기울어짐)
+  ga(new THREE.BoxGeometry(0.004,0.11,0.56),SEAM,0,0.355,0.02).rotation.x=-0.07;                     // 방석 가운데 봉제선
+  const back=new THREE.Group();back.position.set(0,0.36,-0.27);back.rotation.x=-0.32;G.add(back);    // 뒤로 기운 등받이
+  [-1,1].forEach(i=>ga(RB(0.04,0.56,0.03,0.012),WAL,i*0.3,0.28,-0.02,back));                         // 등받이 세로 프레임
+  ga(RB(0.6,0.035,0.03,0.012),WAL,0,0.54,-0.02,back);
+  ga(RB(0.56,0.48,0.1,0.045),LEA,0,0.28,0.05,back);                                                  // 가죽 등쿠션
+  ga(new THREE.BoxGeometry(0.54,0.004,0.004),SEAM,0,0.3,0.1,back);
+  // 발받침 (같은 프레임·가죽)
+  const F=new THREE.Group();F.position.set(0,0,0.68);G.add(F);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,j])=>ga(new THREE.CylinderGeometry(0.016,0.013,0.3,10),WAL,i*0.2,0.15,j*0.15,F));
+  ga(RB(0.46,0.04,0.36,0.012),WAL,0,0.3,0,F); ga(RB(0.48,0.09,0.38,0.035),LEA,0,0.36,0,F);}
  // 거실 발코니: 조립식 원목 데크타일 (30×30, 결 방향 교차)
  {const WDk=sm(0xa07a55,0.8),x0=4.62,x1=9.85,y0=12.52,y1=14.0,T=0.3,list=[];
   for(let x=W(x0);x+T<=W(x1);x+=T)for(let y=y0;y+T<=y1;y+=T){const alt=(Math.round((x-W(x0))/T)+Math.round((y-y0)/T))%2;
