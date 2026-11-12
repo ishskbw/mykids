@@ -1031,7 +1031,7 @@ const TOP=0x8c918d;
 // 싱크대 하부장: 짙은 푸른색
 function counter(x0,y0,x1,y1,c){box(x0,y0,x1,y1,0.86,c||0x253349);box(x0-0.02,y0-0.02,x1+0.02,y1+0.02,0.04,TOP,0.86);}
 counter(8.1,1.95,10.85,2.55);            // 위쪽 줄 (개수대)
-{ // 개수대 줄: 왼쪽 끝 정수기(테라스 중문을 바라봄) · 그 오른쪽 그릇 건조대(90도 돌려 놓음) · 가운데 은색 스틸 싱크볼 + 거위목 수전 · 검은색 식기세척기
+{ // 개수대 줄: 왼쪽 끝 정수기(테라스 중문을 바라봄) · 정수기와 싱크볼 사이 그릇 건조대(90도 돌려 놓음) · 가운데 은색 스틸 싱크볼 + 거위목 수전 · 검은색 식기세척기
  const ST=new THREE.MeshStandardMaterial({color:0xd3d7da,metalness:0.85,roughness:0.25}),CH=CHROME,tp=0.9;
  const add=(geo,m,x,y,z,ry)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);if(ry)o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;scene.add(o);fullOnly.push(o);return o;};
  // 싱크볼 (상판에 묻힌 사각 볼: 테두리 + 안쪽 어두운 스테인리스 + 배수구)
@@ -1044,8 +1044,9 @@ counter(8.1,1.95,10.85,2.55);            // 위쪽 줄 (개수대)
   const c=new THREE.CatmullRomCurve3([[0,0.04,0],[0,0.3,0],[0,0.4,0.06],[0,0.38,0.17],[0,0.3,0.2]].map(v=>new THREE.Vector3(v[0]+fx,v[1]+tp,v[2]+fz)));
   const t=new THREE.Mesh(new THREE.TubeGeometry(c,30,0.014,10,false),CH);t.castShadow=true;scene.add(t);fullOnly.push(t);
   const lv=add(new THREE.BoxGeometry(0.015,0.015,0.1),CH,fx+0.04,tp+0.14,fz+0.04);lv.rotation.x=-0.4;}
- // 그릇 건조대: 정수기 오른쪽, 90도 돌려 긴 쪽이 아일랜드 방향 — 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
- {const G=new THREE.Group();G.position.set(W(8.36),tp,Z(2.52));G.rotation.y=Math.PI/2;scene.add(G);fullOnly.push(G);
+ // 그릇 건조대: 정수기와 싱크볼 사이, 90도 돌려 긴 쪽이 벽→앞 방향 — 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
+ {const G=new THREE.Group();G.position.set(W(8.74),tp,Z(2.26));G.rotation.y=Math.PI/2;   // 정수기와 싱크볼 사이
+scene.add(G);fullOnly.push(G);
   const WR=new THREE.MeshStandardMaterial({color:0xe9eaea,metalness:0.6,roughness:0.35}),L=0.58,D=0.4,hh=0.17;
   const ga=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;G.add(o);return o;};
   ga(new THREE.BoxGeometry(L,0.025,D),fmat(0x9aa0a4),0,0.0125,0);                                  // 물받이
