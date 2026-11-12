@@ -1504,8 +1504,8 @@ box(10.92,6.36,11.36,6.51,H,M.load); box(10.97,5.5,11.36,6.36,H-2.1,M.load,2.1);
   tube(g,[-0.14,0.5,0],[-0.16,0.6,0],0.012,SIL);put(g,new THREE.RoundedBoxGeometry(0.2,0.05,0.12,3,0.02),BLK,-0.15,0.63,0);   // 안장
   put(g,new THREE.CylinderGeometry(0.05,0.05,0.02,16),BLK,-0.04,0.2,0.04).rotation.x=Math.PI/2;   // 크랭크
   [-0.17,0.17].forEach(z=>{wheel(g,-0.36,0.065,z,0.065,0.03,BLK,SIL);tube(g,[-0.33,0.215,z*0.15],[-0.36,0.065,z],0.008,SIL);});}   // 보조바퀴
- { // 아이가 앉는 코끼리 의자 (사진): 회색 패브릭 타원형 푸프 몸통 + 짧은 원목 다리 4개 + 큰 귀, 단추 눈, 짧게 앞으로 뻗어 살짝 들린 코
-  const g=mk(11.62,2.55,-Math.PI/2),FB=new THREE.MeshStandardMaterial({color:0xb7b7b4,roughness:0.95}),FB2=new THREE.MeshStandardMaterial({color:0xc4c4c1,roughness:0.95}),
+ { // 아이가 앉는 코끼리 의자 (사진, 거울 벽 앞·거울 오른쪽, 코는 거울 쪽): 회색 패브릭 타원형 푸프 몸통 + 짧은 원목 다리 4개 + 큰 귀, 단추 눈, 짧게 앞으로 뻗어 살짝 들린 코
+  const g=mk(12.55,4.3,Math.PI/2),FB=new THREE.MeshStandardMaterial({color:0xb7b7b4,roughness:0.95}),FB2=new THREE.MeshStandardMaterial({color:0xc4c4c1,roughness:0.95}),
     WD=fmat(0xd8b98c),EY=new THREE.MeshStandardMaterial({color:0x2a2420,roughness:0.3});
   const bd=put(g,new THREE.CylinderGeometry(0.15,0.15,0.17,32),FB,0,0.205,0);bd.scale.set(1.45,1,1);           // 타원 몸통 (길이 약 44cm, 폭 30cm)
   const tp=put(g,new THREE.SphereGeometry(0.15,32,12,0,Math.PI*2,0,Math.PI/2),FB2,0,0.29,0);tp.scale.set(1.45,0.2,1);   // 살짝 볼록한 윗면(앉는 자리)
