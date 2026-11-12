@@ -2436,7 +2436,7 @@ function slideDoor(axis,f,n,a0,a1,z0,z1,dist,col,name,inner,o){o=o||{};const {G,
   setPart(mk(BX(0.012,0.12,0.012),gm(0x6f6250,{roughness:0.5}),sA*dist>0?-w/2+0.05:w/2-0.05,h*0.55,0.03,mov),c,'hit');
   const cv=setPart(mk(BX(w-0.01,h-0.01,0.003),o.hollow?INVIS:gm(inner||0x3a332c,{roughness:1}),0,h/2,o.hollow?-0.3:0.002,G),c,'cav');if(o.hollow)cv.userData.solid=true;else c.inner.push(cv);
   {const fl=setPart(mk(BX(w-0.02,0.004,0.3),INVIS,0,0.018,-0.16,G),c,'cav');fl.userData.solid=true;}
-  c.onAmt=a=>{mov.position.x=sA*dist*a;mov.position.z=a*0.02;};
+  c.onAmt=a=>{mov.position.x=sA*dist*a;mov.position.z=a*(o.zo!=null?o.zo:0.02);};
   c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(clampV(l.x,-w/2+0.08,w/2-0.08),0.02,o.hollow?-0.13:0.07),s:fit(h*0.85)};};
   c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*w*0.6,0,0)));return c;}
 // ---------- 책 줄: 누르면 책을 완전히 빼서 바닥에 쌓아 둠 ----------
@@ -2557,8 +2557,8 @@ function buildConts(){
  // 전실 낮은 장: 서랍 2단 + 미닫이 2짝 (속이 빈 장)
  hollow({axis:'x',f:2.44,n:1,a0:6.47,a1:7.86,back:2.02,b:0.12,h:0.43,col:0xc9ad86,inner:0xe4d8c4,holes:[[7.40,7.86,0.135,0.335,0.36],[7.40,7.86,0.335,0.545,0.36],[6.49,7.39,0.135,0.545,0.38]]});
  [[0.135,0.335],[0.335,0.545]].forEach(([a,b],i)=>drawer('x',2.44,1,7.40,7.86,a,b,0.36,0xc9ad86,'전실 낮은 장 서랍',{hc:0x6f6250,hollow:true,style:i?'stationery':'socks'}));
- {const s1=slideDoor('x',2.452,1,6.90,7.39,0.135,0.545,-0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true});
-  const s2=slideDoor('x',2.468,1,6.49,6.98,0.135,0.545,0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true});
+ {const s1=slideDoor('x',2.452,1,6.90,7.39,0.135,0.545,0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true,zo:0});   // 뒤 레일: 열면 앞문 뒤로 겹쳐 들어감
+  const s2=slideDoor('x',2.468,1,6.49,6.98,0.135,0.545,-0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true,zo:0.004});   // 앞 레일: 열면 뒷문 앞으로 겹침
   const fr=frame('x',2.44,1,6.49,7.39,0.135);fr.G.userData.game=true;const tmp={items:[],inner:[],G:fr.G};fill(tmp,fr.G,'misc',{w:fr.w,h:0.41,d:0.36,shelves:[0],seed:5});s1.items.push(...tmp.items);s2.items.push(...tmp.items);}
  // 드레스룸 서랍장
  [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1],k)=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장',{style:k?'folded':'socks'})));
