@@ -1148,16 +1148,38 @@ box(5.6,3.75,5.98,5.35,0.05,0x8b5a33,0.4);
    const bp=new THREE.Mesh(new THREE.CylinderGeometry(0.235,0.235,0.13,32,1,true,Math.PI/2-1.2,2.4),new THREE.MeshStandardMaterial({color:0x2a2a2c,roughness:0.6,side:THREE.DoubleSide}));bp.position.y=0.65;g.add(bp);
    g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
    g.position.set(W(7.0),0,Z(yc));scene.add(g);});}
+// 샤워기: 크롬 혼합 수전 + 슬라이드 바 + 핸드 샤워 + 늘어진 호스, rain이면 위로 올라가는 배관과 해바라기 헤드까지
+function showerSet(x,y,dir,rain){return fixture(x,y,dir,g=>{
+  const cyl=(r,h,px,py,pz,rx,rz)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,16),CHROME);o.position.set(px,py,pz);if(rx)o.rotation.x=rx;if(rz)o.rotation.z=rz;g.add(o);return o;};
+  const vy=1.0;
+  cyl(0.028,0.22,0,vy,0.045,0,Math.PI/2);                                            // 혼합 수전 몸통 (가로)
+  [-0.11,0.11].forEach(x=>cyl(0.032,0.03,x,vy,0.045,0,Math.PI/2));                   // 양 끝 손잡이 링
+  {const lv=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.015,0.09),CHROME);lv.position.set(0.11,vy+0.03,0.08);g.add(lv);}   // 온도 레버
+  cyl(0.01,0.75,-0.2,1.5,0.04);                                                      // 슬라이드 바
+  [1.13,1.87].forEach(yy=>cyl(0.016,0.035,-0.2,yy,0.02,Math.PI/2));                   // 벽 고정 브래킷
+  {const sl=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.05,0.04),CHROME);sl.position.set(-0.2,1.6,0.06);g.add(sl);}   // 걸이
+  const hd=new THREE.Group();hd.position.set(-0.2,1.6,0.09);hd.rotation.x=-0.5;g.add(hd);   // 핸드 샤워 (앞쪽으로 기울여 걸림)
+  {const h=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.016,0.2,12),CHROME);h.position.y=-0.08;hd.add(h);
+   const f=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.045,0.025,24),CHROME);f.position.set(0,0.04,0.012);f.rotation.x=Math.PI/2;hd.add(f);
+   const n=new THREE.Mesh(new THREE.CircleGeometry(0.042,24),new THREE.MeshStandardMaterial({color:0x2a2c2f,roughness:0.6}));n.position.set(0,0.04,0.026);hd.add(n);}
+  {const c=new THREE.CatmullRomCurve3([[0,vy-0.03,0.05],[-0.05,0.6,0.1],[-0.15,0.55,0.12],[-0.2,0.9,0.12],[-0.2,1.46,0.07]].map(v=>new THREE.Vector3(...v)));
+   g.add(new THREE.Mesh(new THREE.TubeGeometry(c,30,0.007,8,false),CHROME));}       // 늘어진 호스
+  if(rain){cyl(0.013,1.08,0.0,vy+0.57,0.045);                                         // 위로 올라가는 배관
+    const arm=cyl(0.012,0.34,0.0,2.11,0.21,Math.PI/2);                                  // 앞으로 뻗은 팔
+    const hd2=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.014,40),CHROME);hd2.position.set(0,2.1,0.38);g.add(hd2);   // 해바라기 헤드
+    const fc=new THREE.Mesh(new THREE.CircleGeometry(0.13,40),new THREE.MeshStandardMaterial({color:0x2a2c2f,roughness:0.7}));fc.rotation.x=Math.PI/2;fc.position.set(0,2.092,0.38);g.add(fc);}});}
 // 욕실
 box(0.11,0.11,1.9,0.86,0.55,PORC);  // 욕조: 위·왼쪽·오른쪽(샤워부스 벽) 벽에 붙임
 basin(0.11,1.29,'+x',0.5,0.44,0.7); box(0.24,1.2,0.4,1.38,0.68,PORC); box(0.11,1.25,0.2,1.33,0.18,0xb9c0c4,0.86);  // 하부장 없는 일반 세면대
 box(0.11,1.0,0.14,1.57,0.75,0xcfdde3,1.15);  // 거울   // 세면대 (욕조 옆, 왼쪽 벽)
 toilet(0.11,1.975,'+x');   // 변기
+showerSet(2.77,0.9,'-x',true);   // 안방 샤워부스: 해바라기 수전 + 핸드 샤워
 // 공용 욕실: 욕조 없음, 오른쪽 샤워 공간을 불투명 유리로 반만 막음
 box(16.85,6.11,17.58,7.99,0.03,0xa9b8bd);
 {const fg=new THREE.Mesh(unit,new THREE.MeshStandardMaterial({color:0xe9f0f2,roughness:0.6,transparent:true,opacity:0.72}));
  fg.scale.set(0.025,1,1.05);fg.position.set(W(16.82),0,Z(6.58));scene.add(fg);const p={m:fg,bot:0,top:2.0};pieces.push(p);setPiece(p,99);}
-box(17.52,6.9,17.58,7.2,0.08,0x9aa0a3,1.85); toilet(15.44,6.11,'+y');   // 변기
+toilet(15.44,6.11,'+y');   // 변기
+showerSet(17.58,7.05,'-x',false);   // 샤워 공간 벽: 슬라이드 바 + 핸드 샤워
 box(15.85,6.11,16.72,6.6,0.8,WHITE); box(15.84,6.11,16.73,6.62,0.04,TOP,0.8);    // 세면대 하부장 + 상판
 {const DC=0x253349,yf=6.6;   // 하부장 문 2짝: 주방 하부장과 같은 짙은 푸른색 + 금색 노브
  box(15.865,yf,16.28,yf+0.018,0.72,DC,0.06); box(16.29,yf,16.705,yf+0.018,0.72,DC,0.06);
@@ -1173,7 +1195,7 @@ toilet(15.52,14.0,'-y');
  [-1,1].forEach(k=>boxN(X+k*0.04-0.006,y0-0.02,X+k*0.04+0.006,y0-0.004,0.12,LN,1.2));}   // 손잡이
 basin(16.2,14.0,'-y',0.5,0.44,0.7); box(16.12,13.75,16.28,13.95,0.68,PORC); box(16.17,13.92,16.23,14.0,0.18,0xb9c0c4,0.86);
 box(15.98,13.98,16.42,14.0,0.75,0xcfdde3,1.15);
-box(16.72,12.5,17.58,13.99,0.03,0xa9b8bd); box(17.52,13.1,17.58,13.4,0.08,0x9aa0a3,1.85);
+box(16.72,12.5,17.58,13.99,0.03,0xa9b8bd); showerSet(17.58,13.25,'-x',false);   // 샤워부스 벽: 슬라이드 바 + 핸드 샤워
 {const sg=new THREE.Mesh(unit,M.glass);sg.scale.set(0.025,1,0.95);sg.position.set(W(16.68),0,Z(13.52));scene.add(sg);const p={m:sg,bot:0,top:2.0};pieces.push(p);setPiece(p,99);}
 // 파우더룸·드레스룸·현관 신발장·다용도실
 box(0.06,3.1,0.6,4.5,0.82,0xd8b98c);
@@ -1741,7 +1763,7 @@ function roomView(k){const r=ROOMS[k];if(r.kind==='common')return;
   flyTo(new THREE.Vector3(cx+w*0.33,1.4,cz+dp*0.33),new THREE.Vector3(cx-w*0.12,0.95,cz-dp*0.12));}
 // ---------- 1인칭 걷기 (공공의 미술관과 같은 조작) ----------
 // 한 손가락·마우스 끌기 = 둘러보기 / 바닥 누르기 = 그곳으로 걸어가기 / 휠·두 손가락 벌리기 = 앞뒤 / 두 손가락 끌기 = 바닥을 잡아당기듯 이동
-// 휴대폰은 화면 아래 발자국 영역을 누르면 뒤로 물러남 / 키보드: W A S D·방향키 이동, Q E 제자리 회전, Shift 빨리
+// 휴대폰은 화면 아래 발자국 영역을 누르면 뒤로 물러남 / 키보드: ↑↓·W S 앞뒤, ←→·Q E 제자리 회전, A D 옆걸음, Shift 빨리
 const WALK={on:false,yaw:Math.PI,pitch:-0.05,keys:new Set(),eye:1.3,labels:true,auto:null,wheel:0,strafe:0};
 const walkBtn=document.getElementById('walkBtn'),cross=document.getElementById('cross'),hintEl=document.querySelector('.hint'),resetBtn=document.getElementById('reset');
 const HINT0=hintEl.textContent,COARSE=matchMedia('(pointer: coarse)').matches;if(COARSE)document.body.classList.add('coarse');
@@ -1754,7 +1776,7 @@ fovRange.oninput=()=>{if(WALK.on)walkFov();};
 function walkStart(px,py,yaw){WALK.on=true;CEIL.visible=true;controls.enabled=false;anim=null;if(mode!=='full')setMode('full');
   camera.position.set(W(px),WALK.eye,Z(py));WALK.yaw=yaw;WALK.pitch=-0.05;WALK.auto=null;WALK.wheel=WALK.strafe=0;applyLook();walkFov();
   document.body.classList.add('walking');cross.hidden=COARSE;walkBtn.textContent='걷기 끝내기';resetBtn.textContent='걷기 끝내기';
-  hintEl.textContent=COARSE?'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 두 손가락 벌리기로 앞뒤 · 발자국 아래를 누르면 뒤로':'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 휠로 앞뒤 · W A S D·방향키 이동 · Q E 회전 · Shift 빨리';
+  hintEl.textContent=COARSE?'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 두 손가락 벌리기로 앞뒤 · 발자국 아래를 누르면 뒤로':'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 휠로 앞뒤 · ↑↓·W S 앞뒤 · ←→·Q E 회전 · A D 옆걸음 · Shift 빨리';
   WALK.labels=!labelR.domElement.classList.contains('nolabels');labelR.domElement.classList.add('nolabels');select(-1);}
 function walkStop(){WALK.on=false;CEIL.visible=false;controls.enabled=true;camera.fov=45;camera.updateProjectionMatrix();
   document.body.classList.remove('walking');cross.hidden=true;walkBtn.textContent='1인칭으로 걸어보기';resetBtn.textContent='전체 보기';hintEl.textContent=HINT0;
@@ -1781,8 +1803,8 @@ function moveBy(dx,dz){const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/0.1));let 
   return moved;}
 const angDiff=(a,b)=>{let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return d;};
 function walkStep(dt){const k=WALK.keys;let f=0,s=0,turn=0;
-  if(k.has('KeyW')||k.has('ArrowUp'))f++;if(k.has('KeyS')||k.has('ArrowDown'))f--;if(k.has('KeyD')||k.has('ArrowRight'))s++;if(k.has('KeyA')||k.has('ArrowLeft'))s--;
-  if(k.has('KeyQ'))turn++;if(k.has('KeyE'))turn--;
+  if(k.has('KeyW')||k.has('ArrowUp'))f++;if(k.has('KeyS')||k.has('ArrowDown'))f--;if(k.has('KeyD'))s++;if(k.has('KeyA'))s--;
+  if(k.has('KeyQ')||k.has('ArrowLeft'))turn++;if(k.has('KeyE')||k.has('ArrowRight'))turn--;   // 좌우 방향키는 제자리 회전
   const sp=(k.has('ShiftLeft')||k.has('ShiftRight')?2:1)*2.2;WALK.yaw+=turn*1.8*dt;
   const sy=Math.sin(WALK.yaw),cy=Math.cos(WALK.yaw);
   if(f||s){WALK.auto=null;const l=Math.hypot(f,s);moveBy((-sy*f+cy*s)/l*sp*dt,(-cy*f-sy*s)/l*sp*dt);}
