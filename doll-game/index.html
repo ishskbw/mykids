@@ -2778,6 +2778,19 @@ function buildConts(){
    const fr=gm(0xb9bdc0,{metalness:0.7,roughness:0.3});[[0,0.02],[1.97,0.02]].forEach(([y,h])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,0.02),fr);b.position.set(L/2,y+h/2,0);g.add(b);});
    {const hd=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.3,10),fr);hd.position.set(L-0.06,1.05,0.03);g.add(hd);}
    swingDoor([g],t=>{g.rotation.y=Math.PI/2+t*1.3;},false);}}
+ // 게스트룸 ↔ 창고 발코니(테라스): 유리벽 오른쪽에 테라스 쪽으로 열리는 유리문(왼쪽 뒤엔 고릴라랙) + 왼쪽 고정 유리, 5cm 문턱은 넘어감
+ {const a0=13.88,b0=15.05,mx=(W(a0)+W(b0))/2,zc=Z(12.4);
+  const find=mat=>wallMeshes.findIndex(m=>m.material===mat&&Math.abs(m.position.x-mx)<0.03&&Math.abs(m.position.z-zc)<0.03);
+  const kg=find(M.glass);if(kg>=0){const old=wallMeshes[kg];wallMeshes.splice(kg,1);old.parent&&old.parent.remove(old);
+   const ks=find(M.frame);if(ks>=0)wallMeshes.splice(ks,1);   // 문턱(보이기는 그대로)
+   const xa=W(a0)+0.02,xd=W(14.3),xb=W(b0)-0.02,L=xb-xd-0.01;
+   {const fx=new THREE.Mesh(new THREE.BoxGeometry(xd-xa,2.07,0.03),M.glass);fx.position.set((xa+xd)/2,0.05+2.07/2,zc);scene.add(fx);wallMeshes.push(fx);}   // 고정 유리 (왼쪽)
+   const g=new THREE.Group();g.position.set(xb,0,zc);g.rotation.y=Math.PI;scene.add(g);   // 경첩: 오른쪽 끝
+   const lf=new THREE.Mesh(new THREE.BoxGeometry(L,2.05,0.014),M.glass);lf.position.set(L/2,0.06+1.025,0);g.add(lf);
+   const fr=gm(0x2a2b2d,{metalness:0.5,roughness:0.4});[[0.06,0.03],[2.08,0.03]].forEach(([y,h])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,0.025),fr);b.position.set(L/2,y+h/2,0);g.add(b);});
+   [0.012,L-0.012].forEach(x=>{const b=new THREE.Mesh(new THREE.BoxGeometry(0.024,2.05,0.025),fr);b.position.set(x,1.085,0);g.add(b);});
+   [-1,1].forEach(z=>{const hd=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.35,0.02),fr);hd.position.set(L-0.07,1.0,z*0.03);g.add(hd);});
+   swingDoor([g],t=>{g.rotation.y=Math.PI+t*1.45;},false);}}
  // 침대 이불 속
  (window.BEDS||[]).forEach((b,bi)=>{const G=new THREE.Group();scene.add(G);const top=b.top,DV=gm([0xdfe4ea,0xe9e1d6,0xdde6dc,0xe8dde3,0xe4e1da][bi%5],{roughness:0.95});
    const c=baseCont({type:'duvet',G,name:'',w:1,h:0.2,gate:0.3});const pv=new THREE.Group();G.add(pv);c.mov=pv;
