@@ -1941,6 +1941,14 @@ const CEIL=new THREE.Group();
  ROOMS.forEach(r=>{if(r.part||r.kind==='common'||!r.name)return;const [a,b,c,d]=r.r,xs=W(a),xe=W(c),nx=Math.max(1,Math.round((xe-xs)/1.6)),nz=Math.max(1,Math.round((d-b)/1.6));
    for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){const dl=new THREE.Mesh(new THREE.CircleGeometry(0.05,20),LM);dl.rotation.x=Math.PI/2;dl.position.set(xs+(i+0.5)*(xe-xs)/nx,H-0.004,Z(b+(j+0.5)*(d-b)/nz));CEIL.add(dl);}});
  CEIL.visible=false;scene.add(CEIL);}
+// ---------- 수직형 플로어 스탠드 (검은 받침·기둥 + 아이보리 갓, 은은하게 켜짐): 거실 큰 소파 옆, 안방 안락의자 옆 ----------
+function floorLamp(x,y){const g=new THREE.Group();g.position.set(W(x),0,Z(y));scene.add(g);fullOnly.push(g);
+ const bs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.16,0.025,24),fmat(0x2a2b2d));bs.position.y=0.012;bs.castShadow=true;g.add(bs);
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.45,8),fmat(0x2a2b2d));pole.position.y=0.74;pole.castShadow=true;g.add(pole);
+ const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide}));shade.position.y=1.55;g.add(shade);
+ const pl=new THREE.PointLight(0xffd9a0,0.3,3);pl.position.y=1.5;g.add(pl);}
+floorLamp(8.7,8.32);    // 거실 큰 소파 옆
+floorLamp(3.55,0.42);   // 안방 안락의자 옆 (검은 책장과 의자 사이, 창 쪽)
 // ---------- 거실 인테리어 제안 (스위치로 켜고 끔) ----------
 const SUG=new THREE.Group();scene.add(SUG);
 {const add=(m,x,y,z)=>{m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;SUG.add(m);return m;};
@@ -1980,11 +1988,7 @@ const SUG=new THREE.Group();scene.add(SUG);
   const sh=new THREE.Mesh(new THREE.SphereGeometry(0.2,28,14,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x2a2b2d,roughness:0.45,side:THREE.DoubleSide}));add(sh,tx,1.72,tz);
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.05,16,10),new THREE.MeshStandardMaterial({color:0xfff3dc,emissive:0xffd9a0,emissiveIntensity:1.5}));add(bulb,tx,1.73,tz);
   const pl=new THREE.PointLight(0xffd9a0,0.4,2.8);pl.position.set(tx,1.65,tz);SUG.add(pl);}
- // 5) 소파 옆 플로어 스탠드
- {const bs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.16,0.025,24),fmat(0x2a2b2d));add(bs,W(8.7),0.012,Z(8.32));
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.45,8),fmat(0x2a2b2d));add(pole,W(8.7),0.74,Z(8.32));
-  const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide}));add(shade,W(8.7),1.55,Z(8.32));
-  const pl=new THREE.PointLight(0xffd9a0,0.3,3);pl.position.set(W(8.7),1.5,Z(8.32));SUG.add(pl);}
+ // 5) 소파 옆 플로어 스탠드 → 실제 가구라 제안에서 빼고 기본으로 둠 (floorLamp)
  // 6) 소파 쿠션 (테라코타·오트밀·차콜)
  [[8.75,0xb8653f],[9.35,0xe2d6c0],[10.4,0x3a3b3e],[11.0,0xb8653f]].forEach(([y,c])=>{const cu=new THREE.Mesh(new THREE.RoundedBoxGeometry(0.42,0.42,0.14,3,0.06),new THREE.MeshStandardMaterial({color:c,roughness:0.95}));cu.rotation.y=-Math.PI/2;cu.rotation.z=0.08;add(cu,W(9.43),0.66,Z(y));});
 }
