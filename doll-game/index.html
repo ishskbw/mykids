@@ -2554,8 +2554,9 @@ function buildConts(){
  // 붙박이장 (문 4짝 | 화장대 | 문 4짝): 옷이 걸린 진짜 옷장 + 화장대 서랍 3단
  const wardrobe=(xf,xback,y0,y1,room)=>{const dir=xf>xback?1:-1,yc=(y0+y1)/2,a=yc-0.4,b=yc+0.4,D=Math.abs(xf-xback);
    [[y0,a],[b,y1]].forEach(([p,q])=>{const ww=(q-p)/4;
-     hollow({axis:'x',f:xf,n:dir,a0:p,a1:q,back:xback,b:0,h:2.25,col:BUILT2,inner:0xe4dfd5,holes:Array.from({length:4},(_,k)=>[p+k*ww+0.004,p+(k+1)*ww-0.004,0.03,2.22,D-0.03])});
-     for(let k=0;k<4;k++){const aa=p+k*ww;door('x',xf,dir,aa,aa+ww,0.02,2.24,D-0.04,0xece8df,(k%2===0)===(dir>0)?'a':'b',room+' 붙박이장',{co:0.009,inner:0xe4dfd5,ang:1.6,knob:true,hc:GOLD,hy:0.98,shelves:[0,1.88],style:'clothes'});}});
+     hollow({axis:'x',f:xf,n:dir,a0:p,a1:q,back:xback,b:0,h:2.25,col:BUILT2,inner:0xe4dfd5,holes:[0,2].map(k=>[p+k*ww+0.004,p+(k+2)*ww-0.004,0.03,2.22,D-0.03])});   // 문 두 짝이 한 칸
+     for(let k=0;k<4;k++){const aa=p+k*ww;door('x',xf,dir,aa,aa+ww,0.02,2.24,D-0.04,0xece8df,k%2===0?'a':'b',room+' 붙박이장',{co:0.009,inner:0xe4dfd5,ang:1.6,knob:true,hc:GOLD,hy:0.98,shelves:[0,1.88],style:'clothes'});
+       if(k%2){const c1=CONTS[CONTS.length-1],c0=CONTS[CONTS.length-2];c0.pair=c1;c1.pair=c0;c0.pairMain=true;}}});   // 양문: 바깥쪽 경첩, 함께 열고 닫음
    const fr=xf-dir*0.06,nb=xback+dir*0.07,dd=Math.min(0.45,Math.abs(fr-nb)-0.03),zt=0.64/3;
    ['cosmetics','socks','folded'].forEach((st,i)=>drawer('x',fr,dir,a+0.01,b-0.01,0.06+i*zt+0.003,0.06+(i+1)*zt-0.003,dd,BUILT2,room+' 화장대 서랍',{hc:GOLD,style:st}));};
  wardrobe(15.72,16.36,1.95,5.95,'장난감방');wardrobe(10.6,10.02,8.17,12.33,'아이방');
@@ -3071,7 +3072,8 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   // 열어야 보이는 곳 (장·냉장고·세탁기·이불·보관장)
   CONTS.forEach(c=>{
     if(c.person){L.push({name:c.name,fits:()=>true,res:p=>Object.assign(c.person(p),{cont:c,pose:p.baby?'lie':'stand'})});return;}
-    if(c.type==='door'&&/붙박이장/.test(c.name))L.push({name:c.name,fits:()=>true,res:p=>({parent:c.G,pos:V(0,0.02,-c.d/2-0.02),ry:0,pose:p.baby?'lie':(p.H>1.84?'crouch':'stand'),cont:c})});
+    if(c.type==='door'&&/붙박이장/.test(c.name)){if(c.pair&&!c.pairMain)return;L.push({name:c.name,fits:()=>true,res:p=>{scene.updateMatrixWorld(true);const a=c.G.localToWorld(V(0,0.02,-c.d/2-0.02)),b=c.pair?c.pair.G.localToWorld(V(0,0.02,-c.d/2-0.02)):a.clone();
+      return{parent:scene,pos:a.add(b).multiplyScalar(0.5),ry:c.G.rotation.y,pose:p.baby?'lie':(p.H>1.84?'crouch':'stand'),cont:c};}});}
     else if(c.type==='door'&&/^냉장고$/.test(c.name))L.push({name:c.name+' 안',fits:small,res:p=>({parent:c.G,pos:V(0,0.03,-c.d/2),ry:0,pose:p.baby?'lie':'crouch',cont:c})});
     else if(c.type==='door'&&/하부장/.test(c.name)&&c.h<0.9&&c.w>=0.45)L.push({name:c.name+' 안',fits:kids,res:p=>({parent:c.G,pos:V(0,0.02,-c.d/2),ry:0,pose:p.baby?'lie':'crouch',s:p.baby?1:Math.min(1,(c.h-0.05)/(p.H*0.62)),cont:c})});
     else if(/^(세탁기|건조기)$/.test(c.name))L.push({name:c.name+' 안',fits:kids,res:p=>{const r=c.rand();return{parent:r.parent,pos:r.pos,ry:0,pose:p.baby?'lie':'crouch',s:p.baby?0.6:0.42,cont:c};}});
@@ -3118,7 +3120,7 @@ function endGame(win,gaveUp){if(S.ended)return;S.ended=true;S.phase='end';aim.hi
   $('#gAgain').onclick=showMenu;if(miss.length)$('#gRev').onclick=()=>reveal(miss);refreshBtns();}
 let beacons=[];
 function reveal(miss){msg.hidden=true;S.phase='reveal';aim.hidden=false;beacons.forEach(b=>scene.remove(b));beacons=[];
-  miss.forEach(o=>{const d=o.d;if(d.cont)d.cont.tgt=1;const p=d.g.getWorldPosition(new THREE.Vector3());
+  miss.forEach(o=>{const d=o.d;if(d.cont){d.cont.tgt=1;if(d.cont.pair)d.cont.pair.tgt=1;}const p=d.g.getWorldPosition(new THREE.Vector3());
     const b=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.2,20,1,true),new THREE.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:0.28,depthWrite:false,side:THREE.DoubleSide}));
     b.position.set(p.x,1.1,p.z);b.userData.game=true;b.userData.noPick=true;scene.add(b);beacons.push(b);});
   $('#gGuide').innerHTML=(S.mode==='family'?'노란 빛기둥이 못 찾은 사람 자리예요':'노란 빛기둥이 못 찾은 인형 자리예요')+' · 걸어가서 확인해 보세요';refreshBtns();}
@@ -3137,7 +3139,7 @@ function pickAt(x,y){const r=renderer.domElement.getBoundingClientRect();ndc.set
   const dh=hs.find(h=>dollOf(h.object)!=null);if(dh&&dh.distance<=hs[0].distance+0.6)return dh;return hs[0];}
 const contOf=o=>{while(o){if(o.userData.cont)return o.userData.cont;o=o.parent;}return null;};
 const dollOf=o=>{while(o){if(o.userData.root&&o.userData.dollIdx!=null)return o.userData.dollIdx;o=o.parent;}return null;};
-function toggle(c){c.tgt=c.amt>0.5||c.tgt>0.5?0:1;sOpen();if(c.tgt===1)camTo(c);}
+function toggle(c){c.tgt=c.amt>0.5||c.tgt>0.5?0:1;if(c.pair)c.pair.tgt=c.tgt;sOpen();if(c.tgt===1)camTo(c);}
 // 화면에서 손가락 근처에 있는 인형 찾기 (소파 밑처럼 조금만 보여도 누를 수 있게)
 function nearDoll(x,y){const r=renderer.domElement.getBoundingClientRect();let best=null,bd=1e9;const bb=new THREE.Box3(),c=new THREE.Vector3(),sz=new THREE.Vector3();
   S.dolls.forEach((d,i)=>{if(!d.g||d.found||!visibleChain(d.g))return;bb.setFromObject(d.g);bb.getCenter(c);const rad=bb.getSize(sz).length()/2,dist=c.distanceTo(camera.position);
@@ -3176,7 +3178,7 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
   const c=o.userData.cont||contOf(o);
   if(c&&c.fixed){if(S.phase==='hide'&&d<G_REACH){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();return true;}return false;}
   if(c&&d<G_REACH){const role=o.userData.role||'hit';
-    if(role==='cav'&&S.phase==='hide'&&c.amt>0.6){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();setTimeout(()=>{c.tgt=0;},750);return true;}
+    if(role==='cav'&&S.phase==='hide'&&c.amt>0.6){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();setTimeout(()=>{c.tgt=0;if(c.pair)c.pair.tgt=0;},750);return true;}
     toggle(c);return true;}
   if(S.phase==='hide'&&d<G_REACH&&!c){const n=nrm(h);const isFloor=floors.includes(o);
     if(n.y>0.6&&(!isFloor||coverDist(h.point)<1.6)){placeFree(h);return true;}}
