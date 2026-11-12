@@ -3130,8 +3130,12 @@ function hint(){if(noHint())return;const cam=camera.position;let best=null,bd=1e
   const hgt=bp.y<0.25?'바닥 가까이 낮은 곳이에요 · 앉거나 엎드려 보세요':bp.y>1.1?'눈높이보다 높은 곳이에요':'허리쯤 높이예요';
   const inn=c&&!c.fixed?(c.type==='books'?'책 뒤에 숨어 있어요':c.type==='duvet'?'이불 속에 숨어 있어요':'무언가를 열어야 보여요'):'열지 않아도 보이는 곳이에요';
   const extra=k===2?hgt:k===0?inn:'';
-  const more=room!==here?`${room}에 있어요${extra?' · '+extra:''}`:(extra||`${room} 안에 있어요`);
-  say(`🧸 ${dir}${far}${more?`<br><small>${more}</small>`:''}`,2400);}
+  let more=room!==here?`${room}에 있어요${extra?' · '+extra:''}`:(extra||`${room} 안에 있어요`);
+  // 같은 방(또는 가까이)에 왔는데 못 찾으면 점점 자세히: 닫힌 곳이면 '열어야 보여요' → 세 번째부터 무엇을 열지
+  if(room===here||bd<3.5){const n=best.hn=(best.hn||0)+1,what=(best.where||(c&&c.name)||'').replace(/ 안$/,'');
+    if(c&&!c.fixed&&c.amt<(c.gate||0.3))more=n>=3&&what?`「${what}」 안을 열어 보세요`:inn;
+    else if(n>=3&&what)more=`「${what}」 쪽이에요`;}
+  say(`${S.mode==='family'?'🙈':'🧸'} ${dir}${far}${more?`<br><small>${more}</small>`:''}`,2400);}
 function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;dropBump(d);S.found++;sFound();
   const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);d.anim={t:0,p:wp,s:ws.x};
   renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).name} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),900);}
@@ -3241,7 +3245,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
-window.__G={S,CONTS,buildPS,makePerson,FAM,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
+window.__G={S,CONTS,buildPS,makePerson,FAM,roomName,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
 })();
 
