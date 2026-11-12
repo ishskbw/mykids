@@ -1900,7 +1900,7 @@ function walkStep(dt){const k=WALK.keys;let f=0,s=0,turn=0;
   else if(WALK.auto){const dx=WALK.auto.x-camera.position.x,dz=WALK.auto.z-camera.position.z,d=Math.hypot(dx,dz);
     if(d<0.15)WALK.auto=null;else{const st=Math.min(d,2.6*dt);if(!moveBy(dx/d*st,dz/d*st))WALK.auto=null;
       WALK.yaw+=angDiff(WALK.yaw,Math.atan2(-dx,-dz))*Math.min(1,dt*3);WALK.pitch*=1-Math.min(1,dt*2);
-      if(WALK.auto){WALK.auto.t=(WALK.auto.t||0)+dt;if(WALK.auto.t>d/2.6+3)WALK.auto=null;}}}
+      if(WALK.auto){WALK.auto.t=(WALK.auto.t||0)+dt;if(WALK.auto.t>d/(2.6*(WALK.spK||1))+3)WALK.auto=null;}}}
   if(Math.abs(WALK.wheel)>0.005){const st=WALK.wheel*Math.min(1,dt*8);WALK.wheel-=st;moveBy(-sy*st,-cy*st);}else WALK.wheel=0;
   if(Math.abs(WALK.strafe)>0.005){const st=WALK.strafe*Math.min(1,dt*8);WALK.strafe-=st;moveBy(cy*st,-sy*st);}else WALK.strafe=0;
   applyLook();}
@@ -2515,6 +2515,11 @@ function buildFurn(){const nx=FG.nx,nz=FG.nz,occ=new Uint8Array(nx*nz),b=new THR
   while(h<t){const k=q[h++],v=Math.min(254,d[k]+1);nb(k,n=>{if(!wall[n]&&d[n]>v){d[n]=v;q[t++]=n;}});}
   FG.d=d;}
 const furnDepth=(x,z)=>{if(!FG.d)return 0;const i=Math.floor((x-FG.x0)/FG.res),j=Math.floor((z-FG.z0)/FG.res);if(i<0||j<0||i>=FG.nx||j>=FG.nz)return 0;return FG.d[j*FG.nx+i];};
+// 자세에 따른 불리함: 앉으면 느리게, 엎드리면 더 느리고 위를 못 봄 (게임 중에만)
+const poseK=()=>['hide','seek','reveal'].includes(S.phase)?(S.pose==='prone'?0.35:S.pose==='sit'?0.6:1):1;
+Object.defineProperty(WALK,'spK',{get:poseK,configurable:true});   // 집 코드(자동 걷기 시간 제한)에서도 씀
+{const mb=moveBy;moveBy=function(dx,dz){const k=poseK();return mb(dx*k,dz*k);};
+ const al=applyLook;applyLook=function(){if(S.pose==='prone'&&['hide','seek','reveal'].includes(S.phase))WALK.pitch=Math.min(WALK.pitch,0.12);al();};}
 {const wallBlocked=blocked;
  blocked=function(dx,dz,dist){if(wallBlocked(dx,dz,dist))return true;const l=Math.hypot(dx,dz)||1,cx=camera.position.x,cz=camera.position.z;
    const ux=dx/l,uz=dz/l,d0=furnDepth(cx,cz);if(d0===255)return false;
@@ -3016,11 +3021,30 @@ const fmt_=(v)=>typeof v==='number'?gm(v,{roughness:0.85}):envFix(new THREE.Mesh
 function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.Group();g.add(body);
   const SK=gm(0xf2d2b6,{roughness:0.7}),HR=gm(0x151210,{roughness:0.6}),BK=gm(0x111111,{roughness:0.4});
   const add=(geo,m,x,y,z,par)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;(par||body).add(o);return o;};
-  if(p.baby){const W_=gm(p.wrap,{roughness:0.95});const b=add(new THREE.SphereGeometry(0.16,20,14),W_,0,0.1,0.04);b.scale.set(0.85,0.7,1.55);
-    add(new THREE.SphereGeometry(0.075,18,14),SK,0,0.12,-0.25);const hat=add(new THREE.SphereGeometry(0.08,18,12,0,Math.PI*2,0,Math.PI*0.55),W_,0,0.13,-0.26);hat.rotation.x=-0.5;
-    [-1,1].forEach(s=>add(new THREE.SphereGeometry(0.008,8,6),BK,s*0.025,0.17,-0.2));
-    const hood=add(new THREE.TorusGeometry(0.085,0.03,10,20,Math.PI*1.3),W_,0,0.12,-0.24);hood.rotation.set(-1.1,0,-0.6);
-    g.userData.root=true;g.userData.dollIdx=i;tag(g,{dollIdx:i});return g;}
+  if(p.baby){   // 속싸개에 싸여 반듯이 누운 신생아 (얼굴 위쪽, 머리 -z): 큰 머리 · 통통한 볼 · 감은 눈 · 쪽쪽이 · 빼꼼 나온 두 손
+    const WR=gm(p.wrap,{roughness:0.95}),WR2=gm(0xf3c7d6,{roughness:0.95}),HD=new THREE.MeshStandardMaterial({color:0xf9d5e2,roughness:0.95,side:THREE.DoubleSide,emissive:0x3a2a30,emissiveIntensity:0.25});envFix(HD);
+    const SKB=gm(0xf7d9c4,{roughness:0.65}),CK=gm(0xf4a9a8,{roughness:0.9}),LN=gm(0x5a4038,{roughness:0.6});
+    const R=0.092,hy=0.1,hz=-0.17;
+    // 몸: 둥근 속싸개 + 대각선으로 감싼 겹 + 발끝 쪽 둥근 마무리
+    {const b=add(new THREE.SphereGeometry(0.15,24,16),WR,0,0.085,0.05);b.scale.set(0.82,0.62,1.28);}
+    [[-0.02,0.3],[0.12,-0.28]].forEach(([z,ry])=>{const w=add(new THREE.TorusGeometry(0.112,0.01,10,30),WR2,0,0.085,z);w.scale.set(1,0.74,1);w.rotation.y=ry;});   // 감싼 속싸개 겹 (띠)
+    // 두 손 (가슴 위로 빼꼼)
+    [-1,1].forEach(s=>{const h=add(new THREE.SphereGeometry(0.021,14,10),SKB,s*0.04,0.152,-0.07);h.scale.set(1,0.75,1.1);});
+    // 머리 + 모자처럼 감싼 속싸개
+    add(new THREE.SphereGeometry(R,28,20),SKB,0,hy,hz);
+    {const hood=add(new THREE.SphereGeometry(R*1.16,28,18,0,Math.PI*2,0,Math.PI*0.56),HD,0,hy-0.004,hz-0.01);hood.rotation.x=-2.1;
+     const rim=add(new THREE.TorusGeometry(R*1.12,0.012,8,28),WR2,0,hy+0.012,hz+0.012);rim.rotation.x=-2.1+Math.PI/2;}   // 분홍 보닛 + 테두리
+    // 얼굴 (위를 봄): 감은 눈 ∪ · 볼 · 코 · 쪽쪽이
+    const top=hy+R;
+    [-1,1].forEach(s=>{const e=add(new THREE.TorusGeometry(0.011,0.0028,6,12,Math.PI),LN,s*0.03,top-0.008,hz+0.02);e.rotation.set(-Math.PI/2+0.35,0,Math.PI);
+      const ck=add(new THREE.SphereGeometry(0.02,12,8),CK,s*0.046,top-0.028,hz+0.05);ck.scale.set(1,0.45,0.8);});
+    add(new THREE.SphereGeometry(0.008,10,8),SKB,0,top-0.004,hz+0.042);
+    {const pc=add(new THREE.CylinderGeometry(0.022,0.022,0.008,18),gm(0x9fd3e6,{roughness:0.4}),0,top-0.02,hz+0.068);pc.rotation.x=0.6;
+     const rg=add(new THREE.TorusGeometry(0.014,0.004,8,16),gm(0x9fd3e6,{roughness:0.4}),0,top-0.006,hz+0.078);rg.rotation.x=0.6;}
+    // 정수리 머리카락 한 가닥
+    {const t=add(new THREE.TorusGeometry(0.012,0.003,6,14,Math.PI*1.5),LN,0,top-0.01,hz-0.035);t.rotation.set(0.3,Math.PI/2,0);}
+    g.userData.root=true;g.userData.dollIdx=i;tag(g,{dollIdx:i});g.userData.person=1;
+    g.updateMatrixWorld(true);const bb0=new THREE.Box3().setFromObject(body);body.position.y-=bb0.min.y;return g;}
   const H=p.H,kid=!!p.kid,r=H*(kid?0.092:0.07),legL=H*(kid?0.43:0.47),torsoH=H-legL-2*r-0.03,sw=H*(kid?0.215:0.235),td=sw*0.55,
     hipW=sw*0.25,legR=sw*0.15,armL=H*(kid?0.34:0.36),armR=sw*0.1,th=(legL-0.05)/2;
   const TOP=fmt_(p.top),BOT=gm(p.bot,{roughness:0.85}),SH=gm(p.shoe,{roughness:0.6});
