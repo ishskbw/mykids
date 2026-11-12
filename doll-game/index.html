@@ -2138,8 +2138,8 @@ function roomName(p){const q=planOf(p);let best=null;ROOMS.forEach(r=>{const[a,b
 
 // ---------- 인형 ----------
 const DOLL_TYPES=['곰','토끼','오리','고양이','펭귄'];
-const DOLL_COLS=[[0xa0703f,0xf2b8c6,0xf5d14a,0x9a9a9e,0x2b2f3a],[0xd9a35a,0xf3efe8,0xf7e8a0,0xe39a4f,0x3c5a8a],[0x6b4a33,0xc9b6e4,0xa8d8a0,0x3a3a3c,0x7a2f3a],[0xe8d5b5,0x9fc6e8,0xf6a5a0,0xf4f0e8,0x4b6b4b]];
-function dollColor(i){return DOLL_COLS[Math.floor(i/5)%4][i%5];}
+const DOLL_COLS=[[0xa0703f,0xf2b8c6,0xf5d14a,0x9a9a9e,0x2b2f3a],[0xd9a35a,0xf3efe8,0xf7e8a0,0xe39a4f,0x3c5a8a],[0x6b4a33,0xc9b6e4,0xa8d8a0,0x3a3a3c,0x7a2f3a],[0xe8d5b5,0x9fc6e8,0xf6a5a0,0xf4f0e8,0x4b6b4b],[0x8a5a3a,0xffd3e0,0xffe08a,0xc8c8cc,0x1f3b5c],[0xc68642,0xd7f0ff,0xfff3c4,0xb0703a,0x5b7f5b]];
+function dollColor(i){return DOLL_COLS[Math.floor(i/5)%DOLL_COLS.length][i%5];}
 function dollType(i){return i%5;}
 function makeDoll(i){const t=dollType(i),col=dollColor(i),g=new THREE.Group();
   const M=gm(col,{roughness:0.95,emissive:col,emissiveIntensity:0.16}),L=gm(0xf6efe4,{roughness:0.95,emissive:0xf6efe4,emissiveIntensity:0.12}),BK=gm(0x151515,{roughness:0.3}),OR=gm(0xf09a3a,{roughness:0.7}),PK=gm(0xf3a0b0,{roughness:0.9});
@@ -2197,7 +2197,7 @@ const clampV=THREE.MathUtils.clamp;
 // ---------- 속이 빈 장: 집 코드의 통짜 몸통을 숨기고 얇은 판재로 겉면 + 문 구멍마다 안쪽 칸을 다시 짬 ----------
 // U = {axis:'x'|'y'(앞면이 놓인 축), f:앞면 좌표, n:바깥 방향(±1), a0,a1:앞면 가로 범위, back:뒷면 좌표, b:바닥 높이, h:높이, col, inner,
 //      holes:[[a0,a1,z0,z1,깊이,(안쪽 색)]], noFront:앞판을 따로 만들 때}
-const PANEL_G=new THREE.BoxGeometry(1,1,1);
+const PANEL_G=new THREE.BoxGeometry(1,1,1),UNIT_BOX=[],UNIT_IM=[];
 function hideInside(bx){scene.updateMatrixWorld(true);const b=new THREE.Box3();
   scene.traverse(o=>{if(!o.isMesh||o.userData.game||o.isInstancedMesh||!o.visible)return;b.setFromObject(o);if(b.isEmpty())return;if(bx.containsBox(b))o.visible=false;});}
 function hollow(U){const ax=U.axis,cvA=ax==='x'?Z:W,cvN=ax==='x'?W:Z,n=U.n;
@@ -2207,6 +2207,7 @@ function hollow(U){const ax=U.axis,cvA=ax==='x'?Z:W,cvN=ax==='x'?W:Z,n=U.n;
   {const nf=Fw+n*0.03,N0=Math.min(nf,Bw)-0.006,N1=Math.max(nf,Bw)+0.006;
    hideInside(ax==='x'?new THREE.Box3(new THREE.Vector3(N0,b-0.006,A0-0.006),new THREE.Vector3(N1,top+0.006,A1+0.006)):new THREE.Box3(new THREE.Vector3(A0-0.006,b-0.006,N0),new THREE.Vector3(A1+0.006,top+0.006,N1)));}
   const outer=[],inner={},t=0.016;
+  UNIT_BOX.push(ax==='x'?[Math.min(Fw,Bw),A0,Math.max(Fw,Bw),A1,b,top]:[A0,Math.min(Fw,Bw),A1,Math.max(Fw,Bw),b,top]);
   const P=(list,a0,a1,z0,z1,d0,d1)=>{if(a1-a0<0.002||z1-z0<0.002)return;const c0=Fw-n*d0,c1=Fw-n*d1,cn=(c0+c1)/2,sn=Math.abs(c1-c0),ca=(a0+a1)/2,sa=a1-a0;
     list.push(ax==='x'?[cn,(z0+z1)/2,ca,sn,z1-z0,sa]:[ca,(z0+z1)/2,cn,sa,z1-z0,sn]);};
   const HS=U.holes.map(h=>{const p=cvA(h[0]),q=cvA(h[1]);return {a0:Math.min(p,q),a1:Math.max(p,q),z0:h[2],z1:h[3],d:Math.min(h[4]||D-0.03,D-0.015),col:h[5]||U.inner||0xe9e6e0};});
@@ -2220,7 +2221,7 @@ function hollow(U){const ax=U.axis,cvA=ax==='x'?Z:W,cvN=ax==='x'?W:Z,n=U.n;
     P(L,a0,a1,z0,z1,d-t,d);P(L,a0,a0+t,z0,z1,0,d);P(L,a1-t,a1,z0,z1,0,d);P(L,a0,a1,z1-t,z1,0,d);P(L,a0,a1,z0,z0+t,0,d);});
   const mkI=(list,mat)=>{if(!list.length)return;const im=new THREE.InstancedMesh(PANEL_G,mat,list.length),m=new THREE.Matrix4(),q=new THREE.Quaternion();
     list.forEach((p,i)=>{m.compose(new THREE.Vector3(p[0],p[1],p[2]),q,new THREE.Vector3(p[3],p[4],p[5]));im.setMatrixAt(i,m);});
-    im.receiveShadow=true;im.castShadow=true;im.userData.game=true;scene.add(im);return im;};
+    im.receiveShadow=true;im.castShadow=true;im.userData.game=true;scene.add(im);UNIT_IM.push(im);return im;};
   mkI(outer,gm(U.col,{roughness:0.8}));Object.keys(inner).forEach(k=>mkI(inner[k],gm(+k,{roughness:0.85})));}
 
 // ---------- 장 속 물건 (옷·신발·음식·그릇·수건…) ----------
@@ -2443,6 +2444,50 @@ function lidBox(X0,X1,ya,yb,base,hh,lidCol,name){const w=X1-X0,dd=yb-ya,G=new TH
   c.view=()=>({t:mov.localToWorld(new THREE.Vector3(0,hh*0.4,0)),n:new THREE.Vector3(1,0,0),dist:1.15,up:0.7});
   return c;}
 
+// ---------- 가구 충돌: 바닥 격자에 가구 자리를 표시 (몸 반지름만큼 넓혀 둠) ----------
+// 깊이 값: 0 = 빈 곳, 1 이상 = 가구 자리 (가장자리에서 안쪽으로 몇 칸인지) — 가구 안에 들어가 있으면 바깥쪽으로만 움직일 수 있음
+const FG={x0:-11,z0:-8.6,res:0.05,nx:460,nz:370,d:null},FURN=[],BODY_R=0.17;
+function buildFurn(){const nx=FG.nx,nz=FG.nz,occ=new Uint8Array(nx*nz),b=new THREE.Box3(),sz=new THREE.Vector3();
+  const skip=new Set([...floors,...wallMeshes]);OPENERS.forEach(d=>d.objs.forEach(o=>o.traverse(m=>{if(m.isMesh)skip.add(m);})));BF.g.forEach(g=>g.traverse(m=>{if(m.isMesh)skip.add(m);}));
+  const vis=o=>{while(o){if(!o.visible)return false;o=o.parent;}return true;};
+  const mark=(x0,z0,x1,z1)=>{const R=BODY_R,i0=Math.max(0,Math.floor((x0-R-FG.x0)/FG.res)),i1=Math.min(nx-1,Math.floor((x1+R-FG.x0)/FG.res)),
+      j0=Math.max(0,Math.floor((z0-R-FG.z0)/FG.res)),j1=Math.min(nz-1,Math.floor((z1+R-FG.z0)/FG.res));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)occ[j*nx+i]=1;};
+  scene.updateMatrixWorld(true);
+  scene.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||o.userData.game||skip.has(o)||!vis(o))return;const m=o.material;
+    if(m&&!Array.isArray(m)&&m.transparent&&m.opacity<0.3)return;
+    b.setFromObject(o);if(b.isEmpty())return;b.getSize(sz);
+    if(b.min.y>1.0||b.max.y<0.12)return;                         // 머리 위에 달린 것, 바닥에 깔린 것
+    if(Math.min(sz.x,sz.z)<0.06&&sz.y>1.5)return;                 // 창틀·유리 칸막이 같은 얇고 높은 것
+    if(sz.x>6||sz.z>6)return;
+    mark(b.min.x,b.min.z,b.max.x,b.max.z);FURN.push(o);});
+  UNIT_BOX.forEach(([x0,z0,x1,z1,bt])=>{if(bt<1.0)mark(x0,z0,x1,z1);});
+  UNIT_IM.forEach(im=>FURN.push(im));
+  // 가장자리에서 안쪽으로의 깊이 (빈 칸에서 시작하는 너비 우선 탐색)
+  const d=new Uint8Array(nx*nz),q=new Int32Array(nx*nz);let h=0,t=0;
+  for(let k=0;k<nx*nz;k++){if(!occ[k]){d[k]=0;q[t++]=k;}else d[k]=255;}
+  while(h<t){const k=q[h++],i=k%nx,j=(k/nx)|0,v=d[k]+1;
+    if(i>0&&d[k-1]>v){d[k-1]=v;q[t++]=k-1;}if(i<nx-1&&d[k+1]>v){d[k+1]=v;q[t++]=k+1;}
+    if(j>0&&d[k-nx]>v){d[k-nx]=v;q[t++]=k-nx;}if(j<nz-1&&d[k+nx]>v){d[k+nx]=v;q[t++]=k+nx;}}
+  FG.d=d;}
+const furnDepth=(x,z)=>{if(!FG.d)return 0;const i=Math.floor((x-FG.x0)/FG.res),j=Math.floor((z-FG.z0)/FG.res);if(i<0||j<0||i>=FG.nx||j>=FG.nz)return 0;return FG.d[j*FG.nx+i];};
+{const wallBlocked=blocked;
+ blocked=function(dx,dz,dist){if(wallBlocked(dx,dz,dist))return true;const l=Math.hypot(dx,dz)||1,cx=camera.position.x,cz=camera.position.z;
+   const d0=furnDepth(cx,cz),d1=furnDepth(cx+dx/l*dist,cz+dz/l*dist);return d1>0&&d1>=d0;};}
+// 바닥·가구 누르기: 가구를 누르면 바닥으로 뚫고 가지 않고 그 가구 앞에서 멈춤
+walkTap=function(x,y,type){const r=cv.getBoundingClientRect();
+  if(window.gameTap&&window.gameTap(x,y,type))return;
+  if(type==='touch'&&y-r.top>r.height*BACK_ZONE){WALK.auto=null;WALK.wheel=-BACK_STEP;return;}
+  wndc.set((x-r.left)/r.width*2-1,-((y-r.top)/r.height)*2+1);wray.setFromCamera(wndc,camera);
+  {const d=pickDoor(wray,4.5);if(d){d.toggle();return;}}
+  const hit=wray.intersectObjects([...floors,...wallMeshes,...FURN],false)[0];if(!hit)return;const cam=camera.position;
+  if(floors.includes(hit.object)){
+    if(type==='touch'&&Math.hypot(hit.point.x-cam.x,hit.point.z-cam.z)<BACK_STEP){WALK.auto=null;WALK.wheel=BACK_STEP;return;}
+    WALK.auto={x:hit.point.x,z:hit.point.z};return;}
+  if(wallMeshes.includes(hit.object))return;
+  const dx=hit.point.x-cam.x,dz=hit.point.z-cam.z,L=Math.hypot(dx,dz);if(L<0.65)return;
+  const k=(L-0.5)/L;WALK.auto={x:cam.x+dx*k,z:cam.z+dz*k};};
+
 // ---------- 배치 ----------
 function buildConts(){
  const WH=0xf4f4f2,NAVY=0x253349,GOLD=0xc9a45c,BUILT2=0xe6e2d8;
@@ -2634,12 +2679,12 @@ const sFound=()=>tone([784,988,1319],0.22,'triangle',0.2),sOpen=()=>tone([330],0
 function showMenu(){S.phase='menu';document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기는 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
-   <div class="grow"><b>숨길 인형 수</b><div class="gcnt"><button id="gMinus" aria-label="줄이기">−</button><span class="num" id="gNum">${S.n}</span><input type="range" id="gRange" min="1" max="20" value="${S.n}"><button id="gPlus" aria-label="늘리기">+</button></div></div>
+   <div class="grow"><b>숨길 인형 수</b><div class="gcnt"><button id="gMinus" aria-label="줄이기">−</button><span class="num" id="gNum">${S.n}</span><input type="range" id="gRange" min="1" max="30" value="${S.n}"><button id="gPlus" aria-label="늘리기">+</button></div></div>
    <div class="grow"><b>제한 시간</b><div class="gchips" id="gLim">${TL.map(([v,t])=>`<button data-v="${v}" aria-pressed="${v===S.limit}">${t}</button>`).join('')}</div></div>
    <div class="grow"><b>누가 숨길까요?</b><div class="gchips" id="gWho"><button data-v="0" aria-pressed="${!S.auto}">👀 사람이 숨기기</button><button data-v="1" aria-pressed="${S.auto}">🎲 컴퓨터가 숨기기</button></div></div>
    <div class="grow"><b>가구를 열면 안이 잘 보이는 곳으로 시점 옮기기</b><div class="gchips" id="gCam"><button data-v="1" aria-pressed="${S.autoCam}">🎥 켜기</button><button data-v="0" aria-pressed="${!S.autoCam}">끄기</button></div></div>
    <button class="gbig" id="gGo">시작하기</button></div>`;
-  const setN=v=>{S.n=Math.max(1,Math.min(20,v));$('#gNum').textContent=S.n;$('#gRange').value=S.n;};
+  const setN=v=>{S.n=Math.max(1,Math.min(30,v));$('#gNum').textContent=S.n;$('#gRange').value=S.n;};
   $('#gMinus').onclick=()=>setN(S.n-1);$('#gPlus').onclick=()=>setN(S.n+1);$('#gRange').oninput=e=>setN(+e.target.value);
   menu.querySelectorAll('#gLim button').forEach(b=>b.onclick=()=>{S.limit=+b.dataset.v;menu.querySelectorAll('#gLim button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   menu.querySelectorAll('#gWho button').forEach(b=>b.onclick=()=>{S.auto=b.dataset.v==='1';menu.querySelectorAll('#gWho button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
@@ -2800,7 +2845,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 
 // ---------- 시작 ----------
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
-  buildConts();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
+  buildConts();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 window.__G={S,CONTS,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
