@@ -2140,7 +2140,7 @@ const DOLL_COLS=[[0xa0703f,0xf2b8c6,0xf5d14a,0x9a9a9e,0x2b2f3a],[0xd9a35a,0xf3ef
 function dollColor(i){return DOLL_COLS[Math.floor(i/5)%4][i%5];}
 function dollType(i){return i%5;}
 function makeDoll(i){const t=dollType(i),col=dollColor(i),g=new THREE.Group();
-  const M=gm(col,{roughness:0.95}),L=gm(0xf6efe4,{roughness:0.95}),BK=gm(0x151515,{roughness:0.3}),OR=gm(0xf09a3a,{roughness:0.7}),PK=gm(0xf3a0b0,{roughness:0.9});
+  const M=gm(col,{roughness:0.95,emissive:col,emissiveIntensity:0.16}),L=gm(0xf6efe4,{roughness:0.95,emissive:0xf6efe4,emissiveIntensity:0.12}),BK=gm(0x151515,{roughness:0.3}),OR=gm(0xf09a3a,{roughness:0.7}),PK=gm(0xf3a0b0,{roughness:0.9});
   const S=(r,m,x,y,z,sx,sy,sz)=>{const o=mk(new THREE.SphereGeometry(r,16,12),m,x,y,z,g);if(sx)o.scale.set(sx,sy,sz);o.castShadow=true;return o;};
   if(t===4){S(0.068,M,0,0.095,0,1,1.45,1);S(0.05,L,0,0.085,0.03,1,1.3,0.7);S(0.052,M,0,0.19,0);
     S(0.008,BK,-0.02,0.2,0.046);S(0.008,BK,0.02,0.2,0.046);const bk=mk(new THREE.ConeGeometry(0.012,0.03,10),OR,0,0.185,0.06,g);bk.rotation.x=Math.PI/2;
@@ -2168,6 +2168,7 @@ function dollSVG(i,on){const t=dollType(i),c='#'+dollColor(i).toString(16).padSt
 
 // ---------- 숨길 수 있는 가구(열고 닫기) ----------
 const CONTS=[];
+const RNG=seed=>{let s=Math.max(1,Math.abs(Math.floor(seed))%2147483646+1);return ()=>{s=(s*16807)%2147483647;return s/2147483647;};};
 function frame(axis,f,n,a0,a1,z0){let cx,cz,w,rot,pa;
   if(axis==='y'){cz=Z(f);const xa=W(a0),xb=W(a1);cx=(xa+xb)/2;w=xb-xa;rot=n>0?0:Math.PI;pa=new THREE.Vector3(xa,0,cz);}
   else{cx=W(f);const za=Z(a0),zb=Z(a1);cz=(za+zb)/2;w=zb-za;rot=n>0?Math.PI/2:-Math.PI/2;pa=new THREE.Vector3(cx,0,za);}
@@ -2185,30 +2186,142 @@ function hideStatic(G,x0,x1,y0,y1,z0,z1,instToo){if(!STATIC)buildStatic();G.upda
   const bx=box.clone().expandByScalar(0.006);
   STATIC.meshes.forEach(s=>{if(s.o.visible&&bx.containsBox(s.b))s.o.visible=false;});
   if(instToo){const m=new THREE.Matrix4().makeScale(0,0,0),hit=new Set();STATIC.inst.forEach(s=>{if(box.containsPoint(s.p)){s.o.setMatrixAt(s.i,m);hit.add(s.o);}});hit.forEach(o=>o.instanceMatrix.needsUpdate=true);}}
-function baseCont(o){o.amt=0;o.tgt=0;o.hits=o.hits||[];o.cav=o.cav||[];o.inner=o.inner||[];CONTS.push(o);return o;}
+function baseCont(o){o.amt=0;o.tgt=0;o.hits=o.hits||[];o.cav=o.cav||[];o.inner=o.inner||[];o.items=o.items||[];CONTS.push(o);return o;}
 function setPart(m,c,role){m.userData.cont=c;m.userData.role=role;if(role==='cav')c.cav.push(m);else c.hits.push(m);return m;}
-const fit=(sp)=>Math.max(0.45,Math.min(1,sp/0.215));
+const fit=(sp)=>Math.max(0.3,Math.min(1,sp/0.215));
+const INVIS=new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false});
+const clampV=THREE.MathUtils.clamp;
 
-// 서랍
+// ---------- 속이 빈 장: 집 코드의 통짜 몸통을 숨기고 얇은 판재로 겉면 + 문 구멍마다 안쪽 칸을 다시 짬 ----------
+// U = {axis:'x'|'y'(앞면이 놓인 축), f:앞면 좌표, n:바깥 방향(±1), a0,a1:앞면 가로 범위, back:뒷면 좌표, b:바닥 높이, h:높이, col, inner,
+//      holes:[[a0,a1,z0,z1,깊이,(안쪽 색)]], noFront:앞판을 따로 만들 때}
+const PANEL_G=new THREE.BoxGeometry(1,1,1);
+function hideInside(bx){scene.updateMatrixWorld(true);const b=new THREE.Box3();
+  scene.traverse(o=>{if(!o.isMesh||o.userData.game||o.isInstancedMesh||!o.visible)return;b.setFromObject(o);if(b.isEmpty())return;if(bx.containsBox(b))o.visible=false;});}
+function hollow(U){const ax=U.axis,cvA=ax==='x'?Z:W,cvN=ax==='x'?W:Z,n=U.n;
+  const Fw=cvN(U.f),Bw=cvN(U.back),D=Math.abs(Fw-Bw),b=U.b,top=U.b+U.h;
+  const A0=Math.min(cvA(U.a0),cvA(U.a1)),A1=Math.max(cvA(U.a0),cvA(U.a1));
+  // 몸통·문 경계선·손잡이 숨기기 (앞쪽은 3cm 더 넓게: 앞면에 붙은 선·손잡이까지)
+  {const nf=Fw+n*0.03,N0=Math.min(nf,Bw)-0.006,N1=Math.max(nf,Bw)+0.006;
+   hideInside(ax==='x'?new THREE.Box3(new THREE.Vector3(N0,b-0.006,A0-0.006),new THREE.Vector3(N1,top+0.006,A1+0.006)):new THREE.Box3(new THREE.Vector3(A0-0.006,b-0.006,N0),new THREE.Vector3(A1+0.006,top+0.006,N1)));}
+  const outer=[],inner={},t=0.016;
+  const P=(list,a0,a1,z0,z1,d0,d1)=>{if(a1-a0<0.002||z1-z0<0.002)return;const c0=Fw-n*d0,c1=Fw-n*d1,cn=(c0+c1)/2,sn=Math.abs(c1-c0),ca=(a0+a1)/2,sa=a1-a0;
+    list.push(ax==='x'?[cn,(z0+z1)/2,ca,sn,z1-z0,sa]:[ca,(z0+z1)/2,cn,sa,z1-z0,sn]);};
+  const HS=U.holes.map(h=>{const p=cvA(h[0]),q=cvA(h[1]);return {a0:Math.min(p,q),a1:Math.max(p,q),z0:h[2],z1:h[3],d:Math.min(h[4]||D-0.03,D-0.015),col:h[5]||U.inner||0xe9e6e0};});
+  P(outer,A0,A1,top-t,top,0,D);if(b>0.03)P(outer,A0,A1,b,b+t,0,D);
+  P(outer,A0,A0+t,b,top,0,D);P(outer,A1-t,A1,b,top,0,D);P(outer,A0,A1,b,top,D-t,D);
+  if(!U.noFront){const br=[A0,A1];HS.forEach(h=>br.push(h.a0,h.a1));br.sort((x,y)=>x-y);
+    for(let i=0;i<br.length-1;i++){const s0=Math.max(A0,br[i]),s1=Math.min(A1,br[i+1]);if(s1-s0<0.002)continue;const m=(s0+s1)/2;
+      const cov=HS.filter(h=>h.a0<=m&&h.a1>=m).map(h=>[h.z0,h.z1]).sort((x,y)=>x[0]-y[0]);let z=b;
+      cov.forEach(([z0,z1])=>{if(z0>z)P(outer,s0,s1,z,z0,0,t);z=Math.max(z,z1);});if(top>z)P(outer,s0,s1,z,top,0,t);}}
+  HS.forEach(h=>{const L=inner[h.col]||(inner[h.col]=[]),{a0,a1,z0,z1,d}=h;
+    P(L,a0,a1,z0,z1,d-t,d);P(L,a0,a0+t,z0,z1,0,d);P(L,a1-t,a1,z0,z1,0,d);P(L,a0,a1,z1-t,z1,0,d);P(L,a0,a1,z0,z0+t,0,d);});
+  const mkI=(list,mat)=>{if(!list.length)return;const im=new THREE.InstancedMesh(PANEL_G,mat,list.length),m=new THREE.Matrix4(),q=new THREE.Quaternion();
+    list.forEach((p,i)=>{m.compose(new THREE.Vector3(p[0],p[1],p[2]),q,new THREE.Vector3(p[3],p[4],p[5]));im.setMatrixAt(i,m);});
+    im.receiveShadow=true;im.castShadow=true;im.userData.game=true;scene.add(im);return im;};
+  mkI(outer,gm(U.col,{roughness:0.55}));Object.keys(inner).forEach(k=>mkI(inner[k],gm(+k,{roughness:0.85})));}
+
+// ---------- 장 속 물건 (옷·신발·음식·그릇·수건…) ----------
+const GEO={box:PANEL_G,cyl:new THREE.CylinderGeometry(1,1,1,16),sph:new THREE.SphereGeometry(1,14,10),bowl:new THREE.CylinderGeometry(1,0.62,1,18)};
+const PAL={cloth:[0x2f3a4a,0xe9e4da,0x7a8b99,0x3d3d3f,0xb7a58a,0x8c4a3c,0xd9d2c4,0x55606b,0xa3b1a0,0xf2b8c6,0x9fc6e8,0xf5d14a,0xffffff],
+  shoe:[0x2b2b2b,0xf4f2ee,0x8a5a3a,0x3a4a6a,0xe36b5a,0xd9c3a0,0x9aa0a4,0xf2a7bb,0x6fbf73],
+  pack:[0xe36b5a,0x3f7fbf,0xf2d04b,0x4caf7a,0xf3f0e8,0x8a5fb0,0xe9a23b,0xf4a3b5],
+  bottle:[0xf6f6f2,0xf09a3a,0x6fbf73,0xd9534f,0x8fc6e8,0x5a3a1a,0xe9dcc0]};
+// 문 달린 칸: 좌표는 문틀 G 기준 (x 가로, y 칸 바닥에서 위로, z 안쪽이 음수). 서랍: 서랍통 기준.
+function fill(c,par,style,P){const R=RNG(P.seed||(c.G.position.x*1013+c.G.position.z*3707+c.G.position.y*577+P.w*91));const pk=a=>a[Math.floor(R()*a.length)];
+  const add=(g,col,x,y,z,sx,sy,sz,rx,ry,rz,ex,noItem)=>{const m=new THREE.Mesh(GEO[g],gm(col,ex||{roughness:0.75}));m.position.set(x,y,z);m.scale.set(sx,sy,sz);
+    if(rx||ry||rz)m.rotation.set(rx||0,ry||0,rz||0);m.userData.game=true;m.userData.noPick=true;par.add(m);if(!noItem)c.items.push(m);return m;};
+  const SH=P.shelves||[0],gaps=SH.map((s,i)=>[s+0.017,(SH[i+1]!=null?SH[i+1]:P.h)-s-0.03]),w=P.w,d=P.d,h=P.h;
+  if(style==='clothes'){const rod=h-0.42;
+    add('cyl',0xc0c4c8,0,rod,-d/2,0.012,w-0.04,0.012,0,0,Math.PI/2,{metalness:0.8,roughness:0.3},true);
+    let x=-w/2+0.04;while(x<w/2-0.05){const t=0.025+R()*0.035,L=R()<0.3?0.95+R()*0.25:0.55+R()*0.35;
+      add('box',pk(PAL.cloth),x+t/2,rod-0.04-L/2,-d/2,t,L,Math.min(0.46,d-0.1),0,0,(R()-0.5)*0.05);
+      add('box',0xb08a62,x+t/2,rod-0.02,-d/2,0.01,0.02,0.36,0,0,0,null,true);x+=t+0.012+R()*0.025;}
+    const s1=h-0.34+0.017;for(let x2=-w/2+0.03;x2<w/2-0.28;x2+=0.29){if(R()<0.25)continue;let y=s1;const k=1+Math.floor(R()*4),col=pk(PAL.cloth);
+      for(let j=0;j<k;j++){const th=0.04+R()*0.025;add('box',j%2?col:pk(PAL.cloth),x2+0.13,y+th/2,-d+0.2,0.26,th,0.3);y+=th;}}
+    if(R()<0.7){const bw=Math.min(0.34,w-0.08);add('box',pk([0xd9c8a8,0xe9e6df,0xbfc7cc]),(R()<0.5?-1:1)*(w/2-bw/2-0.03),0.017+0.12,-d+0.22,bw,0.24,0.34);}}
+  else if(style==='shoes'){gaps.forEach(([y,g])=>{if(g<0.1)return;for(let x=-w/2+0.03;x<w/2-0.19;x+=0.2){if(R()<0.3)continue;
+      const col=pk(PAL.shoe),boot=g>0.32&&R()<0.15,hh=boot?0.28:0.07+R()*0.035,L=Math.min(0.25,d-0.04);
+      [0,1].forEach(k=>{const sx2=x+0.05+k*0.095;add('box',0xf4f2ee,sx2,y+0.009,-d/2,0.087,0.018,L);add('box',col,sx2,y+0.018+hh*0.22,-d/2,0.083,hh*0.44,L-0.01);add('box',col,sx2,y+0.018+hh*0.5,-d/2-L*0.18,0.083,hh,L*0.6);add('box',0x2b2420,sx2,y+0.018+hh+0.001,-d/2-L*0.12,0.06,0.004,L*0.32,0,0,0,null,true);});}});}
+  else if(style==='fridge'){add('box',0xffffff,0,h-0.035,-0.1,w-0.06,0.012,0.05,0,0,0,{emissive:0xffffff,emissiveIntensity:0.9},true);
+    gaps.forEach(([y,g],i)=>{if(i===0){add('box',0xeaf3f5,0,y+0.1,-d/2,w-0.06,0.2,d-0.1,0,0,0,{transparent:true,opacity:0.35,roughness:0.1},true);
+        for(let k=0;k<5;k++)add('sph',pk([0x6fbf73,0xe36b5a,0xf2d04b,0x9ccc65]),(R()-0.5)*(w-0.15),y+0.045,-d/2+(R()-0.5)*0.25,0.045,0.045,0.045);return;}
+      for(let x=-w/2+0.05;x<w/2-0.06;){const k=R();
+        if(k<0.3&&g>0.26){const hh=0.19+R()*0.06;add('cyl',pk(PAL.bottle),x+0.035,y+hh/2,-d+0.12,0.034,hh,0.034,0,0,0,{roughness:0.2});add('cyl',pk(PAL.pack),x+0.035,y+hh+0.012,-d+0.12,0.016,0.025,0.016);x+=0.085;}
+        else if(k<0.62){const ww=0.12+R()*0.05,hh=Math.min(g-0.04,0.06+R()*0.05);add('box',0xf3f5f6,x+ww/2,y+hh/2,-d+0.14,ww,hh,0.15,0,0,0,{transparent:true,opacity:0.8,roughness:0.2});add('box',pk(PAL.pack),x+ww/2,y+hh+0.007,-d+0.14,ww+0.006,0.014,0.156);x+=ww+0.02;}
+        else if(k<0.78){add('sph',pk([0xe36b5a,0xf2d04b,0x9ccc65,0xf09a3a]),x+0.045,y+0.045,-d/2-0.05,0.045,0.045,0.045);x+=0.1;}
+        else if(k<0.88){add('box',0xe9dcc0,x+0.1,y+0.025,-d+0.12,0.2,0.05,0.1);for(let e=0;e<5;e++)add('sph',0xf3ead8,x+0.02+e*0.04,y+0.06,-d+0.12,0.017,0.022,0.017);x+=0.22;}else x+=0.08;}});
+    if(P.pv){const bg=new THREE.Group();P.pv.add(bg);c.inner.push(bg);const cx=-P.sx*w/2;
+      [0.35,0.85,1.3].forEach(y=>{if(y>h-0.2)return;const m=new THREE.Mesh(GEO.box,gm(0xf4f7f8,{transparent:true,opacity:0.85,roughness:0.2}));m.scale.set(w-0.08,0.07,0.08);m.position.set(cx,y,-0.055);m.userData.game=true;m.userData.noPick=true;bg.add(m);
+        for(let x=-w/2+0.08;x<w/2-0.08;x+=0.075){if(R()<0.35)continue;const hh=0.12+R()*0.1,b2=new THREE.Mesh(GEO.cyl,gm(pk(PAL.bottle),{roughness:0.25}));b2.scale.set(0.028,hh,0.028);b2.position.set(cx+x,y+hh/2,-0.055);b2.userData.game=true;b2.userData.noPick=true;bg.add(b2);}});}}
+  else if(style==='kimchi'){gaps.forEach(([y,g])=>{for(let x=-w/2+0.02;x<w/2-0.17;x+=0.18){if(R()<0.2)continue;const hh=Math.min(g-0.05,0.14+R()*0.1);if(hh<0.06)continue;
+      add('box',0xf3f2ee,x+0.085,y+hh/2,-d+0.22,0.16,hh,0.36,0,0,0,{transparent:true,opacity:0.88,roughness:0.3});add('box',pk([0xd9534f,0x4caf7a,0x3f7fbf]),x+0.085,y+hh+0.01,-d+0.22,0.166,0.02,0.366);
+      add('box',0xc0392b,x+0.085,y+hh*0.35,-d+0.22,0.15,hh*0.6,0.35,0,0,0,{roughness:0.6},true);}});}
+  else if(style==='pantry'||style==='misc'){gaps.forEach(([y,g])=>{for(let x=-w/2+0.03;x<w/2-0.06;){const k=R();
+      if(k<0.32){const hh=Math.min(g-0.04,0.22+R()*0.08),ww=0.06+R()*0.03;if(hh>0.1)add('box',pk(PAL.pack),x+ww/2,y+hh/2,-d+0.12,ww,hh,0.18);x+=ww+0.012;}
+      else if(k<0.55&&style==='pantry'){add('cyl',pk([0xb9bdc1,0xd9534f,0xf2d04b,0x3f7fbf]),x+0.04,y+0.055,-d+0.1,0.035,0.11,0.035,0,0,0,{metalness:0.5,roughness:0.4});x+=0.085;}
+      else if(k<0.7&&g>0.25){const hh=0.2+R()*0.05;add('cyl',pk(PAL.bottle),x+0.035,y+hh/2,-d+0.12,0.032,hh,0.032);x+=0.08;}
+      else if(k<0.9){const ww=0.18+R()*0.1,hh=Math.min(g-0.05,0.12+R()*0.14);if(hh>0.06)add('box',pk([0xc9a77f,0xd9c8a8,0xe9e6df,0xbfc7cc]),x+ww/2,y+hh/2,-d/2-0.04,ww,hh,Math.min(d-0.12,0.3));x+=ww+0.02;}else x+=0.1;}});
+    if(style==='misc'&&h>1.5){add('cyl',0x2b2b2b,w/2-0.06,0.017+0.45,-d+0.09,0.015,0.9,0.015,0,0,0.08);add('cyl',0x3f7fbf,w/2-0.12,0.017+0.42,-d+0.12,0.013,0.84,0.013,0,0,-0.06);}}
+  else if(style==='pots'||style==='aux'){gaps.forEach(([y,g])=>{for(let x=-w/2+0.03;x<w/2-0.08;){const k=R();
+      if(k<0.42&&g>0.16){const r2=0.08+R()*0.04,hh=Math.min(g-0.05,0.1+R()*0.06);add('cyl',0xb9bdc1,x+r2,y+hh/2,-d+r2+0.05,r2,hh,r2,0,0,0,{metalness:0.85,roughness:0.3});add('cyl',0x8a9095,x+r2,y+hh+0.006,-d+r2+0.05,r2+0.004,0.012,r2+0.004,0,0,0,{metalness:0.8,roughness:0.3});x+=2*r2+0.03;}
+      else if(k<0.62){const hh=0.2+R()*0.06;if(g>hh+0.03)add('box',pk([0x6fbf73,0xf3f0e8,0x8fc6e8,0xf2d04b]),x+0.04,y+hh/2,-d+0.1,0.07,hh,0.05);x+=0.1;}
+      else if(k<0.78&&style==='aux'){const hh=Math.min(g-0.04,0.3);add('box',0xe9dcc0,x+0.12,y+hh/2,-d+0.12,0.24,hh,0.14);x+=0.27;}
+      else{add('cyl',0x2b2b2b,x+0.12,y+0.02,-d/2,0.12,0.03,0.12,0,0,0,{roughness:0.5});add('box',0x2b2b2b,x+0.12,y+0.025,-0.1,0.03,0.02,0.18);x+=0.26;}}});}
+  else if(style==='sink'){const pz=-d+0.12;
+    add('cyl',0xd8dcdf,0.05,h-0.12,pz,0.022,0.24,0.022,0,0,0,{metalness:0.8,roughness:0.3},true);
+    add('cyl',0xd8dcdf,0.05,h-0.25,pz+0.06,0.022,0.12,0.022,Math.PI/2,0,0,{metalness:0.8,roughness:0.3},true);
+    add('cyl',0xe9eaea,0.05,h-0.3,-d+0.08,0.02,0.18,0.02,Math.PI/2,0,0,null,true);
+    add('cyl',0x9aa0a4,-w/2+0.13,0.017+0.14,-d+0.16,0.11,0.28,0.11,0,0,0,{roughness:0.5});
+    [[0.12,0x6fbf73],[0.2,0xf3f0e8]].forEach(([x,col])=>add('box',col,x,0.017+0.11,-d+0.1,0.07,0.22,0.06));}
+  else if(style==='dishes'){gaps.forEach(([y,g])=>{for(let x=-w/2+0.03;x<w/2-0.06;){const k=R();
+      if(k<0.45){const n2=Math.floor(4+R()*8),r2=0.09+R()*0.03;add('cyl',0xf6f5f0,x+r2,y+n2*0.0065,-d/2-0.01,r2,n2*0.013,r2,0,0,0,{roughness:0.25});x+=2*r2+0.02;}
+      else if(k<0.75){const col=pk([0xf6f5f0,0xdfe9ef,0xf2e3c6,0x6f9fd8]);for(let j=0;j<2;j++)add('bowl',col,x+0.06,y+0.03+j*0.045,-d/2,0.06,0.06,0.06,0,0,0,{roughness:0.25});x+=0.14;}
+      else{add('cyl',pk([0xe36b5a,0x6f9fd8,0xf2d04b,0xffffff]),x+0.04,y+0.045,-d+0.1,0.036,0.09,0.036,0,0,0,{roughness:0.3});x+=0.09;}}});}
+  else if(style==='bath'||style==='linen'){gaps.forEach(([y,g])=>{for(let x=-w/2+0.03;x<w/2-0.06;){const k=R();
+      if(style==='linen'||k<0.35){if(g>0.1&&x<w/2-0.27){const n2=Math.max(1,Math.min(Math.floor((g-0.03)/0.05),2+Math.floor(R()*3))),col=pk([0xf3f0e8,0xe9e4da,0x9fc6e8,0xd9d2c4,0xa8b9a0]);
+          for(let j=0;j<n2;j++)add('box',col,x+0.13,y+0.025+j*0.05,-d/2-0.01,0.26,0.048,Math.min(0.3,d-0.08));x+=0.29;}else x+=0.07;}
+      else if(k<0.58){if(g>0.12)add('cyl',0xfbfbf8,x+0.06,y+0.055,-d/2,0.055,0.11,0.055);x+=0.13;}
+      else if(k<0.85&&g>0.18){const hh=0.12+R()*0.06;add('cyl',pk([0xf6f6f2,0x8fc6e8,0xf4a3b5,0x6fbf73]),x+0.03,y+hh/2,-d+0.08,0.028,hh,0.028,0,0,0,{roughness:0.3});x+=0.07;}else x+=0.06;}});}
+  else if(style==='laundry'){for(let k=0;k<6;k++)add('sph',pk(PAL.cloth),(R()-0.5)*P.r,P.y0+0.04+R()*0.03,-0.12-R()*0.25,0.07+R()*0.04,0.035,0.06+R()*0.05,0,R()*3,0);}
+  // ----- 서랍 속 (P.y0 = 서랍 바닥 높이, 안쪽 z: -d ~ 0) -----
+  else if(style==='folded'){for(let x=-w/2+0.01;x<w/2-0.2;x+=0.23)for(let z=-d+0.01;z<-0.29;z+=0.3){if(R()<0.2)continue;const k=1+Math.floor(R()*3),col=pk(PAL.cloth);
+      for(let j=0;j<Math.min(k,Math.max(1,Math.floor(P.maxH/0.028)));j++)add('box',j%2?col:pk(PAL.cloth),x+0.11,P.y0+0.014+j*0.028,z+0.14,0.22,0.026,0.28);}}
+  else if(style==='socks'){for(let x=-w/2+0.04;x<w/2-0.03;x+=0.07)for(let z=-d+0.05;z<-0.04;z+=0.085){if(R()<0.3)continue;add('sph',pk(PAL.cloth),x,P.y0+0.022,z,0.032,0.022,0.042);}}
+  else if(style==='stationery'){for(let x=-w/2+0.01;x<w/2-0.16;x+=0.18){if(R()<0.3)continue;const k=1+Math.floor(R()*3);for(let j=0;j<k;j++)add('box',pk(PAL.pack),x+0.08,P.y0+0.006+j*0.012,-d/2,0.15,0.011,Math.min(0.21,d-0.06),0,(R()-0.5)*0.2,0);}
+    for(let k=0;k<7;k++)add('cyl',pk(PAL.pack),(R()-0.5)*(w-0.12),P.y0+0.006,-0.05-R()*0.05,0.005,0.14,0.005,0,R()*0.6,Math.PI/2);}
+  else if(style==='cosmetics'){for(let k=0;k<12;k++){const hh=0.04+R()*0.06;if(hh>P.maxH)continue;const r2=0.016+R()*0.014;
+      add('cyl',pk([0xf4a3b5,0xf6f6f2,0x2b2b2b,0xc9a45c,0xe9dcc0,0x8fc6e8]),(R()-0.5)*(w-0.06),P.y0+hh/2,-d+0.04+R()*(d-0.1),r2,hh,r2,0,0,0,{roughness:0.3});}}
+  else if(style==='cutlery'){add('box',0xe6e1d6,0,P.y0+0.015,-d/2,w-0.02,0.03,d-0.02,0,0,0,null,true);
+    for(let i=0;i<5;i++)for(let k=0;k<5;k++)add('box',0xc9cdd0,-w/2+0.06+i*(w-0.1)/5,P.y0+0.034,-d+0.1+k*0.02,0.022,0.006,0.19,0,0,0,{metalness:0.8,roughness:0.3});}
+  else if(style==='containers'){for(let x=-w/2+0.02;x<w/2-0.14;x+=0.16)for(let z=-d+0.02;z<-0.15;z+=0.17){if(R()<0.25)continue;const hh=Math.min(P.maxH,0.06+R()*0.06);
+      add('box',0xf3f5f6,x+0.07,P.y0+hh/2,z+0.075,0.14,hh,0.15,0,0,0,{transparent:true,opacity:0.8});add('box',pk(PAL.pack),x+0.07,P.y0+hh+0.006,z+0.075,0.145,0.012,0.155);}}
+  else if(style==='toys'){for(let k=0;k<6;k++){const s2=0.025+R()*0.03;add(R()<0.5?'sph':'box',pk(PAL.pack),(R()-0.5)*(w-0.08),P.y0+(R()<0.5?s2:s2/2),-d/2+(R()-0.5)*(d-0.12),s2,s2,s2,0,R()*3,0,{roughness:0.4});}}
+}
+
+// ---------- 서랍 ----------
+// o.style: 속 물건 / o.hollow: 속이 빈 장 안 (어두운 가짜 구멍을 그리지 않음) / o.replace: 뒤에 있는 기존 바구니까지 숨기고 대신함
 function drawer(axis,f,n,a0,a1,z0,z1,depth,col,name,o){o=o||{};const {G,w}=frame(axis,f,n,a0,a1,z0),h=z1-z0,d=depth;
   const c=baseCont({type:'drawer',G,name,w,h,d,gate:0.04});const mov=new THREE.Group();G.add(mov);c.mov=mov;
-  hideStatic(G,-w/2,w/2,0,h,-0.003,0.07);
+  hideStatic(G,-w/2,w/2,0,h,o.replace?-d-0.02:-0.003,0.07);
   setPart(mk(BX(w-0.008,h-0.008,0.018),gm(col,{roughness:0.5}),0,h/2,0.0115,mov),c,'hit');
+  if(o.hole)mk(BX(Math.min(0.1,w*0.4),0.025,0.004),gm(0x8f887a),0,h*0.75,0.022,mov);
   const hc=o.hc||0xc9a45c;if(o.knob===false){}else if(w>0.55){setPart(mk(BX(Math.min(0.18,w*0.3),0.016,0.016),gm(hc,{metalness:0.8,roughness:0.3}),0,h*0.62,0.03,mov),c,'hit');}
   else setPart(mk(new THREE.SphereGeometry(0.015,12,8),gm(hc,{metalness:0.85,roughness:0.3}),0,h*0.6,0.03,mov),c,'hit');
   const IN=gm(o.inner||0xe9e3d8,{roughness:0.9});
   const tray=new THREE.Group();mov.add(tray);c.inner.push(tray);
   setPart(mk(BX(w-0.05,0.01,d-0.06),IN,0,0.025,-d/2,tray),c,'cav');
   const sh=Math.max(0.05,h*0.6);mk(BX(0.01,sh,d-0.06),IN,-(w-0.05)/2,0.025+sh/2,-d/2,tray);mk(BX(0.01,sh,d-0.06),IN,(w-0.05)/2,0.025+sh/2,-d/2,tray);mk(BX(w-0.05,sh,0.01),IN,0,0.025+sh/2,-d+0.035,tray);
-  const vol=setPart(mk(BX(w-0.03,h,d-0.04),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}),0,h/2,-d/2,tray),c,'cav');vol.userData.solid=true;
-  const cv=mk(BX(w-0.01,h-0.01,0.002),gm(0x161412,{roughness:1}),0,h/2,0.0012,G);c.inner.push(cv);
+  const vol=setPart(mk(BX(w-0.03,h,d-0.04),INVIS,0,h/2,-d/2,tray),c,'cav');vol.userData.solid=true;
+  if(!o.hollow&&!o.replace){const cv=mk(BX(w-0.01,h-0.01,0.002),gm(0x161412,{roughness:1}),0,h/2,0.0012,G);c.inner.push(cv);}
+  if(o.style)fill(c,tray,o.style,{w:w-0.07,d:d-0.07,h,y0:0.03,maxH:sh-0.01});
   c.onAmt=a=>{mov.position.z=a*d*0.85;};
-  c.place=p=>{const l=mov.worldToLocal(p.clone());return{parent:mov,pos:new THREE.Vector3(THREE.MathUtils.clamp(l.x,-w/2+0.07,w/2-0.07),0.031,THREE.MathUtils.clamp(l.z,-d+0.11,-0.08)),s:fit(h*0.9)};};
+  c.place=p=>{const l=mov.worldToLocal(p.clone());return{parent:mov,pos:new THREE.Vector3(clampV(l.x,-w/2+0.07,w/2-0.07),0.031,clampV(l.z,-d+0.11,-0.08)),s:fit(h*0.9)};};
   c.rand=()=>c.place(mov.localToWorld(new THREE.Vector3((Math.random()-0.5)*w,0,-d/2)));
   return c;}
-// 여닫이 문
-function door(axis,f,n,a0,a1,z0,z1,depth,col,hinge,name,o){o=o||{};const {G,w,sA}=frame(axis,f,n,a0,a1,z0),h=z1-z0,co=o.co||0.002;
-  const c=baseCont({type:'door',G,name,w,h,gate:0.3});const sx=hinge==='a'?sA:-sA;
+// ---------- 여닫이 문 (속이 빈 칸 + 선반 + 물건) ----------
+function door(axis,f,n,a0,a1,z0,z1,depth,col,hinge,name,o){o=o||{};const {G,w,sA}=frame(axis,f,n,a0,a1,z0),h=z1-z0,co=o.co||0.002,d=depth;
+  const c=baseCont({type:'door',G,name,w,h,d,gate:0.3});const sx=hinge==='a'?sA:-sA;
   hideStatic(G,-w/2,w/2,0,h,-0.003,co+0.06);
   const pv=new THREE.Group();pv.position.set(sx*w/2,0,co+0.012);G.add(pv);c.mov=pv;
   const pm=o.mat||gm(col,{roughness:0.5});setPart(mk(BX(w-0.006,h-0.006,0.02),pm,-sx*w/2,h/2,0,pv),c,'hit');
@@ -2217,98 +2330,226 @@ function door(axis,f,n,a0,a1,z0,z1,depth,col,hinge,name,o){o=o||{};const {G,w,sA
   const hc=o.hc||0x8a857d;const hy=o.hy!=null?o.hy:Math.min(h/2,1.0);
   if(o.knob)setPart(mk(new THREE.SphereGeometry(0.016,12,8),gm(hc,{metalness:0.85,roughness:0.3}),-sx*(w-0.06),hy,0.022,pv),c,'hit');
   else setPart(mk(BX(0.016,Math.min(0.3,h*0.35),0.02),gm(hc,{metalness:0.7,roughness:0.35}),-sx*(w-0.05),hy,0.022,pv),c,'hit');
-  const IN=gm(o.inner||0x4a443d,{roughness:0.95});
-  const cv=setPart(mk(BX(w-0.012,h-0.012,0.003),IN,0,h/2,0.0016+co,G),c,'cav');c.inner.push(cv);
-  const shelves=[0.02];if(o.shelves)shelves.splice(0,1,...o.shelves);else if(h>0.6)for(let y=0.36;y<h-0.22;y+=0.36)shelves.push(y);
-  shelves.forEach(y=>{if(y>0.03)c.inner.push(mk(BX(w-0.02,0.018,0.012),gm(o.shelfCol||0xd8d2c6,{roughness:0.8}),0,y,0.006+co,G));});
+  mk(BX(w-0.03,h-0.03,0.004),gm(o.inner||0xe9e6e0,{roughness:0.8}),-sx*w/2,h/2,-0.012,pv);   // 문 안쪽 면
+  const IN=new THREE.Group();G.add(IN);c.inner.push(IN);
+  const shelves=o.shelves?o.shelves.slice():[0];if(!o.shelves&&h>0.6)for(let y=0.36;y<h-0.22;y+=0.36)shelves.push(y);
+  const SB=o.glass?new THREE.MeshStandardMaterial({color:0xdfeff3,roughness:0.05,transparent:true,opacity:0.55}):gm(o.shelfCol||0xe3ded4,{roughness:0.8});
+  shelves.forEach(y=>{const s=setPart(mk(BX(w-0.035,0.016,d-0.04),SB,0,y+0.008,-d/2-0.005,IN),c,'cav');s.userData.solid=true;});
+  {const bk=setPart(mk(BX(w-0.03,h-0.03,0.004),INVIS,0,h/2,-d+0.03,IN),c,'cav');bk.userData.solid=true;}
   c.shelves=shelves;
   c.onAmt=a=>{pv.rotation.y=sx*a*(o.ang||1.75);};
   const pick=ly=>{let s=shelves[0];shelves.forEach(y=>{if(y<=ly+0.05)s=y;});const nx=shelves.find(y=>y>s+0.01);return {s,gap:(nx||h)-s};};
-  c.place=p=>{const l=G.worldToLocal(p.clone());const {s,gap}=pick(l.y);return{parent:G,pos:new THREE.Vector3(THREE.MathUtils.clamp(l.x,-w/2+0.08,w/2-0.08),s+0.012,co+0.075),s:Math.min(fit(gap*0.85),fit(w*1.25))};};
+  c.place=p=>{const l=G.worldToLocal(p.clone());const {s,gap}=pick(l.y);return{parent:G,pos:new THREE.Vector3(clampV(l.x,-w/2+0.08,w/2-0.08),s+0.017,-Math.min(0.14,d*0.42)),s:Math.min(fit(gap*0.85),fit(w*1.1))};};
   c.rand=()=>{const s=shelves[Math.floor(Math.random()*shelves.length)];return c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*(w-0.2),s+0.02,0)));};
+  if(o.style)fill(c,IN,o.style,{w,h,d,shelves,pv,sx});
   return c;}
-// 세탁기·건조기 원형 문
-function roundDoor(axis,f,n,a0,a1,z0,cy,r,name){const {G,w,sA}=frame(axis,f,n,a0,a1,z0);const c=baseCont({type:'round',G,name,w,h:2*r,gate:0.3});
+// ---------- 세탁기·건조기: 둥근 구멍 앞판 + 스테인리스 드럼 ----------
+function washer(z0,bh,cy,r,col,name){const x0=8.85,x1=9.6,yf=1.0,yb=1.8;
+  hollow({axis:'y',f:yf,n:-1,a0:x0,a1:x1,back:yb,b:z0,h:bh,col,holes:[],noFront:true});
+  const {G,w,sA}=frame('y',yf,-1,x0,x1,z0);
+  const sh=new THREE.Shape();sh.moveTo(-w/2,0);sh.lineTo(w/2,0);sh.lineTo(w/2,bh);sh.lineTo(-w/2,bh);sh.closePath();const hp=new THREE.Path();hp.absarc(0,cy,r,0,Math.PI*2,true);sh.holes.push(hp);
+  mk(new THREE.ExtrudeGeometry(sh,{depth:0.02,bevelEnabled:false,curveSegments:32}),gm(col,{roughness:0.45}),0,0,-0.02,G);
+  mk(BX(w-0.06,0.07,0.006),gm(0xd2d6d8,{roughness:0.4}),0,bh-0.06,0.003,G);
+  mk(new THREE.CylinderGeometry(0.03,0.03,0.02,20),gm(0xb9bdc1,{metalness:0.6,roughness:0.3}),w/2-0.12,bh-0.06,0.01,G).rotation.x=Math.PI/2;
+  mk(BX(0.08,0.025,0.004),new THREE.MeshStandardMaterial({color:0x101418,emissive:0x5fb0e8,emissiveIntensity:0.6}),-w/2+0.14,bh-0.06,0.007,G);
+  const c=baseCont({type:'round',G,name,w,h:2*r,d:0.46,gate:0.3});
   const pv=new THREE.Group();pv.position.set(-sA*r,cy,0.03);G.add(pv);c.mov=pv;
-  const ring=mk(new THREE.TorusGeometry(r-0.02,0.025,10,32),gm(0xd9dcdc,{metalness:0.5,roughness:0.3}),sA*r,0,0,pv);setPart(ring,c,'hit');
-  const gl=mk(new THREE.CircleGeometry(r-0.03,32),new THREE.MeshStandardMaterial({color:0x2a3138,roughness:0.05,metalness:0.2,transparent:true,opacity:0.8}),sA*r,0,0.004,pv);setPart(gl,c,'hit');gl.userData.solid=true;
-  const dr=mk(new THREE.CircleGeometry(r-0.04,32),gm(0x9aa0a4,{metalness:0.6,roughness:0.4}),0,cy,0.003,G);setPart(dr,c,'cav');c.inner.push(dr);
+  setPart(mk(new THREE.TorusGeometry(r-0.02,0.025,10,32),gm(0xd9dcdc,{metalness:0.5,roughness:0.3}),sA*r,0,0,pv),c,'hit');
+  const gl=mk(new THREE.CircleGeometry(r-0.03,32),new THREE.MeshStandardMaterial({color:0x2a3138,roughness:0.05,metalness:0.2,transparent:true,opacity:0.55}),sA*r,0,0.004,pv);setPart(gl,c,'hit');gl.userData.solid=true;
+  const SS=gm(0xc4c8cb,{metalness:0.7,roughness:0.35,side:THREE.DoubleSide});
+  const drum=setPart(mk(new THREE.CylinderGeometry(r-0.004,r-0.004,0.44,32,1,true),SS,0,cy,-0.24,G),c,'cav');drum.rotation.x=Math.PI/2;
+  setPart(mk(new THREE.CircleGeometry(r-0.004,32),SS,0,cy,-0.455,G),c,'cav');
+  mk(new THREE.TorusGeometry(r,0.016,10,32),gm(0x5a5f63,{roughness:0.8}),0,cy,-0.012,G);
+  [0,2.1,4.2].forEach(t=>{const p=mk(BX(0.03,0.02,0.3),gm(0xb3b8bb,{metalness:0.6}),Math.sin(t)*(r-0.02),cy-Math.cos(t)*(r-0.02),-0.26,G);p.rotation.z=t;});   // 드럼 날개
+  if(name==='세탁기'){const lg=new THREE.Group();G.add(lg);fill(c,lg,'laundry',{w,h:bh,d:0.44,r,y0:cy-r});}
   c.onAmt=a=>{pv.rotation.y=-sA*a*1.6;};
-  c.place=()=>({parent:G,pos:new THREE.Vector3(0,cy-r+0.06,0.06),s:0.85});c.rand=c.place;return c;}
-// 미닫이 문
-function slideDoor(axis,f,n,a0,a1,z0,z1,dist,col,name,inner){const {G,w,sA}=frame(axis,f,n,a0,a1,z0),h=z1-z0;const c=baseCont({type:'slide',G,name,w,h,gate:0.3});
+  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(clampV(l.x,-r*0.4,r*0.4),cy-r+0.03,clampV(l.z,-0.36,-0.14)),s:Math.min(0.8,fit(r*1.2))};};
+  c.rand=()=>c.place(G.localToWorld(new THREE.Vector3(0,cy,-0.22)));return c;}
+// ---------- 식기세척기: 아래 경첩으로 내려 여는 문 + 바구니 2단 ----------
+function dishwasher(){const x0=9.68,x1=10.18,yf=2.55,z0=0.08,z1=0.84,h=z1-z0,d=0.55;const {G,w}=frame('y',yf,1,x0,x1,z0);
+  const c=baseCont({type:'flap',G,name:'식기세척기',w,h,d,gate:0.3});
+  hideStatic(G,-w/2,w/2,-0.01,h+0.02,-0.003,0.08);
+  const pv=new THREE.Group();pv.position.set(0,0,0.011);G.add(pv);c.mov=pv;
+  const BKm=new THREE.MeshStandardMaterial({color:0x1b1c1e,metalness:0.3,roughness:0.35});
+  setPart(mk(BX(w-0.004,h-0.004,0.018),BKm,0,h/2,0,pv),c,'hit');
+  setPart(mk(BX(w-0.02,0.06,0.006),gm(0x2a2c2f),0,h-0.04,0.012,pv),c,'hit');
+  mk(BX(0.06,0.012,0.004),new THREE.MeshStandardMaterial({color:0x101418,emissive:0x7ee2a8,emissiveIntensity:0.6}),-w/2+0.15,h-0.04,0.016,pv);
+  setPart(mk(BX(w-0.1,0.02,0.02),CHROME,0,h-0.11,0.022,pv),c,'hit');
+  mk(BX(w-0.03,h-0.03,0.004),gm(0xc9cdd0,{metalness:0.7,roughness:0.3}),0,h/2,-0.011,pv);
+  const SS=gm(0xc4c8cb,{metalness:0.75,roughness:0.3});
+  const IN=new THREE.Group();G.add(IN);c.inner.push(IN);
+  setPart(mk(BX(w-0.03,0.01,d-0.03),SS,0,0.01,-d/2,IN),c,'cav');
+  const WR=gm(0x9aa1a6,{metalness:0.6,roughness:0.4});
+  const racks=[0.1,0.42].map((y,ri)=>{const g=new THREE.Group();g.position.set(0,y,0);IN.add(g);
+    const base=setPart(mk(BX(w-0.07,0.006,d-0.09),WR,0,0,-d/2,g),c,'cav');base.userData.solid=true;
+    [[-1],[1]].forEach(([k])=>mk(BX(0.006,0.07,d-0.09),WR,k*(w/2-0.035),0.035,-d/2,g));mk(BX(w-0.07,0.07,0.006),WR,0,0.035,-0.045,g);mk(BX(w-0.07,0.07,0.006),WR,0,0.035,-d+0.045,g);
+    for(let i=0;i<9;i++)mk(BX(0.004,0.06,0.004),WR,-w/2+0.07+i*(w-0.14)/8,0.03,-d/2,g);
+    const R=RNG(31+ri*7);
+    if(ri===0){for(let i=0;i<6;i++){if(R()<0.25)continue;const pl=mk(GEO.cyl,gm(i%3===2?0xdfe9ef:0xf6f5f0,{roughness:0.25}),-w/2+0.09+i*0.06,0.12,-d/2-0.04,g);pl.scale.set(0.11,0.012,0.11);pl.rotation.z=Math.PI/2;pl.userData.noPick=true;c.items.push(pl);}}
+    else{for(let i=0;i<5;i++){if(R()<0.3)continue;const cu=mk(GEO.bowl,gm([0xe36b5a,0x6f9fd8,0xffffff,0xf2d04b][i%4],{roughness:0.3}),-w/2+0.08+i*0.08,0.05,-d/2+(R()-0.5)*0.15,g);cu.scale.set(0.035,0.08,0.035);cu.rotation.x=Math.PI;cu.userData.noPick=true;c.items.push(cu);}}
+    return g;});
+  c.onAmt=a=>{pv.rotation.x=a*1.45;racks[0].position.z=a*0.22;};
+  c.place=p=>{const l=G.worldToLocal(p.clone()),rk=l.y>0.36?racks[1]:racks[0],q=rk.worldToLocal(p.clone());
+    return{parent:rk,pos:new THREE.Vector3(clampV(q.x,-w/2+0.09,w/2-0.09),0.004,clampV(q.z,-d+0.12,-0.1)),s:fit(0.27)};};
+  c.rand=()=>c.place(racks[Math.random()<0.5?0:1].localToWorld(new THREE.Vector3(0,0,-d/2)));
+  return c;}
+// ---------- 미닫이 문 ----------
+function slideDoor(axis,f,n,a0,a1,z0,z1,dist,col,name,inner,o){o=o||{};const {G,w,sA}=frame(axis,f,n,a0,a1,z0),h=z1-z0;const c=baseCont({type:'slide',G,name,w,h,d:0.36,gate:0.3});
   hideStatic(G,-w/2,w/2,0,h,-0.003,0.03);const mov=new THREE.Group();G.add(mov);c.mov=mov;
   setPart(mk(BX(w-0.004,h-0.004,0.016),gm(col,{roughness:0.5}),0,h/2,0.016,mov),c,'hit');
   setPart(mk(BX(0.012,0.12,0.012),gm(0x6f6250,{roughness:0.5}),sA*dist>0?-w/2+0.05:w/2-0.05,h*0.55,0.03,mov),c,'hit');
-  const cv=setPart(mk(BX(w-0.01,h-0.01,0.003),gm(inner||0x3a332c,{roughness:1}),0,h/2,0.002,G),c,'cav');c.inner.push(cv);
+  const cv=setPart(mk(BX(w-0.01,h-0.01,0.003),o.hollow?INVIS:gm(inner||0x3a332c,{roughness:1}),0,h/2,o.hollow?-0.3:0.002,G),c,'cav');if(o.hollow)cv.userData.solid=true;else c.inner.push(cv);
+  {const fl=setPart(mk(BX(w-0.02,0.004,0.3),INVIS,0,0.018,-0.16,G),c,'cav');fl.userData.solid=true;}
   c.onAmt=a=>{mov.position.x=sA*dist*a;mov.position.z=a*0.02;};
-  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(THREE.MathUtils.clamp(l.x,-w/2+0.08,w/2-0.08),0.01,0.07),s:fit(h*0.85)};};
+  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(clampV(l.x,-w/2+0.08,w/2-0.08),0.02,o.hollow?-0.13:0.07),s:fit(h*0.85)};};
   c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*w*0.6,0,0)));return c;}
-// 책을 빼면 뒤가 보이는 책 줄
+// ---------- 책 줄: 누르면 책을 완전히 빼서 바닥에 쌓아 둠 ----------
 const BOOKC=[0x7a4b3a,0x2f4a5c,0xc9b28a,0x8c3b3b,0x3d5a45,0xd8cfc0,0x5b5e7a,0xb5733f,0xe4dccb,0x2b2b2b,0x9a8f7c,0x6d2f2f];
-function bookRow(G,w,name,maxH){const c=baseCont({type:'books',G,name,w,h:0.3,gate:0.3});
+function bookRow(G,w,name,maxH){const c=baseCont({type:'books',G,name,w,h:0.3,d:0.25,gate:0.25,speed:0.75});
   hideStatic(G,-w/2-0.005,w/2+0.005,0.003,(maxH||0.33),0.0,0.3,true);
-  const mov=new THREE.Group();G.add(mov);c.mov=mov;let x=-w/2+0.004;
-  while(x<w/2-0.02){const t=0.022+Math.random()*0.03,bh=Math.min((maxH||0.33)-0.02,0.2+Math.random()*0.09),dd=0.17+Math.random()*0.05;if(x+t>w/2)break;
+  const mov=new THREE.Group();G.add(mov);c.mov=mov;let x=-w/2+0.004;let bhMax=0;
+  while(x<w/2-0.02){const t=0.022+Math.random()*0.03,bh=Math.min((maxH||0.33)-0.02,0.2+Math.random()*0.09),dd=0.17+Math.random()*0.05;if(x+t>w/2)break;bhMax=Math.max(bhMax,bh);
     const b=mk(BX(t,bh,dd),gm(BOOKC[Math.floor(Math.random()*BOOKC.length)],{roughness:0.85}),x+t/2,bh/2+0.002,0.028+dd/2,mov);setPart(b,c,'hit');
     if(Math.random()<0.5)mk(BX(t+0.001,0.008,dd*0.4),gm(0xc9a45c,{metalness:0.6,roughness:0.4}),x+t/2,bh*0.8,0.028+dd*0.9,mov);x+=t+0.002;}
   const back=setPart(mk(BX(w,0.004,0.21),gm(0x2a2622,{roughness:1}),0,0.001,0.13,G),c,'cav');c.inner.push(back);
-  c.onAmt=a=>{mov.position.z=a*0.24;mov.rotation.x=-a*0.04;};
-  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(THREE.MathUtils.clamp(l.x,-w/2+0.07,w/2-0.07),0.004,0.1),s:fit(((maxH||0.33)-0.02)*0.95)};};
+  G.updateMatrixWorld(true);const floorY=-G.getWorldPosition(new THREE.Vector3()).y,OUT=0.46;
+  c.onAmt=a=>{const k1=Math.min(1,a/0.35),k2=THREE.MathUtils.smoothstep(a,0.35,1);   // 앞으로 쭉 빼고 → 바닥으로 내려 눕혀 쌓기
+    mov.position.set(k2*(bhMax/2+0.06),k2*(floorY+w/2+0.004),k1*OUT+k2*0.2);mov.rotation.set(-k1*(1-k2)*0.05,0,k2*Math.PI/2);};
+  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(clampV(l.x,-w/2+0.07,w/2-0.07),0.004,0.1),s:fit(((maxH||0.33)-0.02)*0.95)};};
   c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*(w-0.15),0,0)));return c;}
 function bookRowPlan(axis,back,n,a0,a1,z0,name,maxH){const fr=frame(axis,back,n,a0,a1,z0);return bookRow(fr.G,fr.w,name,maxH);}
+// ---------- 열 필요 없이 바로 넣는 곳 (바구니·웨건 등) ----------
+function openSpot(G,name,hw,hh,hd,o){o=o||{};const c=baseCont({type:'spot',G,name,w:hw,h:hh,d:hd,gate:-1});c.amt=1;c.tgt=1;c.fixed=true;
+  const v=setPart(mk(BX(hw,hh,hd),INVIS,0,hh/2,0,G),c,'cav');v.userData.solid=true;
+  c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(clampV(l.x,-hw/2+0.06,hw/2-0.06),o.floor||0.012,clampV(l.z,-hd/2+0.06,hd/2-(o.front||0.06))),s:o.s||fit(hh*0.9)};};
+  c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*hw*0.5,0,(Math.random()-0.5)*hd*0.4)));return c;}
+// ---------- 뚜껑 있는 수납 박스 (선반에서 앞으로 빼고 뚜껑을 염) ----------
+function lidBox(X0,X1,ya,yb,base,hh,lidCol,name){const w=X1-X0,dd=yb-ya,G=new THREE.Group();G.position.set((X0+X1)/2-OXN,base,Z((ya+yb)/2));scene.add(G);
+  const c=baseCont({type:'lid',G,name,w,h:hh,d:dd,gate:0.5});
+  hideStatic(G,-w/2-0.012,w/2+0.012,-0.01,hh+0.03,-dd/2-0.012,dd/2+0.012);
+  const mov=new THREE.Group();G.add(mov);c.mov=mov;
+  const PB=new THREE.MeshStandardMaterial({color:0xe9eef0,roughness:0.3,transparent:true,opacity:0.72});
+  setPart(mk(BX(w,0.006,dd),PB,0,0.003,0,mov),c,'cav').userData.solid=true;
+  [[0,-dd/2,w,0.008],[0,dd/2,w,0.008]].forEach(([x,z,sx,sz])=>setPart(mk(BX(sx,hh,sz),PB,x,hh/2,z,mov),c,'hit'));
+  [-1,1].forEach(k=>setPart(mk(BX(0.008,hh,dd),PB,k*w/2,hh/2,0,mov),c,'hit'));
+  const lid=new THREE.Group();lid.position.set(-w/2,hh,0);mov.add(lid);
+  setPart(mk(BX(w+0.01,0.02,dd+0.01),gm(lidCol,{roughness:0.5}),w/2,0.01,0,lid),c,'hit');
+  const IN=new THREE.Group();mov.add(IN);fill(c,IN,'toys',{w:w-0.04,d:dd-0.04,h:hh,y0:0.006,maxH:hh});IN.position.z=(dd-0.04)/2;
+  c.onAmt=a=>{mov.position.x=THREE.MathUtils.smoothstep(a,0,0.6)*0.42;lid.rotation.z=THREE.MathUtils.smoothstep(a,0.5,1)*1.75;};
+  c.place=p=>{const l=mov.worldToLocal(p.clone());return{parent:mov,pos:new THREE.Vector3(clampV(l.x,-w/2+0.07,w/2-0.07),0.008,clampV(l.z,-dd/2+0.07,dd/2-0.07)),s:fit(hh*0.9)};};
+  c.rand=()=>c.place(mov.localToWorld(new THREE.Vector3((Math.random()-0.5)*w*0.4,0,(Math.random()-0.5)*dd*0.5)));
+  c.view=()=>({t:mov.localToWorld(new THREE.Vector3(0,hh*0.4,0)),n:new THREE.Vector3(1,0,0),dist:1.15,up:0.7});
+  return c;}
 
 // ---------- 배치 ----------
 function buildConts(){
- const WH=0xf4f4f2,NAVY=0x253349;
- // 전실 장: 서랍 2단 + 미닫이 2짝
- [[0.135,0.335],[0.335,0.545]].forEach(([a,b],i)=>drawer('x',2.44,1,7.40,7.86,a,b,0.38,0xc9ad86,'전실 낮은 장 서랍',{hc:0x6f6250}));
- slideDoor('x',2.452,1,6.90,7.39,0.135,0.545,-0.44,0xc9ad86,'전실 낮은 장 미닫이');
- slideDoor('x',2.468,1,6.49,6.98,0.135,0.545,0.44,0xc9ad86,'전실 낮은 장 미닫이');
+ const WH=0xf4f4f2,NAVY=0x253349,GOLD=0xc9a45c,BUILT2=0xe6e2d8;
+ // 전실 낮은 장: 서랍 2단 + 미닫이 2짝 (속이 빈 장)
+ hollow({axis:'x',f:2.44,n:1,a0:6.47,a1:7.86,back:2.02,b:0.12,h:0.43,col:0xc9ad86,inner:0xe4d8c4,holes:[[7.40,7.86,0.135,0.335,0.36],[7.40,7.86,0.335,0.545,0.36],[6.49,7.39,0.135,0.545,0.38]]});
+ [[0.135,0.335],[0.335,0.545]].forEach(([a,b],i)=>drawer('x',2.44,1,7.40,7.86,a,b,0.36,0xc9ad86,'전실 낮은 장 서랍',{hc:0x6f6250,hollow:true,style:i?'stationery':'socks'}));
+ {const s1=slideDoor('x',2.452,1,6.90,7.39,0.135,0.545,-0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true});
+  const s2=slideDoor('x',2.468,1,6.49,6.98,0.135,0.545,0.44,0xc9ad86,'전실 낮은 장 미닫이',null,{hollow:true});
+  const fr=frame('x',2.44,1,6.49,7.39,0.135);fr.G.userData.game=true;const tmp={items:[],inner:[],G:fr.G};fill(tmp,fr.G,'misc',{w:fr.w,h:0.41,d:0.36,shelves:[0],seed:5});s1.items.push(...tmp.items);s2.items.push(...tmp.items);}
  // 드레스룸 서랍장
- [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1])=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장')));
- [0,0.25,0.5,0.75,1.0].forEach(z=>drawer('x',1.42,-1,5.02,6.28,z+0.005,z+0.25,0.44,0xfafaf8,'드레스룸 큰 서랍장',{hc:0x8a8070}));
+ [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1],k)=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장',{style:k?'folded':'socks'})));
+ [0,0.25,0.5,0.75,1.0].forEach((z,i)=>drawer('x',1.42,-1,5.02,6.28,z+0.005,z+0.25,0.44,0xfafaf8,'드레스룸 큰 서랍장',{hc:0x8a8070,style:i%2?'socks':'folded'}));
  // 파우더룸 화장대 서랍
- [[3.12,3.8],[3.8,4.48]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.62,0.8,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:0xc9a45c}));
+ [[3.12,3.8],[3.8,4.48]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.62,0.8,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:GOLD,style:'cosmetics'}));
  // 서재: 이동 서랍장, 철제 서랍장
- [[0.05,0.24],[0.24,0.42],[0.42,0.61]].forEach(([a,b])=>drawer('y',11.5,1,0.99,1.41,a,b,0.42,0x34302d,'서재 책상 서랍장',{hc:0x8a8580}));
- for(let i=0;i<6;i++){const z=0.04+i*0.65/6;drawer('y',11.845,-1,2.48,2.79,z+0.003,z+0.65/6-0.003,0.38,0xf1f0ec,'서재 철제 서랍장',{hc:0x8d8d8a});}
- // 안방 샤워부스 앞 장
- [[2.02,2.42],[2.42,2.82]].forEach(([a,b])=>drawer('y',2.46,1,a,b,0.75,0.95,0.42,0xfafaf8,'안방 샤워부스 앞 장 서랍',{hc:0x9a9da0}));
- door('y',2.46,1,2.02,2.42,0.01,0.74,0.44,0xfafaf8,'a','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8});
- door('y',2.46,1,2.42,2.82,0.01,0.74,0.44,0xfafaf8,'b','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8});
+ [[0.05,0.24],[0.24,0.42],[0.42,0.61]].forEach(([a,b])=>drawer('y',11.5,1,0.99,1.41,a,b,0.42,0x34302d,'서재 책상 서랍장',{hc:0x8a8580,style:'stationery'}));
+ for(let i=0;i<6;i++){const z=0.04+i*0.65/6;drawer('y',11.845,-1,2.48,2.79,z+0.003,z+0.65/6-0.003,0.38,0xf1f0ec,'서재 철제 서랍장',{hc:0x8d8d8a,style:i%2?'stationery':'containers'});}
+ // 안방 샤워부스 앞 장: 위 서랍 2개 + 아래 문 2짝
+ hollow({axis:'y',f:2.46,n:1,a0:2.0,a1:2.84,back:1.98,b:0,h:0.95,col:0xebe6dd,inner:0xe9e6e0,holes:[[2.022,2.418,0.752,0.948,0.42],[2.422,2.818,0.752,0.948,0.42],[2.022,2.418,0.012,0.738,0.44],[2.422,2.818,0.012,0.738,0.44]]});
+ [[2.02,2.42],[2.42,2.82]].forEach(([a,b])=>drawer('y',2.46,1,a,b,0.75,0.95,0.42,0xfafaf8,'안방 샤워부스 앞 장 서랍',{hc:0x9a9da0,hollow:true,style:'cosmetics'}));
+ door('y',2.46,1,2.02,2.42,0.01,0.74,0.44,0xfafaf8,'a','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8,shelves:[0,0.36],style:'linen'});
+ door('y',2.46,1,2.42,2.82,0.01,0.74,0.44,0xfafaf8,'b','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8,shelves:[0,0.36],style:'bath'});
  // 아이방 4단 서랍장
- [[10.92,11.7],[11.7,12.48]].forEach(([a,b])=>[0.01,0.32,0.63,0.94].forEach(z=>drawer('y',8.73,1,a+0.01,b-0.01,z+0.004,z+0.31,0.46,0xe9e1d2,'아이방 서랍장',{hc:0x8c7d66})));
+ [[10.92,11.7],[11.7,12.48]].forEach(([a,b])=>[0.01,0.32,0.63,0.94].forEach((z,i)=>drawer('y',8.73,1,a+0.01,b-0.01,z+0.004,z+0.31,0.46,0xe9e1d2,'아이방 서랍장',{hc:0x8c7d66,style:['folded','socks','folded','toys'][i]})));
  // 현관 신발장 6짝
- {const y0=1.95,y1=5.3,n=6,w=(y1-y0)/n;for(let k=0;k<n;k++){const a=y0+k*w;door('x',11.27,1,a,a+w,0.35,2.29,0.28,0xf2f1ee,k%2===0?'a':'b','현관 신발장',{co:0.014,knob:true,hc:0xc9a45c,shaker:0xd4d2cc,hy:0.65,inner:0xe9e6e0,shelves:[0.02,0.32,0.62,0.92,1.22,1.52]});}}
+ {const y0=1.95,y1=5.3,n=6,w=(y1-y0)/n;
+  hollow({axis:'x',f:11.27,n:1,a0:y0,a1:y1,back:10.97,b:0.35,h:1.95,col:0xebe6dd,inner:0xe9e6e0,holes:Array.from({length:n},(_,k)=>[y0+k*w+0.004,y0+(k+1)*w-0.004,0.365,2.28,0.28])});
+  for(let k=0;k<n;k++){const a=y0+k*w;door('x',11.27,1,a,a+w,0.35,2.29,0.28,0xf2f1ee,k%2===0?'a':'b','현관 신발장',{co:0.014,knob:true,hc:GOLD,shaker:0xd4d2cc,hy:0.65,inner:0xe9e6e0,shelves:[0.012,0.32,0.62,0.92,1.22,1.52],style:'shoes'});}}
  // 중문 안쪽 수납장
- door('x',11.33,1,5.5,5.93,0.0,2.08,0.34,0xece8df,'a','중문 안쪽 수납장',{co:0.009,inner:0xe9e6e0});door('x',11.33,1,5.93,6.36,0.0,2.08,0.34,0xece8df,'b','중문 안쪽 수납장',{co:0.009,inner:0xe9e6e0});
- // 붙박이장: 장난감방, 아이방
- {const y0=1.95,y1=5.95,n=8,w=(y1-y0)/n;for(let k=0;k<n;k++){const a=y0+k*w;door('x',15.72,-1,a,a+w,0.0,2.24,0.6,0xece8df,k%2===0?'b':'a','장난감방 붙박이장',{co:0.009,inner:0xe4dfd5,ang:1.6});}}
- {const y0=8.17,y1=12.33,n=8,w=(y1-y0)/n;for(let k=0;k<n;k++){const a=y0+k*w;door('x',10.6,1,a,a+w,0.0,2.24,0.55,0xece8df,k%2===0?'a':'b','아이방 붙박이장',{co:0.009,inner:0xe4dfd5,ang:1.6});}}
- // 주방: 냉장고·김치냉장고·키큰장
- const FRG=(a,b,hg,col,nm)=>door('y',5.5,-1,a,b,0.0,1.9,0.6,col,hg,nm,{inner:0xf4f7f8,shelfCol:0xcfe3ea,hc:0x6c7275,hy:1.0,shelves:[0.02,0.42,0.82,1.22,1.55],ang:1.6});
- FRG(7.67,8.095,'a',0xc4c9cb,'냉장고');FRG(8.095,8.52,'b',0xc4c9cb,'냉장고');FRG(8.58,8.955,'a',0xb3bbbe,'김치냉장고');FRG(8.955,9.33,'b',0xb3bbbe,'김치냉장고');
- door('y',5.55,-1,9.41,10.14,0.15,2.15,0.7,0xf1efe9,'b','주방 키큰장',{co:0.002,inner:0xe9e6e0});
- // 싱크대 하부장·아일랜드·가스레인지 쪽·상부장
- door('y',2.55,1,8.75,9.475,0.1,0.84,0.55,NAVY,'a','싱크대 하부장',{hc:0xc9a45c});door('y',2.55,1,9.475,10.2,0.1,0.84,0.55,NAVY,'b','싱크대 하부장',{hc:0xc9a45c});
- [[2.57,3.08],[3.08,3.58]].forEach(([a,b])=>[[0.1,0.34],[0.34,0.6],[0.6,0.84]].forEach(([z0,z1])=>drawer('x',8.75,1,a,b,z0,z1,0.55,NAVY,'아일랜드 서랍',{hc:0xc9a45c})));
- {const y0=2.57,y1=5.33,n=4,w=(y1-y0)/n;for(let k=0;k<n;k++){const a=y0+k*w;door('x',10.2,-1,a,a+w,0.1,0.84,0.55,NAVY,k%2?'a':'b','가스레인지 쪽 하부장',{hc:0xc9a45c});}}
- {const x0=8.12,x1=10.48,n=4,w=(x1-x0)/n;for(let k=0;k<n;k++){const a=x0+k*w;door('y',2.3,1,a,a+w,1.45,2.29,0.34,0xf1efe9,k%2?'b':'a','주방 상부장',{hy:0.12,inner:0xe9e6e0});}}
+ hollow({axis:'x',f:11.33,n:1,a0:5.5,a1:6.36,back:10.97,b:0,h:2.1,col:BUILT2,inner:0xe9e6e0,holes:[[5.505,5.925,0.012,2.07,0.33],[5.935,6.355,0.012,2.07,0.33]]});
+ door('x',11.33,1,5.5,5.93,0.0,2.08,0.33,0xece8df,'a','중문 안쪽 수납장',{co:0.009,inner:0xe9e6e0,style:'misc'});door('x',11.33,1,5.93,6.36,0.0,2.08,0.33,0xece8df,'b','중문 안쪽 수납장',{co:0.009,inner:0xe9e6e0,style:'misc'});
+ // 붙박이장 (문 4짝 | 화장대 | 문 4짝): 옷이 걸린 진짜 옷장 + 화장대 서랍 3단
+ const wardrobe=(xf,xback,y0,y1,room)=>{const dir=xf>xback?1:-1,yc=(y0+y1)/2,a=yc-0.4,b=yc+0.4,D=Math.abs(xf-xback);
+   [[y0,a],[b,y1]].forEach(([p,q])=>{const ww=(q-p)/4;
+     hollow({axis:'x',f:xf,n:dir,a0:p,a1:q,back:xback,b:0,h:2.25,col:BUILT2,inner:0xe4dfd5,holes:Array.from({length:4},(_,k)=>[p+k*ww+0.004,p+(k+1)*ww-0.004,0.03,2.22,D-0.03])});
+     for(let k=0;k<4;k++){const aa=p+k*ww;door('x',xf,dir,aa,aa+ww,0.02,2.24,D-0.04,0xece8df,(k%2===0)===(dir>0)?'a':'b',room+' 붙박이장',{co:0.009,inner:0xe4dfd5,ang:1.6,knob:true,hc:GOLD,hy:0.98,shelves:[0,1.88],style:'clothes'});}});
+   const fr=xf-dir*0.06,nb=xback+dir*0.07,dd=Math.min(0.45,Math.abs(fr-nb)-0.03),zt=0.64/3;
+   ['cosmetics','socks','folded'].forEach((st,i)=>drawer('x',fr,dir,a+0.01,b-0.01,0.06+i*zt+0.003,0.06+(i+1)*zt-0.003,dd,BUILT2,room+' 화장대 서랍',{hc:GOLD,style:st}));};
+ wardrobe(15.72,16.36,1.95,5.95,'장난감방');wardrobe(10.6,10.02,8.17,12.33,'아이방');
+ // 주방: 냉장고·김치냉장고·키큰장 (천장까지 짠 장 전체를 속이 빈 장으로)
+ hollow({axis:'y',f:5.5,n:-1,a0:7.6,a1:10.85,back:6.3,b:0,h:H,col:BUILT2,inner:0xe9e6e0,holes:[[7.672,8.518,0.012,1.888,0.62,0xf4f7f8],[8.582,9.328,0.012,1.888,0.62,0xf4f7f8],[9.414,10.136,0.162,2.138,0.7]]});
+ const FRG=(a,b,hg,col,nm,st)=>door('y',5.5,-1,a,b,0.0,1.9,0.6,col,hg,nm,{inner:0xf4f7f8,glass:st==='fridge',shelfCol:0xe9edef,hc:0x6c7275,hy:1.0,shelves:[0,0.42,0.82,1.22,1.55],ang:1.6,style:st});
+ FRG(7.67,8.095,'a',0xc4c9cb,'냉장고','fridge');FRG(8.095,8.52,'b',0xc4c9cb,'냉장고','fridge');FRG(8.58,8.955,'a',0xb3bbbe,'김치냉장고','kimchi');FRG(8.955,9.33,'b',0xb3bbbe,'김치냉장고','kimchi');
+ door('y',5.5,-1,9.41,10.14,0.15,2.15,0.68,0xf1efe9,'b','주방 키큰장',{co:0.002,inner:0xe9e6e0,style:'pantry'});
+ // 개수대 줄: 싱크볼 아래 문 2짝 + 식기세척기
+ hollow({axis:'y',f:2.55,n:1,a0:8.1,a1:10.85,back:1.95,b:0,h:0.86,col:NAVY,inner:0xdcd8cf,holes:[[8.755,9.297,0.085,0.835,0.5],[9.303,9.677,0.085,0.835,0.5],[9.683,10.177,0.085,0.835,0.57,0xc4c8cb]]});
+ door('y',2.55,1,8.75,9.3,0.08,0.84,0.5,NAVY,'a','싱크대 하부장',{hc:GOLD,inner:0xdcd8cf,shelves:[0],style:'sink'});
+ door('y',2.55,1,9.3,9.68,0.08,0.84,0.5,NAVY,'b','싱크대 하부장',{hc:GOLD,inner:0xdcd8cf,shelves:[0,0.38],style:'pots'});
+ dishwasher();
+ // 아일랜드 서랍
+ [[2.57,3.08],[3.08,3.58]].forEach(([a,b])=>[[0.1,0.34],[0.34,0.6],[0.6,0.84]].forEach(([z0,z1],i)=>drawer('x',8.75,1,a,b,z0,z1,0.55,NAVY,'아일랜드 서랍',{hc:GOLD,style:['containers','folded','cutlery'][i]})));
+ // 가스레인지 줄 하부장 4짝
+ {const y0=2.57,y1=5.33,n=4,w=(y1-y0)/n;
+  hollow({axis:'x',f:10.2,n:-1,a0:2.55,a1:5.35,back:10.85,b:0,h:0.86,col:NAVY,inner:0xdcd8cf,holes:Array.from({length:n},(_,k)=>[y0+k*w+0.004,y0+(k+1)*w-0.004,0.105,0.835,0.55])});
+  for(let k=0;k<n;k++){const a=y0+k*w;door('x',10.2,-1,a,a+w,0.1,0.84,0.55,NAVY,k%2?'a':'b','가스레인지 쪽 하부장',{hc:GOLD,inner:0xdcd8cf,shelves:[0,0.36],style:k%2?'pantry':'pots'});}}
+ // 상부장 (개수대 위 4짝 + 오른쪽 벽 2칸×2짝)
+ {const x0=8.12,x1=10.48,n=4,w=(x1-x0)/n;
+  hollow({axis:'y',f:2.3,n:1,a0:8.1,a1:10.85,back:1.95,b:1.45,h:0.85,col:BUILT2,inner:0xe9e6e0,holes:Array.from({length:n},(_,k)=>[x0+k*w+0.004,x0+(k+1)*w-0.004,1.46,2.285,0.32])});
+  for(let k=0;k<n;k++){const a=x0+k*w;door('y',2.3,1,a,a+w,1.45,2.29,0.32,0xf1efe9,k%2?'b':'a','주방 상부장',{hy:0.12,inner:0xe9e6e0,shelves:[0,0.4],style:'dishes'});}}
+ [[2.55,3.3],[4.45,5.35]].forEach(([p,q])=>{const m=(p+q)/2;
+   hollow({axis:'x',f:10.5,n:-1,a0:p,a1:q,back:10.85,b:1.45,h:0.85,col:BUILT2,inner:0xe9e6e0,holes:[[p+0.012,m-0.003,1.46,2.285,0.32],[m+0.003,q-0.012,1.46,2.285,0.32]]});
+   door('x',10.5,-1,p+0.01,m,1.45,2.29,0.32,0xf1efe9,'a','주방 상부장',{hy:0.12,inner:0xe9e6e0,shelves:[0,0.4],style:'dishes'});
+   door('x',10.5,-1,m,q-0.01,1.45,2.29,0.32,0xf1efe9,'b','주방 상부장',{hy:0.12,inner:0xe9e6e0,shelves:[0,0.4],style:'pantry'});});
  // 주방 발코니: 보조주방 4짝, 세탁기·건조기
- {const y0=0.25,y1=1.82,n=4,w=(y1-y0)/n;for(let k=0;k<n;k++){const a=y0+k*w;door('x',6.24,1,a,a+w,0.11,0.85,0.55,0x27324a,k%2===0?'a':'b','보조주방 하부장',{knob:true,hc:0xc9a45c,hy:0.68,co:0.013});}}
- roundDoor('y',1.0,-1,8.85,9.6,0,0.48,0.22,'세탁기');roundDoor('y',1.0,-1,8.85,9.6,1.0,0.45,0.2,'건조기');
+ {const y0=0.25,y1=1.82,n=4,w=(y1-y0)/n;
+  hollow({axis:'x',f:6.24,n:1,a0:y0,a1:y1,back:5.64,b:0,h:0.86,col:0x27324a,inner:0xdcd8cf,holes:Array.from({length:n},(_,k)=>[y0+k*w+0.004,y0+(k+1)*w-0.004,0.115,0.845,0.55])});
+  for(let k=0;k<n;k++){const a=y0+k*w;door('x',6.24,1,a,a+w,0.11,0.85,0.55,0x27324a,k%2===0?'a':'b','보조주방 하부장',{knob:true,hc:GOLD,hy:0.68,co:0.013,inner:0xdcd8cf,shelves:[0,0.38],style:'aux'});}}
+ washer(0,1.0,0.48,0.22,0xe8ebea,'세탁기');washer(1.0,0.9,0.45,0.2,0xdfe3e2,'건조기');
  // 공용욕실: 위 장, 세면대 하부장
- {const x0=15.15,x1=16.75,n=4,w=(x1-x0)/n;for(let k=0;k<n;k++){const a=x0+k*w;door('y',6.45,1,a,a+w,1.5,2.2,0.32,0xf1efe9,k%2?'b':'a','공용욕실 위 장',{hy:0.1,inner:0xe9e6e0});}}
- door('y',6.6,1,15.85,16.285,0.0,0.8,0.46,0xf6f6f4,'a','공용욕실 세면대 하부장',{inner:0xe9e6e0});door('y',6.6,1,16.285,16.72,0.0,0.8,0.46,0xf6f6f4,'b','공용욕실 세면대 하부장',{inner:0xe9e6e0});
+ {const x0=15.15,x1=16.75,n=4,w=(x1-x0)/n;
+  hollow({axis:'y',f:6.45,n:1,a0:x0,a1:x1,back:6.11,b:1.5,h:0.7,col:BUILT2,inner:0xe9e6e0,holes:Array.from({length:n},(_,k)=>[x0+k*w+0.004,x0+(k+1)*w-0.004,1.51,2.19,0.3])});
+  for(let k=0;k<n;k++){const a=x0+k*w;door('y',6.45,1,a,a+w,1.5,2.2,0.3,0xf1efe9,k%2?'b':'a','공용욕실 위 장',{hy:0.1,inner:0xe9e6e0,shelves:[0,0.33],style:'bath'});}}
+ hollow({axis:'y',f:6.6,n:1,a0:15.85,a1:16.72,back:6.11,b:0,h:0.8,col:0xf1efe9,inner:0xe9e6e0,holes:[[15.87,16.275,0.065,0.775,0.44],[16.295,16.7,0.065,0.775,0.44]]});
+ door('y',6.6,1,15.865,16.28,0.06,0.78,0.44,NAVY,'a','공용욕실 세면대 하부장',{knob:true,hc:GOLD,hy:0.56,inner:0xe9e6e0,shelves:[0],style:'bath'});
+ door('y',6.6,1,16.29,16.705,0.06,0.78,0.44,NAVY,'b','공용욕실 세면대 하부장',{knob:true,hc:GOLD,hy:0.56,inner:0xe9e6e0,shelves:[0],style:'linen'});
+ // 작은 욕실: 변기 위 검은 수납장
+ {const X=MX(15.52),p0=invW(X-0.3-OXN),p1=invW(X+0.3-OXN),pm=(p0+p1)/2;
+  hollow({axis:'y',f:13.79,n:-1,a0:p0,a1:p1,back:13.99,b:1.15,h:0.65,col:0x1d1e20,inner:0x2a2b2e,holes:[[p0+0.006,pm-0.003,1.16,1.79,0.18],[pm+0.003,p1-0.006,1.16,1.79,0.18]]});
+  door('y',13.79,-1,p0,pm,1.15,1.8,0.18,0x1d1e20,'a','작은 욕실 수납장',{hc:0x3a3b3e,hy:0.11,inner:0x2a2b2e,shelves:[0,0.32],style:'bath'});
+  door('y',13.79,-1,pm,p1,1.15,1.8,0.18,0x1d1e20,'b','작은 욕실 수납장',{hc:0x3a3b3e,hy:0.11,inner:0x2a2b2e,shelves:[0,0.32],style:'bath'});}
+ // 게스트룸 침대 아래 서랍 2개
+ {const X1=MX(17.69)-0.11,X0=X1-1.5,dw=(X1-X0-0.06)/2;[0,1].forEach(i=>{const a=X0+0.03+i*dw+0.006,b=a+dw-0.012;drawer('y',10.21,1,invW(a-OXN),invW(b-OXN),0.07,0.29,0.6,0xd8d1c6,'게스트룸 침대 서랍',{hc:0x6b6258,style:'folded'});});}
+ // 장난감방 왼쪽 흰 장: 맨 아래 바구니 14개 (서랍처럼 빼기)
+ {const x1=13.29,y0=1.95,y1=4.6,n=7,cw=(y1-y0)/n,T=0.02,zb=0.04+T+0.004;
+  for(let i=0;i<n;i++){const ya=y0+i*cw+T/2+0.008,yb=y0+(i+1)*cw-T/2-0.008;
+    [zb,zb+0.205].forEach((z,k)=>drawer('x',x1-0.008,1,ya,yb,z,z+0.19,0.3,[0xd9d3c7,0xcfc8ba][(i+k)%2],'장난감방 흰 장 바구니',{knob:false,replace:true,hole:true,inner:0xd9d3c7,style:'toys'}));}}
+ // 장난감방 창 밑 정리함 바구니 (열 필요 없이 바로 넣기)
+ {const D=0.35,y0=1.94,T=0.03,BH=0.16,X0=MX(15.72)-0.03-(0.735+0.004+1.11),dd=D-0.05,rowsZ=[0.05,0.27,0.48,0.69],TILT=0.28;
+  const bin=(xa,xb,zb,tilt)=>{const g=new THREE.Group();g.position.set((xa+xb)/2-OXN,zb,Z(y0+0.025+dd/2));g.rotation.x=tilt;scene.add(g);
+    openSpot(g,'장난감방 정리함 바구니',xb-xa-0.03,BH,dd-0.03,{floor:0.012,front:0.09,s:0.5});};
+  {const xa=X0,cw=(0.735-3*T)/2;[0,1].forEach(c=>{const ba=xa+T+c*(cw+T)+0.006,bb=ba+cw-0.012;bin(ba,bb,rowsZ[0]-0.02,0);[1,2,3].forEach(rw=>bin(ba,bb,rowsZ[rw],TILT));});}
+  {const xa=X0+0.739,cw=(0.735-3*T)/2,xs=xa+0.735-T;bin(xa+T+0.006,xs-0.006,rowsZ[0]-0.02,0);[0,1].forEach(c=>{const ba=xa+T+c*(cw+T)+0.006,bb=ba+cw-0.012;[1,2,3].forEach(rw=>bin(ba,bb,rowsZ[rw],TILT));});}}
+ // 현관 복도: 웨건 바구니 속, 유모차 아래 바구니
+ {const g=new THREE.Group();g.position.set(W(11.54),0.22,Z(0.45));scene.add(g);openSpot(g,'현관 복도 웨건 속',0.8,0.3,0.44,{floor:0.004});}
+ {const g=new THREE.Group();g.position.set(W(11.52),0.15,Z(1.2));g.rotation.y=Math.PI;scene.add(g);openSpot(g,'현관 복도 유모차 아래 바구니',0.28,0.1,0.34,{floor:0.006,s:0.45});}
+ // 창고 발코니 선반: 뚜껑 있는 수납 박스 3개
+ {const X0=MX(13.82)+0.115,X1=X0+0.45,y0=12.6,y1=13.8,b=-0.07;
+  lidBox(X0+0.03,X1-0.03,y0+0.04,y0+0.56,b+0.06+0.061,0.3,0x3d6fa8,'창고 발코니 수납 박스');
+  lidBox(X0+0.03,X1-0.03,y0+0.62,y1-0.04,b+0.06+0.061,0.3,0x3d6fa8,'창고 발코니 수납 박스');
+  lidBox(X0+0.04,X1-0.04,y0+0.55,y1-0.06,b+0.88+0.061,0.25,0xf2d04b,'창고 발코니 노란 박스');}
  // 책 뒤: 서재 큰 책장
  [[8.3,8.75,0.04],[9.2,9.6,0.4],[9.9,10.35,0.76],[10.6,11.0,1.12],[11.4,11.85,0.04],[8.6,9.0,1.48],[11.0,11.45,0.4],[10.0,10.4,0.04],[11.6,12.0,1.12],[9.2,9.6,1.12]].forEach(([a,b,z])=>bookRowPlan('x',0.13,1,a,b,z,'서재 큰 책장 책 뒤'));
- // 책 뒤: 거실 아이보리 책장
- {const x0=3.42,cw=(5.48-3.42)/3;[[0,0.062],[1,0.412],[2,0.752],[2,0.062],[0,0.752],[1,0.062]].forEach(([i,z])=>{const a=x0+i*cw+0.06;bookRowPlan('y',6.49,1,a,a+0.4,z,'거실 아이보리 책장 책 뒤',0.32);});}
+ // 책 뒤: 거실 큐브 책장 (6칸 × 4단)
+ {const x0=3.42,x1=5.48,nc=6,T=0.018,cw=(x1-x0)/nc,rh=(1.24-0.03)/4;
+  [[0,0],[2,1],[4,2],[1,3],[5,0],[3,2],[0,2],[5,3]].forEach(([i,j])=>{const a=x0+i*cw+T/2+0.012,b=x0+(i+1)*cw-T/2-0.012;bookRowPlan('y',6.483,1,a,b,0.03+j*rh+T/2,'거실 큐브 책장 책 뒤',rh-T-0.01);});}
  // 책 뒤: 서재 작은 책장(벽 쪽에서 방 쪽을 향함)
  [[9.8,10.25,0.0875],[10.6,11.0,0.5075],[10.0,10.4,0.9275]].forEach(([a,b,z])=>{const g=new THREE.Group();g.position.set(W(4.39)-0.02,z,Z((a+b)/2));g.rotation.y=-Math.PI/2;scene.add(g);bookRow(g,b-a,'서재 작은 책장 책 뒤',0.34);});
- // 책 뒤: 안방 리딩 코너 책꽂이
- [[0.4,0.85,0.04],[1.1,1.5,0.4],[0.5,0.9,0.76]].forEach(([a,b,z])=>bookRowPlan('x',3.02,1,a,b,z,'안방 리딩 코너 책꽂이 책 뒤'));
+ // 책 뒤: 안방 리딩 코너 검은 책장 (폭 60cm)
+ [[0.36,0.84,0.04],[0.36,0.84,0.76],[0.36,0.84,1.48]].forEach(([a,b,z])=>bookRowPlan('x',3.02,1,a,b,z,'안방 리딩 코너 책장 책 뒤'));
  // 검은 소파 등쿠션 지퍼
  {const L=1.84,cx=W(7.95)-0.03-0.92,zb=Z(12.32);[-L/2+0.12+0.3,L/2-0.12-0.3].forEach(dx=>{const G=new THREE.Group();G.position.set(cx+dx,0.39,zb-0.12);G.rotation.x=-0.22;scene.add(G);
    const c=baseCont({type:'zip',G,name:'검은 소파 등쿠션 지퍼 속',w:0.6,h:0.46,gate:0.3});
@@ -2338,7 +2579,7 @@ function buildConts(){
 }
 
 // ---------- 상태 ----------
-const S={phase:'menu',n:5,limit:0,dolls:[],placed:0,t0:0,elapsed:0,hints:0,auto:false,crouch:false,found:0,ended:false};
+const S={phase:'menu',n:5,limit:0,dolls:[],placed:0,t0:0,elapsed:0,hints:0,auto:false,pose:'stand',autoCam:true,cam:null,camHold:null,found:0,ended:false};
 let raf=null;
 
 // ---------- 화면 ----------
@@ -2390,41 +2631,46 @@ const sFound=()=>tone([784,988,1319],0.22,'triangle',0.2),sOpen=()=>tone([330],0
 // ---------- 메뉴 ----------
 function showMenu(){S.phase='menu';document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
-  menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고는 열 수 있고, 책은 빼서 뒤를 볼 수 있고, 검은 소파 등쿠션은 지퍼를 열 수 있어요.</p>
+  menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기는 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
    <div class="grow"><b>숨길 인형 수</b><div class="gcnt"><button id="gMinus" aria-label="줄이기">−</button><span class="num" id="gNum">${S.n}</span><input type="range" id="gRange" min="1" max="20" value="${S.n}"><button id="gPlus" aria-label="늘리기">+</button></div></div>
    <div class="grow"><b>제한 시간</b><div class="gchips" id="gLim">${TL.map(([v,t])=>`<button data-v="${v}" aria-pressed="${v===S.limit}">${t}</button>`).join('')}</div></div>
    <div class="grow"><b>누가 숨길까요?</b><div class="gchips" id="gWho"><button data-v="0" aria-pressed="${!S.auto}">👀 사람이 숨기기</button><button data-v="1" aria-pressed="${S.auto}">🎲 컴퓨터가 숨기기</button></div></div>
+   <div class="grow"><b>가구를 열면 안이 잘 보이는 곳으로 시점 옮기기</b><div class="gchips" id="gCam"><button data-v="1" aria-pressed="${S.autoCam}">🎥 켜기</button><button data-v="0" aria-pressed="${!S.autoCam}">끄기</button></div></div>
    <button class="gbig" id="gGo">시작하기</button></div>`;
   const setN=v=>{S.n=Math.max(1,Math.min(20,v));$('#gNum').textContent=S.n;$('#gRange').value=S.n;};
   $('#gMinus').onclick=()=>setN(S.n-1);$('#gPlus').onclick=()=>setN(S.n+1);$('#gRange').oninput=e=>setN(+e.target.value);
   menu.querySelectorAll('#gLim button').forEach(b=>b.onclick=()=>{S.limit=+b.dataset.v;menu.querySelectorAll('#gLim button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   menu.querySelectorAll('#gWho button').forEach(b=>b.onclick=()=>{S.auto=b.dataset.v==='1';menu.querySelectorAll('#gWho button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  menu.querySelectorAll('#gCam button').forEach(b=>b.onclick=()=>{S.autoCam=b.dataset.v==='1';menu.querySelectorAll('#gCam button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   $('#gGo').onclick=()=>{menu.hidden=true;startHide();};}
 
-function clearDolls(){S.dolls.forEach(d=>{d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
-function closeAll(inst){CONTS.forEach(c=>{c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
+function clearDolls(){S.dolls.forEach(d=>{(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
+function closeAll(inst){CONTS.forEach(c=>{if(c.fixed)return;c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
 function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}">${dollSVG(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
 function setBtns(list){btns.innerHTML='';list.forEach(([t,fn,pri])=>{const b=document.createElement('button');b.textContent=t;if(pri)b.className='pri';b.onclick=fn;btns.appendChild(b);});}
-const crouchBtn=()=>[S.crouch?'🧍 일어서기':'🧎 앉아서 보기',toggleCrouch];
-function toggleCrouch(){S.crouch=!S.crouch;WALK.eye=S.crouch?0.55:1.3;camera.position.y=WALK.eye;if(S.crouch)WALK.pitch=Math.max(WALK.pitch,-0.2);refreshBtns();}
-function refreshBtns(){if(S.phase==='hide')setBtns([crouchBtn(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,true]]);
-  else if(S.phase==='seek')setBtns([crouchBtn(),['🔥 힌트',hint],['🏳️ 그만하기',()=>endGame(false,true)]]);
-  else if(S.phase==='reveal')setBtns([crouchBtn(),['🔁 다시 하기',showMenu,true]]);}
+const EYE={stand:1.3,sit:0.55,prone:0.06};
+function setPose(p,quiet){S.pose=p;WALK.eye=EYE[p];camera.position.y=WALK.eye;camera.near=p==='prone'?0.01:0.05;camera.updateProjectionMatrix();S.cam=null;S.camHold=null;if(p==='prone')WALK.pitch=0;else if(p==='sit')WALK.pitch=Math.max(WALK.pitch,-0.2);applyLook();if(!quiet)refreshBtns();}
+const poseBtns=()=>[S.pose!=='stand'?['🧍 일어서기',()=>setPose('stand')]:null,S.pose!=='sit'?['🧎 앉아서 보기',()=>setPose('sit')]:null,S.pose!=='prone'?['🐛 엎드려 보기',()=>setPose('prone')]:null].filter(Boolean);
+function refreshBtns(){if(S.phase==='hide')setBtns([...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,true]]);
+  else if(S.phase==='seek')setBtns([...poseBtns(),['🔥 힌트',hint],['🏳️ 그만하기',()=>endGame(false,true)]]);
+  else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
 
-function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;S.crouch=false;WALK.eye=1.3;
+function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
   for(let i=0;i<S.n;i++)S.dolls.push({g:null,found:false,where:''});
   top_.hidden=false;btns.hidden=false;
   if(!WALK.on)walkStart(7.0,7.3,Math.PI);camera.position.y=WALK.eye;
   if(S.auto){autoRest(true);return;}
   $('#gTime').textContent='숨기는 중';$('#gTime').classList.remove('warn');
   updHideGuide();renderIcons();refreshBtns();aim.hidden=false;}
-function updHideGuide(){$('#gGuide').innerHTML=`<b>숨긴 인형 ${S.dolls.filter(d=>d.g).length} / ${S.n}</b><br>가구를 누르면 열리고 닫혀요 · 숨길 자리를 누르면 인형을 놓아요<br>바닥에 놓으려면 길게 누르기 · 놓은 인형을 누르면 다시 가져와요`;}
+function updHideGuide(){$('#gGuide').innerHTML=`<b>숨긴 인형 ${S.dolls.filter(d=>d.g).length} / ${S.n}</b><br>가구를 누르면 열리고 닫혀요 · 숨길 자리를 누르면 인형을 놓아요<br>바닥에 놓으려면 길게 누르기 · 놓은 인형을 누르면 다시 가져와요 · 소파 밑은 🐛 엎드려서`;}
 function nextFree(){return S.dolls.findIndex(d=>!d.g);}
 function putDoll(i,res,where){const g=makeDoll(i);g.scale.setScalar(res.s||1);g.position.copy(res.pos);
   if(res.ry!=null)g.rotation.y=res.ry;else{const wp=res.parent.localToWorld(res.pos.clone());const a=Math.atan2(camera.position.x-wp.x,camera.position.z-wp.z);
     const pq=new THREE.Quaternion();res.parent.getWorldQuaternion(pq);const e=new THREE.Euler().setFromQuaternion(pq,'YXZ');g.rotation.y=a-e.y;}
-  res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;g.userData.cont=res.cont||null;}
-function removeDoll(i){const d=S.dolls[i];if(d.g){d.g.parent.remove(d.g);}d.g=null;d.cont=null;}
+  res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;g.userData.cont=res.cont||null;clearItems(res.cont,g,S.dolls[i]);}
+function clearItems(c,g,d){d.hid=[];if(!c||!c.items||!c.items.length)return;g.updateMatrixWorld(true);const db=new THREE.Box3().setFromObject(g).expandByScalar(0.02),b=new THREE.Box3();
+  c.items.forEach(m=>{if(!m.visible)return;m.updateMatrixWorld(true);b.setFromObject(m);if(b.intersectsBox(db)){m.visible=false;d.hid.push(m);}});}
+function removeDoll(i){const d=S.dolls[i];(d.hid||[]).forEach(m=>m.visible=true);d.hid=[];if(d.g){d.g.parent.remove(d.g);}d.g=null;d.cont=null;}
 function doneHide(){const n=S.dolls.filter(d=>d.g).length;if(n<S.n){say(`아직 ${S.n-n}개 남았어요<br><small>남은 건 🎲 자동으로 숨길 수도 있어요</small>`,1800);return;}
   aim.hidden=true;msg.hidden=false;S.phase='handover';
   msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🙈 숨기기 끝!</h1><p class="s">이제 찾는 사람에게 넘겨주세요.<br>${S.limit?fmt(S.limit)+' 안에':'시간 제한 없이'} 인형 ${S.n}개를 찾아야 해요.</p><button class="gbig" id="gSeek">찾기 시작</button></div>`;
@@ -2440,12 +2686,12 @@ function autoPick(used){
   const hits=castAll(new THREE.Vector3(x,2.2,z),new THREE.Vector3(0,-1,0)).filter(h=>{const n=nrm(h);return n.y>0.75;});if(!hits.length)return null;
   const covered=hits.filter(h=>coverDist(h.point)<1.0),pool=covered.length&&Math.random()<0.75?covered:hits;const h=pool[Math.floor(Math.random()*pool.length)];
   if(floors.includes(h.object)&&coverDist(h.point)>1.5)return null;
-  if(used.some(u=>u.distanceTo(h.point)<0.4))return null;
+  if(used.some(u=>u.distanceTo(h.point)<0.4))return null;if(coverDist(h.point)<0.07)return null;
   const cd=coverDist(h.point);return{res:{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01),ry:Math.random()*6.28},wp:h.point.clone(),where:roomName(h.point)+(floors.includes(h.object)?' 바닥':'')};}
 
 function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.found=0;S.hints=0;S.ended=false;S.dolls.forEach(d=>d.found=false);
-  S.crouch=false;WALK.eye=1.3;walkStart(7.0,7.3,Math.PI);camera.position.y=WALK.eye;S.t0=performance.now();S.elapsed=0;
-  $('#gGuide').innerHTML='서랍·옷장은 눌러서 열고, 책은 눌러서 빼 보세요 · 인형을 찾으면 눌러요!';renderIcons();refreshBtns();aim.hidden=false;
+  walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
+  $('#gGuide').innerHTML='서랍·옷장은 눌러서 열고, 책은 눌러서 꺼내 보세요 · 소파·침대 밑은 🐛 엎드려서 · 인형을 찾으면 눌러요!';renderIcons();refreshBtns();aim.hidden=false;
   say('찾기 시작!',1000);}
 function hint(){const cam=camera.position;let best=null,bd=1e9;S.dolls.forEach(d=>{if(d.found||!d.g)return;const p=d.g.getWorldPosition(new THREE.Vector3());const dist=Math.hypot(p.x-cam.x,p.z-cam.z);if(dist<bd){bd=dist;best=d;}});
   if(!best)return;S.hints++;const t=bd<1.2?'🔥🔥 엄청 뜨거워요!':bd<2.5?'🔥 뜨거워요!':bd<4.5?'♨️ 따뜻해요':bd<7?'🌤 미지근해요':'🧊 차가워요';
@@ -2482,17 +2728,47 @@ const isCeil=o=>{while(o){if(o===CEIL)return true;o=o.parent;}return false;};
 function coverDist(p){const hs=castAll(p.clone().add(new THREE.Vector3(0,0.01,0)),new THREE.Vector3(0,1,0),3).filter(h=>!isCeil(h.object)&&!h.object.userData.dollIdx&&h.object.userData.dollIdx!==0);return hs.length?hs[0].distance:9;}
 function pickAt(x,y){const r=renderer.domElement.getBoundingClientRect();ndc.set((x-r.left)/r.width*2-1,-((y-r.top)/r.height)*2+1);rc.setFromCamera(ndc,camera);rc.far=40;
   const hs=rc.intersectObject(scene,true).filter(h=>okHit(h)&&!isCeil(h.object));if(!hs.length)return null;
-  const dh=hs.find(h=>dollOf(h.object)!=null);if(dh&&dh.distance<=hs[0].distance+0.35)return dh;return hs[0];}
+  const dh=hs.find(h=>dollOf(h.object)!=null);if(dh&&dh.distance<=hs[0].distance+0.6)return dh;return hs[0];}
 const contOf=o=>{while(o){if(o.userData.cont)return o.userData.cont;o=o.parent;}return null;};
 const dollOf=o=>{while(o){if(o.userData.root&&o.userData.dollIdx!=null)return o.userData.dollIdx;o=o.parent;}return null;};
-function toggle(c){c.tgt=c.amt>0.5||c.tgt>0.5?0:1;sOpen();}
+function toggle(c){c.tgt=c.amt>0.5||c.tgt>0.5?0:1;sOpen();if(c.tgt===1)camTo(c);}
+// 화면에서 손가락 근처에 있는 인형 찾기 (소파 밑처럼 조금만 보여도 누를 수 있게)
+function nearDoll(x,y){const r=renderer.domElement.getBoundingClientRect();let best=null,bd=1e9;const bb=new THREE.Box3(),c=new THREE.Vector3(),sz=new THREE.Vector3();
+  S.dolls.forEach((d,i)=>{if(!d.g||d.found||!visibleChain(d.g))return;bb.setFromObject(d.g);bb.getCenter(c);const rad=bb.getSize(sz).length()/2,dist=c.distanceTo(camera.position);
+    if(dist>G_REACH+1.5)return;const pr=c.clone().project(camera);if(pr.z>1||pr.z<-1)return;
+    const sx=(pr.x+1)/2*r.width+r.left,sy=(1-pr.y)/2*r.height+r.top,px=Math.hypot(sx-x,sy-y);
+    const pxR=rad/(dist*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2))*r.height/2;if(px>Math.max(34,pxR+20))return;
+    const dir=c.clone().sub(camera.position).normalize();const hs=castAll(camera.position.clone(),dir,dist).filter(h=>dollOf(h.object)==null&&!isCeil(h.object));
+    if(hs.length&&hs[0].distance<dist-0.6)return;if(px<bd){bd=px;best=i;}});return best;}
+// 가구를 열면 안이 잘 보이는 자리로 시점 이동
+const camRC=new THREE.Raycaster();
+function viewOf(c){const G=c.G,L=(x,y,z)=>G.localToWorld(new THREE.Vector3(x,y,z)),nrmL=v=>v.transformDirection(G.matrixWorld);
+  if(c.view)return c.view();const sz=Math.max(c.w||0.5,Math.min(c.h||0.5,1.2));
+  switch(c.type){
+   case 'drawer':return{t:L(0,c.h*0.6,c.d*0.85-c.d/2),n:nrmL(new THREE.Vector3(0,0,1)),dist:0.45+c.w*0.45,up:0.5};
+   case 'books':return{t:L(0,0.12,0.25),n:nrmL(new THREE.Vector3(0,0,1)),dist:0.95,up:0.25};
+   case 'zip':return{t:L(0,0.2,-0.1),n:nrmL(new THREE.Vector3(0,0,-1)),dist:0.9,up:0.35};
+   case 'duvet':{const t=c.mov.getWorldPosition(new THREE.Vector3()),n=camera.position.clone().sub(t);return{t,n,dist:1.1,up:0.75};}
+   case 'flap':return{t:L(0,0.3,-c.d*0.4),n:nrmL(new THREE.Vector3(0,0,1)),dist:0.95,up:0.55};
+   case 'round':return{t:L(0,c.h*0.5+0.25,-0.2),n:nrmL(new THREE.Vector3(0,0,1)),dist:1.0,up:0.1};
+   default:{const ty=Math.min(c.h*0.5,1.1);return{t:L(0,ty,-Math.min(c.d||0.4,0.5)*0.45),n:nrmL(new THREE.Vector3(0,0,1)),dist:Math.max(0.95,Math.min(1.6,0.45+sz*0.9)),up:0.15};}}}
+function camTo(c){if(!S.autoCam||!WALK.on||c.fixed)return;const v=viewOf(c);if(!v)return;const n=v.n.clone();n.y=0;if(n.lengthSq()<1e-6)return;n.normalize();
+  let dist=v.dist;const o=new THREE.Vector3(v.t.x,THREE.MathUtils.clamp(v.t.y,0.45,1.2),v.t.z).addScaledVector(n,0.1);camRC.set(o,n);camRC.far=dist+0.5;
+  const hit=camRC.intersectObjects(BLOCK,false)[0];if(hit)dist=Math.max(0.35,Math.min(dist,hit.distance+0.1-0.3));
+  const p=v.t.clone().addScaledVector(n,dist);p.y=THREE.MathUtils.clamp(v.t.y+(v.up||0.2),0.3,1.6);
+  if(S.pose==='prone'&&v.t.y<0.35)p.y=Math.max(EYE.prone,v.t.y+0.1);
+  const dx=v.t.x-p.x,dy=v.t.y-p.y,dz=v.t.z-p.z,yaw=Math.atan2(-dx,-dz),pitch=THREE.MathUtils.clamp(Math.atan2(dy,Math.hypot(dx,dz)),-1.1,1.1);
+  S.cam={p0:camera.position.clone(),p1:p,y0:WALK.yaw,y1:WALK.yaw+angDiff(WALK.yaw,yaw),q0:WALK.pitch,q1:pitch,t:0,dur:0.7};S.camHold=null;WALK.auto=null;WALK.wheel=WALK.strafe=0;}
 
 // 짧게 누르기
-window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase))return false;const h=pickAt(x,y);if(!h)return false;
+window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase))return false;const h=pickAt(x,y);
+  if(S.phase==='seek'){const di0=h?dollOf(h.object):null;if(!(di0!=null&&S.dolls[di0]&&S.dolls[di0].g&&!S.dolls[di0].found&&h.distance<G_REACH+1.5)){const nd=nearDoll(x,y);if(nd!=null){foundDoll(nd);return true;}}}
+  if(!h)return false;
   const d=h.distance,o=h.object;const di=dollOf(o);
   if(di!=null&&S.dolls[di]&&S.dolls[di].g){if(S.phase==='hide'&&d<G_REACH+1){removeDoll(di);renderIcons();updHideGuide();say('인형을 다시 가져왔어요',900);return true;}
     if(S.phase==='seek'&&!S.dolls[di].found&&d<G_REACH+1.5){foundDoll(di);return true;}return false;}
   const c=o.userData.cont||contOf(o);
+  if(c&&c.fixed){if(S.phase==='hide'&&d<G_REACH){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();return true;}return false;}
   if(c&&d<G_REACH){const role=o.userData.role||'hit';
     if(role==='cav'&&S.phase==='hide'&&c.amt>0.6){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();setTimeout(()=>{c.tgt=0;},750);return true;}
     toggle(c);return true;}
@@ -2503,24 +2779,28 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
 window.gameLong=function(x,y){if(S.phase!=='hide')return;const h=pickAt(x,y);if(!h||h.distance>G_REACH+0.5)return;if(dollOf(h.object)!=null)return;
   const c=contOf(h.object);if(c){if(c.amt>0.6){const i=nextFree();if(i<0)return;const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();}return;}
   if(nrm(h).y>0.5)placeFree(h);};
-function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}const cd=coverDist(h.point);
+function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
   putDoll(i,{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01)},roomName(h.point)+(floors.includes(h.object)?' 바닥':''));sPlace();renderIcons();updHideGuide();}
 
 // ---------- 매 프레임 ----------
 let lastT=performance.now();
 function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
-  CONTS.forEach(c=>{if(Math.abs(c.amt-c.tgt)>0.001){c.amt+=Math.sign(c.tgt-c.amt)*Math.min(Math.abs(c.tgt-c.amt),dt*3.2);c.onAmt&&c.onAmt(THREE.MathUtils.smoothstep(c.amt,0,1));
+  CONTS.forEach(c=>{if(c.fixed)return;if(Math.abs(c.amt-c.tgt)>0.001){c.amt+=Math.sign(c.tgt-c.amt)*Math.min(Math.abs(c.tgt-c.amt),dt*3.2*(c.speed||1));c.onAmt&&c.onAmt(THREE.MathUtils.smoothstep(c.amt,0,1));
     const v=c.amt>0.01;c.inner.forEach(m=>m.visible=v);}});
   S.dolls.forEach(d=>{if(!d.g)return;if(d.anim){d.anim.t+=dt;const k=d.anim.t/0.9;d.g.position.set(d.anim.p.x,d.anim.p.y+Math.sin(Math.min(1,k)*Math.PI*0.5)*0.35,d.anim.p.z);d.g.rotation.y+=dt*9;d.g.scale.setScalar(d.anim.s*Math.max(0.001,1+0.6*k-1.6*k*k));if(k>=1){d.g.visible=false;d.anim=null;}return;}
     if(d.found)return;if(d.cont)d.g.visible=d.cont.amt>(d.cont.gate||0.3);});
   beacons.forEach((b,i)=>{b.material.opacity=0.2+0.12*Math.sin(now/300+i);});
+  if(S.cam){const C=S.cam;C.t+=dt;const k=THREE.MathUtils.smootherstep(Math.min(1,C.t/C.dur),0,1);camera.position.lerpVectors(C.p0,C.p1,k);
+    WALK.yaw=C.y0+(C.y1-C.y0)*k;WALK.pitch=C.q0+(C.q1-C.q0)*k;applyLook();WALK.auto=null;if(C.t>=C.dur){S.cam=null;S.camHold={x:camera.position.x,z:camera.position.z};}}
+  else if(S.camHold){const m=Math.hypot(camera.position.x-S.camHold.x,camera.position.z-S.camHold.z);
+    if(m>0.04){const ty=WALK.eye;camera.position.y+=(ty-camera.position.y)*Math.min(1,dt*5);if(Math.abs(camera.position.y-ty)<0.01){camera.position.y=ty;S.camHold=null;}}}
   if(S.phase==='seek'){S.elapsed=(now-S.t0)/1000;const tm=$('#gTime');if(S.limit){const rem=S.limit-S.elapsed;tm.textContent='⏱ '+fmt(Math.ceil(rem));tm.classList.toggle('warn',rem<=30);if(rem<=0)endGame(false);}else{tm.textContent='⏱ '+fmt(S.elapsed);tm.classList.remove('warn');}}}
 
 // ---------- 시작 ----------
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
-window.__G={S,CONTS,startSeek,startHide,autoRest,doneHide,endGame,reveal};
+window.__G={S,CONTS,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
 })();
 
