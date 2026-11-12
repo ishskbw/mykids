@@ -2126,7 +2126,9 @@ requestAnimationFrame(loop);
 // =====================================================================
 (function(){
 const G_REACH=3.2;
-const gm=(()=>{const c={};return (col,ex)=>{const k=col+'|'+JSON.stringify(ex||{});return c[k]||(c[k]=new THREE.MeshStandardMaterial(Object.assign({color:col,roughness:0.6},ex||{})));};})();
+// 집 코드와 같은 규칙으로 환경 반사 세기를 맞춤 (광택 없는 재질은 은은하게) — 안 맞추면 게임에서 만든 문짝만 하얗게 떠 보임
+const envFix=m=>{if(m&&'envMapIntensity' in m)m.envMapIntensity=(m.metalness>0.5||m.roughness<0.2||m.transparent)?1:0.2;return m;};
+const gm=(()=>{const c={};return (col,ex)=>{const k=col+'|'+JSON.stringify(ex||{});return c[k]||(c[k]=envFix(new THREE.MeshStandardMaterial(Object.assign({color:col,roughness:0.6},ex||{}))));};})();
 const tag=(o,data)=>{o.traverse(m=>{m.userData.game=true;Object.assign(m.userData,data||{});});return o;};
 const mk=(geo,mat,x,y,z,parent)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.userData.game=true;(parent||scene).add(m);return m;};
 const BX=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
@@ -2219,7 +2221,7 @@ function hollow(U){const ax=U.axis,cvA=ax==='x'?Z:W,cvN=ax==='x'?W:Z,n=U.n;
   const mkI=(list,mat)=>{if(!list.length)return;const im=new THREE.InstancedMesh(PANEL_G,mat,list.length),m=new THREE.Matrix4(),q=new THREE.Quaternion();
     list.forEach((p,i)=>{m.compose(new THREE.Vector3(p[0],p[1],p[2]),q,new THREE.Vector3(p[3],p[4],p[5]));im.setMatrixAt(i,m);});
     im.receiveShadow=true;im.castShadow=true;im.userData.game=true;scene.add(im);return im;};
-  mkI(outer,gm(U.col,{roughness:0.55}));Object.keys(inner).forEach(k=>mkI(inner[k],gm(+k,{roughness:0.85})));}
+  mkI(outer,gm(U.col,{roughness:0.8}));Object.keys(inner).forEach(k=>mkI(inner[k],gm(+k,{roughness:0.85})));}
 
 // ---------- 장 속 물건 (옷·신발·음식·그릇·수건…) ----------
 const GEO={box:PANEL_G,cyl:new THREE.CylinderGeometry(1,1,1,16),sph:new THREE.SphereGeometry(1,14,10),bowl:new THREE.CylinderGeometry(1,0.62,1,18)};
@@ -2304,7 +2306,7 @@ function fill(c,par,style,P){const R=RNG(P.seed||(c.G.position.x*1013+c.G.positi
 function drawer(axis,f,n,a0,a1,z0,z1,depth,col,name,o){o=o||{};const {G,w}=frame(axis,f,n,a0,a1,z0),h=z1-z0,d=depth;
   const c=baseCont({type:'drawer',G,name,w,h,d,gate:0.04});const mov=new THREE.Group();G.add(mov);c.mov=mov;
   hideStatic(G,-w/2,w/2,0,h,o.replace?-d-0.02:-0.003,0.07);
-  setPart(mk(BX(w-0.008,h-0.008,0.018),gm(col,{roughness:0.5}),0,h/2,0.0115,mov),c,'hit');
+  setPart(mk(BX(w-0.008,h-0.008,0.018),gm(col,{roughness:0.78}),0,h/2,0.0115,mov),c,'hit');
   if(o.hole)mk(BX(Math.min(0.1,w*0.4),0.025,0.004),gm(0x8f887a),0,h*0.75,0.022,mov);
   const hc=o.hc||0xc9a45c;if(o.knob===false){}else if(w>0.55){setPart(mk(BX(Math.min(0.18,w*0.3),0.016,0.016),gm(hc,{metalness:0.8,roughness:0.3}),0,h*0.62,0.03,mov),c,'hit');}
   else setPart(mk(new THREE.SphereGeometry(0.015,12,8),gm(hc,{metalness:0.85,roughness:0.3}),0,h*0.6,0.03,mov),c,'hit');
@@ -2324,7 +2326,7 @@ function door(axis,f,n,a0,a1,z0,z1,depth,col,hinge,name,o){o=o||{};const {G,w,sA
   const c=baseCont({type:'door',G,name,w,h,d,gate:0.3});const sx=hinge==='a'?sA:-sA;
   hideStatic(G,-w/2,w/2,0,h,-0.003,co+0.06);
   const pv=new THREE.Group();pv.position.set(sx*w/2,0,co+0.012);G.add(pv);c.mov=pv;
-  const pm=o.mat||gm(col,{roughness:0.5});setPart(mk(BX(w-0.006,h-0.006,0.02),pm,-sx*w/2,h/2,0,pv),c,'hit');
+  const pm=o.mat||gm(col,{roughness:0.78});setPart(mk(BX(w-0.006,h-0.006,0.02),pm,-sx*w/2,h/2,0,pv),c,'hit');
   if(o.shaker){const L=gm(o.shaker,{roughness:0.6});[[0.08,h*0.5-0.03],[h*0.5+0.03,h-0.08]].forEach(([p,q])=>{if(h<0.9&&p>0.1)return;const qq=h<0.9?h-0.07:q;
     [[-sx*0.07,0.006],[-sx*(w-0.07),0.006]].forEach(([x])=>mk(BX(0.008,qq-p,0.006),L,x,(p+qq)/2,0.012,pv));mk(BX(w-0.14,0.008,0.006),L,-sx*w/2,p,0.012,pv);mk(BX(w-0.14,0.008,0.006),L,-sx*w/2,qq,0.012,pv);});}
   const hc=o.hc||0x8a857d;const hy=o.hy!=null?o.hy:Math.min(h/2,1.0);
@@ -2396,7 +2398,7 @@ function dishwasher(){const x0=9.68,x1=10.18,yf=2.55,z0=0.08,z1=0.84,h=z1-z0,d=0
 // ---------- 미닫이 문 ----------
 function slideDoor(axis,f,n,a0,a1,z0,z1,dist,col,name,inner,o){o=o||{};const {G,w,sA}=frame(axis,f,n,a0,a1,z0),h=z1-z0;const c=baseCont({type:'slide',G,name,w,h,d:0.36,gate:0.3});
   hideStatic(G,-w/2,w/2,0,h,-0.003,0.03);const mov=new THREE.Group();G.add(mov);c.mov=mov;
-  setPart(mk(BX(w-0.004,h-0.004,0.016),gm(col,{roughness:0.5}),0,h/2,0.016,mov),c,'hit');
+  setPart(mk(BX(w-0.004,h-0.004,0.016),gm(col,{roughness:0.78}),0,h/2,0.016,mov),c,'hit');
   setPart(mk(BX(0.012,0.12,0.012),gm(0x6f6250,{roughness:0.5}),sA*dist>0?-w/2+0.05:w/2-0.05,h*0.55,0.03,mov),c,'hit');
   const cv=setPart(mk(BX(w-0.01,h-0.01,0.003),o.hollow?INVIS:gm(inner||0x3a332c,{roughness:1}),0,h/2,o.hollow?-0.3:0.002,G),c,'cav');if(o.hollow)cv.userData.solid=true;else c.inner.push(cv);
   {const fl=setPart(mk(BX(w-0.02,0.004,0.3),INVIS,0,0.018,-0.16,G),c,'cav');fl.userData.solid=true;}
@@ -2798,7 +2800,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 
 // ---------- 시작 ----------
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
-  buildConts();requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
+  buildConts();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 window.__G={S,CONTS,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
