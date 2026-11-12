@@ -2902,7 +2902,7 @@ function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.fou
   updHideGuide();renderIcons();refreshBtns();aim.hidden=false;}
 function updHideGuide(){$('#gGuide').innerHTML=`<b>숨긴 인형 ${S.dolls.filter(d=>d.g).length} / ${S.n}</b><br>가구를 누르면 열리고 닫혀요 · 숨길 자리를 누르면 인형을 놓아요<br>바닥에 놓으려면 길게 누르기 · 놓은 인형을 누르면 다시 가져와요 · 소파 밑은 🐛 엎드려서`;}
 function nextFree(){return S.dolls.findIndex(d=>!d.g);}
-function putDoll(i,res,where){const g=S.mode==='family'?makePerson(i,res.pose):makeDoll(i);g.scale.setScalar(res.s||1);g.position.copy(res.pos);
+function putDoll(i,res,where){const g=S.mode==='family'?makePerson(i,res.pose):makeDoll(i);g.scale.setScalar(res.s||1);if(res.sy)g.scale.y*=res.sy;g.position.copy(res.pos);
   if(res.ry!=null)g.rotation.y=res.ry;else{const wp=res.parent.localToWorld(res.pos.clone());const a=Math.atan2(camera.position.x-wp.x,camera.position.z-wp.z);
     const pq=new THREE.Quaternion();res.parent.getWorldQuaternion(pq);const e=new THREE.Euler().setFromQuaternion(pq,'YXZ');g.rotation.y=a-e.y;}
   res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;g.userData.cont=res.cont||null;clearItems(res.cont,g,S.dolls[i]);dropBump(S.dolls[i]);S.dolls[i].bump=duvetBump(res.cont,g);}
@@ -3095,6 +3095,22 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   fixed('거실 흰 테이블 밑',TCX,0,Z(11.09),0,'crouch',p=>p.H<=1.15);
   // 베란다 바깥 난간에 매달리기 (난간 윗면 1.1m, 유리창 바깥 17cm) — 보관장 옆·벽 끝 구석 쪽만
   [[0.92,'서재 발코니 보관장 옆'],[9.72,'거실 발코니 끝 구석'],[12.88,'아이방 발코니 보관장 옆'],[14.95,'창고 발코니 끝 구석']].forEach(([x,n])=>fixed(n+' 난간 밖에 매달림',W(x),1.1,Z(14.27)+0.1,Math.PI,'hang',p=>!p.baby));
+  // 현관 복도 웨건 속 (위가 트인 천 바구니, 바닥 0.22m) · 유모차 좌석 (등받이 반대쪽을 봄)
+  L.push({name:'현관 복도 웨건 속',fits:small,res:p=>({parent:scene,pos:V(W(11.54),0.215,Z(0.45)),ry:Math.PI/2,pose:p.baby?'lie':'sit',s:p.baby?1:Math.min(0.85,0.95/p.H)})});
+  L.push({name:'현관 복도 유모차 안',fits:kids,res:p=>{const g=new THREE.Object3D();g.position.set(W(11.52),0,Z(1.2));g.rotation.y=Math.PI;g.updateMatrixWorld(true);
+    return{parent:scene,pos:g.localToWorld(V(0.0,0.52,0)),ry:-Math.PI/2,pose:p.baby?'lie':'sit',s:p.baby?1:0.72};}});
+  // 문 뒤: 활짝 열린 방문을 조금 덜 열어 벽 사이 틈을 만들고 그 뒤에 섬 (문을 닫아야 보임)
+  OPENERS.forEach(d=>{if(!d.apply||!d.objs||d.objs.length!==1||d.target!==1)return;const g=d.objs[0],q=new THREE.Quaternion();
+    const at=t=>{d.apply(t);g.updateMatrixWorld(true);return V(1,0,0).applyQuaternion(g.getWorldQuaternion(q)).setY(0).normalize();};
+    const u0=at(0.55),u1=at(1);d.apply(d.t);g.updateMatrixWorld(true);const hn=g.getWorldPosition(V(0,0,0));
+    const nb=u1.clone().sub(u0).normalize(),pos=hn.clone().addScaledVector(u0,0.55).addScaledVector(nb,0.17);pos.y=0;
+    {const o=V(hn.x,1,hn.z),dr=V(pos.x-hn.x,0,pos.z-hn.z),L2=dr.length();dr.normalize();if(castAll(o,dr,L2+0.15).some(h=>!h.object.userData.door&&!invisM(h.object)))return;}
+    L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;(S.shut=S.shut||[]).push(d);},
+      res:p=>({parent:scene,pos:pos.clone(),ry:Math.atan2(-nb.x,-nb.z),pose:'stand'})});});
+  // 큰 소파 밑(다리 7cm라 납작하게) · 트램펄린 밑
+  L.push({name:'큰 소파 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.4),0.002,Z(9.5)),ry:0,pose:'lie',sy:p.baby?0.35:0.27})});
+  L.push({name:'큰 소파 카우치 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(8.9),0.002,Z(11.55)),ry:Math.PI/2,pose:'lie',sy:p.baby?0.35:0.27})});
+  L.push({name:'트램펄린 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(5.12),0.002,Z(11.72)),ry:Math.PI/6,pose:'lie'})});
   // 안방 침대 밑
   (window.BEDS||[]).forEach(b=>{if(b.top>0.5)fixed('안방 침대 밑',(b.X0+b.X1)/2-OXN,0.0,Z((b.y0+b.y1)/2),-Math.PI/2,'lie');});
   // 열어야 보이는 곳 (장·냉장고·세탁기·이불·보관장)
@@ -3109,10 +3125,10 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
       const w=pv.localToWorld(q);w.y=c.top+0.004;return{parent:scene,pos:w,ry:c.fax==='x'?-Math.PI/2:0,pose:'lie',cont:c};}});});
   return PSPOTS=L;}
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
-  const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.name]=groups[s.name]||[]).push(j));const used=new Set();
+  const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
   S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);const names=Object.keys(groups).sort(()=>Math.random()-0.5);
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
-      used.add(j);groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간/.test(n))delete groups[n];putDoll(i,sp[j].res(p),n);if(sp[j].shut)shutDoor(...sp[j].shut);return;}});}
+      used.add(j);groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
 // 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
 function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Vector3();let best=null,bd=1.3;
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
