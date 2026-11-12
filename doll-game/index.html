@@ -2767,7 +2767,9 @@ function autoPick(used){
     if(used.some(u=>u.distanceTo(wp)<0.3))return null;if(S.dolls.some(d=>d.cont===c))return null;return{res:r,wp,where:c.name};}
   const rm=ROOMS.filter(r=>!r.minor&&r.kind!=='balcony');const R=rm[Math.floor(Math.random()*rm.length)];const[a,b,cc,dd]=R.r;
   const x=W(a+0.15+Math.random()*(cc-a-0.3)),z=Z(b+0.15+Math.random()*(dd-b-0.3));
-  const hits=castAll(new THREE.Vector3(x,2.2,z),new THREE.Vector3(0,-1,0)).filter(h=>{const n=nrm(h);return n.y>0.75;});if(!hits.length)return null;
+  const all=castAll(new THREE.Vector3(x,2.2,z),new THREE.Vector3(0,-1,0)),fi=all.findIndex(h=>floors.includes(h.object));
+  // 바닥 아래(바닥 판 밑 구조물)에는 놓지 않음 — 위에서 볼 때 바닥까지만
+  const hits=(fi<0?[]:all.slice(0,fi+1)).filter(h=>{const n=nrm(h);return n.y>0.75&&h.point.y>-0.02;});if(!hits.length)return null;
   const covered=hits.filter(h=>coverDist(h.point)<1.0),pool=covered.length&&Math.random()<0.75?covered:hits;const h=pool[Math.floor(Math.random()*pool.length)];
   if(floors.includes(h.object)&&coverDist(h.point)>1.5)return null;
   if(used.some(u=>u.distanceTo(h.point)<0.4))return null;if(coverDist(h.point)<0.07)return null;
