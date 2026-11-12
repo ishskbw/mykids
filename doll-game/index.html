@@ -2871,7 +2871,7 @@ function showMenu(){S.phase='menu';if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.d
     else if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}
     startHide();};}
 
-function clearDolls(){S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
+function clearDolls(){(S.shut||[]).forEach(d=>d.target=1);S.shut=[];S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
 function closeAll(inst){CONTS.forEach(c=>{if(c.fixed)return;c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
 function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}">${iconOf(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
 function setBtns(list){btns.innerHTML='';list.forEach(([t,fn,pri])=>{const b=document.createElement('button');b.textContent=t;if(pri)b.className='pri';b.onclick=fn;btns.appendChild(b);});}
@@ -3076,7 +3076,7 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   const kids=p=>p.H<=1.25,small=p=>p.H<=1.46;
   // 샤워 공간 3곳
   fixed('안방 샤워부스',W(2.42),0,Z(0.93),Math.PI,'stand');
-  fixed('공용 욕실 샤워 공간',W(17.2),0,Z(7.05),-Math.PI/2,'stand');
+  L.push({name:'공용 욕실 샤워 공간',fits:()=>true,shut:[15.05,7.25],res:p=>({parent:scene,pos:V(W(17.33),0,Z(6.42)),ry:-Math.PI/2,pose:p.baby?'lie':'stand'})});   // 불투명 유리 뒤 안쪽 + 욕실 문 닫아 둠
   fixed('작은 욕실 샤워부스',W(17.15),0,Z(13.25),-Math.PI/2,'stand');
   // 안방 욕조 안에 누움
   fixed('안방 욕조 안',W(1.0),0.125,Z(0.48),-Math.PI/2,'lie');
@@ -3112,7 +3112,11 @@ function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶�
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.name]=groups[s.name]||[]).push(j));const used=new Set();
   S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);const names=Object.keys(groups).sort(()=>Math.random()-0.5);
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
-      used.add(j);groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간/.test(n))delete groups[n];putDoll(i,sp[j].res(p),n);return;}});}
+      used.add(j);groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간/.test(n))delete groups[n];putDoll(i,sp[j].res(p),n);if(sp[j].shut)shutDoor(...sp[j].shut);return;}});}
+// 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
+function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Vector3();let best=null,bd=1.3;
+  OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
+  if(best&&best.target>0.5){best.target=0;(S.shut=S.shut||[]).push(best);}}
 
 function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.ended=false;S.dolls.forEach(d=>d.found=false);
   walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
@@ -3135,7 +3139,7 @@ function hint(){if(noHint())return;const cam=camera.position;let best=null,bd=1e
   if(room===here||bd<3.5){const n=best.hn=(best.hn||0)+1,what=(best.where||(c&&c.name)||'').replace(/ 안$/,'');
     if(c&&!c.fixed&&c.amt<(c.gate||0.3))more=n>=3&&what?`「${what}」 안을 열어 보세요`:inn;
     else if(n>=3&&what)more=`「${what}」 쪽이에요`;}
-  say(`${S.mode==='family'?'🙈':'🧸'} ${dir}${far}${more?`<br><small>${more}</small>`:''}`,2400);}
+  say(`${S.mode==='family'?'🙈 '+famOf(S.dolls.indexOf(best)).short+' ·':'🧸'} ${dir}${far}${more?`<br><small>${more}</small>`:''}`,2400);}
 function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;dropBump(d);S.found++;sFound();
   const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);d.anim={t:0,p:wp,s:ws.x};
   renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).name} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),900);}
@@ -3168,7 +3172,10 @@ const isCeil=o=>{while(o){if(o===CEIL)return true;o=o.parent;}return false;};
 function coverDist(p){const hs=castAll(p.clone().add(new THREE.Vector3(0,0.01,0)),new THREE.Vector3(0,1,0),3).filter(h=>!isCeil(h.object)&&!h.object.userData.dollIdx&&h.object.userData.dollIdx!==0);return hs.length?hs[0].distance:9;}
 function pickAt(x,y){const r=renderer.domElement.getBoundingClientRect();ndc.set((x-r.left)/r.width*2-1,-((y-r.top)/r.height)*2+1);rc.setFromCamera(ndc,camera);rc.far=40;
   const hs=rc.intersectObject(scene,true).filter(h=>okHit(h)&&!isCeil(h.object));if(!hs.length)return null;
-  const dh=hs.find(h=>dollOf(h.object)!=null);if(dh&&dh.distance<=hs[0].distance+0.6)return dh;return hs[0];}
+  const dh=hs.find(h=>dollOf(h.object)!=null),f0=hs.find(h=>!invisM(h.object))||hs[0];
+  if(dh&&dh.distance<=f0.distance+(isPerson(dh.object)?0.08:0.6))return dh;return hs[0];}
+const invisM=o=>{const m=o.material;return !!m&&!Array.isArray(m)&&(m.visible===false||(m.transparent&&m.opacity<0.05));};
+const isPerson=o=>{while(o){if(o.userData.person)return true;o=o.parent;}return false;};
 const contOf=o=>{while(o){if(o.userData.cont)return o.userData.cont;o=o.parent;}return null;};
 const dollOf=o=>{while(o){if(o.userData.root&&o.userData.dollIdx!=null)return o.userData.dollIdx;o=o.parent;}return null;};
 function toggle(c){c.tgt=c.amt>0.5||c.tgt>0.5?0:1;if(c.pair)c.pair.tgt=c.tgt;sOpen();if(c.tgt===1)camTo(c);}
@@ -3178,8 +3185,12 @@ function nearDoll(x,y){const r=renderer.domElement.getBoundingClientRect();let b
     if(dist>G_REACH+1.5)return;const pr=c.clone().project(camera);if(pr.z>1||pr.z<-1)return;
     const sx=(pr.x+1)/2*r.width+r.left,sy=(1-pr.y)/2*r.height+r.top,px=Math.hypot(sx-x,sy-y);
     const pxR=rad/(dist*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2))*r.height/2;if(px>Math.max(34,pxR+20))return;
-    const dir=c.clone().sub(camera.position).normalize();const hs=castAll(camera.position.clone(),dir,dist).filter(h=>dollOf(h.object)==null&&!isCeil(h.object));
-    if(hs.length&&hs[0].distance<dist-0.6)return;if(px<bd){bd=px;best=i;}});return best;}
+    if(d.g.userData.person){const pts=[c.clone(),new THREE.Vector3(c.x,bb.max.y-Math.min(0.12,(bb.max.y-bb.min.y)*0.2),c.z),new THREE.Vector3(c.x,bb.min.y+(bb.max.y-bb.min.y)*0.25,c.z)];
+      const seen=pts.some(t=>{const L=t.distanceTo(camera.position),dr=t.clone().sub(camera.position).normalize();
+        const hs=castAll(camera.position.clone(),dr,L).filter(h=>dollOf(h.object)==null&&!isCeil(h.object)&&!invisM(h.object));return !hs.length||hs[0].distance>L-0.08;});
+      if(!seen)return;}
+    else{const dir=c.clone().sub(camera.position).normalize();const hs=castAll(camera.position.clone(),dir,dist).filter(h=>dollOf(h.object)==null&&!isCeil(h.object));
+    if(hs.length&&hs[0].distance<dist-0.6)return;}if(px<bd){bd=px;best=i;}});return best;}
 // 가구를 열면 안이 잘 보이는 자리로 시점 이동
 const camRC=new THREE.Raycaster();
 function viewOf(c){const G=c.G,L=(x,y,z)=>G.localToWorld(new THREE.Vector3(x,y,z)),nrmL=v=>v.transformDirection(G.matrixWorld);
