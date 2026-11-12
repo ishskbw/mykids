@@ -306,7 +306,10 @@ const HB_TEX=(()=>{const cv=document.createElement('canvas');cv.width=cv.height=
     const gr=w>h?g.createLinearGradient(X,Y,X+WW,Y):g.createLinearGradient(X,Y,X,Y+HH);gr.addColorStop(0,'rgba(255,240,220,0.06)');gr.addColorStop(0.5,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(60,40,20,0.06)');g.fillStyle=gr;g.fillRect(X,Y,WW,HH);
     g.strokeStyle='rgba(95,68,44,0.10)';g.lineWidth=1;for(let i=0;i<3;i++){g.beginPath();const yy=(y+0.2+r()*0.6*h)*u,xx=(x+0.2+r()*0.6*w)*u;if(w>h){g.moveTo(x*u+2,yy);g.lineTo((x+w)*u-2,yy+ (r()-0.5)*2);}else{g.moveTo(xx,y*u+2);g.lineTo(xx+(r()-0.5)*2,(y+h)*u-2);}g.stroke();}};
   for(let m=-12;m<=12;m++)for(let k=-40;k<=40;k++){pl(k+n*m,k-n*m,n,1);pl(k+n+n*m,k-(n-1)-n*m,1,n);}
-  g.restore();const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t;})();
+  g.restore();
+  // 무늬 방향을 90도 돌림 (정사각 반복 무늬라 돌려도 이음매 없이 이어짐)
+  const cv2=document.createElement('canvas');cv2.width=cv2.height=512;const g2=cv2.getContext('2d');g2.translate(512,0);g2.rotate(Math.PI/2);g2.drawImage(cv,0,0);
+  const t=new THREE.CanvasTexture(cv2);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t;})();
 ROOMS.forEach((rm,k)=>{
   const [a,b,c,d]=rm.r, w=MX(c)-MX(a), dp=d-b, top=LEVEL[rm.kind]||0, cxw=(W(a)+W(c))/2;
   const mat=new THREE.MeshStandardMaterial({color:FLOOR[rm.kind],roughness:0.85,emissive:0x000000});
