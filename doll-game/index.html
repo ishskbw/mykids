@@ -29,7 +29,7 @@
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);overflow:hidden;
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));}
-#stage{position:fixed;inset:0;touch-action:none}
+#stage{position:fixed;inset:0;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #stage canvas{display:block}
 .panel{position:fixed;z-index:5;top:calc(14px + env(safe-area-inset-top, 0px));left:calc(14px + env(safe-area-inset-left, 0px));
   width:300px;max-width:calc(100% - 28px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
@@ -1909,7 +1909,8 @@ const WP=new Map();let wdrag=null,wpinch=null;const cv=renderer.domElement;
 const clampMove=v=>Math.max(-2.5,Math.min(2.5,v));
 const dragK=t=>THREE.MathUtils.degToRad(camera.fov)/Math.max(1,cv.clientHeight)*(t==='touch'?2.1:1.6);
 const pDist=()=>{const[a,b]=[...WP.values()];return Math.hypot(a.x-b.x,a.y-b.y);},pMid=()=>{const[a,b]=[...WP.values()];return{mx:(a.x+b.x)/2,my:(a.y+b.y)/2};};
-cv.addEventListener('pointerdown',e=>{if(!WALK.on)return;try{cv.setPointerCapture(e.pointerId);}catch(_){}WP.set(e.pointerId,{x:e.clientX,y:e.clientY});
+cv.addEventListener('pointerdown',e=>{if(!WALK.on)return;if(e.isPrimary){WP.clear();wpinch=null;wdrag=null;}   // 아이폰: 손을 뗀 신호가 빠져 남은 손가락 기록이 있으면 새 첫 터치에서 지움
+  try{cv.setPointerCapture(e.pointerId);}catch(_){}WP.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(WP.size===1)wdrag={x:e.clientX,y:e.clientY,t:performance.now(),moved:0};
   else{wdrag=null;if(WP.size===2){const d=pDist(),{mx,my}=pMid();wpinch={d,mx,my,d0:d,mx0:mx,my0:my,mode:null};}else wpinch=null;}});
 cv.addEventListener('pointermove',e=>{if(!WALK.on||!WP.has(e.pointerId))return;WP.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -1923,6 +1924,9 @@ cv.addEventListener('pointermove',e=>{if(!WALK.on||!WP.has(e.pointerId))return;W
 const wEnd=e=>{if(!WALK.on)return;WP.delete(e.pointerId);if(WP.size<2)wpinch=null;
   if(wdrag&&wdrag.moved<8&&e.type==='pointerup'){if(performance.now()-wdrag.t<500)walkTap(e.clientX,e.clientY,e.pointerType);else if(window.gameLong)window.gameLong(e.clientX,e.clientY);}wdrag=null;};
 cv.addEventListener('pointerup',wEnd);cv.addEventListener('pointercancel',wEnd);
+{const drop=e=>{if(WP.delete(e.pointerId)&&WP.size<2)wpinch=null;if(!WP.size)wdrag=null;};   // 추적이 끊기거나 캔버스 밖에서 손을 떼도 기록 정리
+ cv.addEventListener('lostpointercapture',drop);window.addEventListener('pointerup',drop);window.addEventListener('pointercancel',drop);
+ const clearAll=()=>{WP.clear();wpinch=null;wdrag=null;};window.addEventListener('blur',clearAll);document.addEventListener('visibilitychange',clearAll);}
 cv.addEventListener('wheel',e=>{if(!WALK.on)return;e.preventDefault();WALK.auto=null;const unit=e.deltaMode===1?16:e.deltaMode===2?400:1;
   WALK.wheel=clampMove(WALK.wheel-e.deltaY*unit*0.006);if(!e.ctrlKey)WALK.yaw-=e.deltaX*unit*dragK('mouse');applyLook();},{passive:false});
 const BACK_ZONE=0.88,BACK_STEP=1.5,wray=new THREE.Raycaster(),wndc=new THREE.Vector2();
