@@ -2723,8 +2723,14 @@ const poseBtns=()=>[S.pose!=='stand'?['🧍 일어서기',()=>setPose('stand')]:
 const anyOpen=()=>CONTS.some(c=>!c.fixed&&c.tgt>0.5);
 function closeOpen(){CONTS.forEach(c=>{if(!c.fixed)c.tgt=0;});sOpen();refreshBtns();}
 const closeBtn=()=>anyOpen()?[['🚪 열린 것 닫기',closeOpen,true]]:[];
+// 그만하기 전에 한 번 더 묻기 (묻는 동안 시간은 멈춤)
+function askQuit(){if(S.phase!=='seek'||S.paused)return;S.paused=performance.now();aim.hidden=true;msg.hidden=false;
+  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🏳️ 정말 그만할까요?</h1><p class="s">지금까지 찾은 인형 <b>${S.found} / ${S.n}</b><br>그만하면 못 찾은 인형이 어디 있었는지 알려 줘요.</p>
+   <button class="gbig" id="gKeep">계속 찾기</button><button class="gbig sec" id="gQuit">그만하기</button></div>`;
+  $('#gKeep').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;msg.hidden=true;aim.hidden=false;};
+  $('#gQuit').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;endGame(false,true);};}
 function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()]]);
-  else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),['🔥 힌트',hint],['🏳️ 그만하기',()=>endGame(false,true)]]);
+  else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),['🔥 힌트',hint],['🏳️ 그만하기',askQuit]]);
   else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
 
 function startHide(){clearDolls();closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
@@ -2767,7 +2773,7 @@ function autoPick(used){
   if(used.some(u=>u.distanceTo(h.point)<0.4))return null;if(coverDist(h.point)<0.07)return null;
   const cd=coverDist(h.point);return{res:{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01),ry:Math.random()*6.28},wp:h.point.clone(),where:roomName(h.point)+(floors.includes(h.object)?' 바닥':'')};}
 
-function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.found=0;S.hints=0;S.ended=false;S.dolls.forEach(d=>d.found=false);
+function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.ended=false;S.dolls.forEach(d=>d.found=false);
   walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
   $('#gGuide').innerHTML='서랍·옷장은 눌러서 열고, 책은 눌러서 꺼내 보세요 · 소파·침대 밑은 🐛 엎드려서 · 인형을 찾으면 눌러요!';renderIcons();refreshBtns();aim.hidden=false;
   say('찾기 시작!',1000);}
@@ -2876,7 +2882,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
     WALK.yaw=C.y0+(C.y1-C.y0)*k;WALK.pitch=C.q0+(C.q1-C.q0)*k;applyLook();WALK.auto=null;if(C.t>=C.dur){S.cam=null;S.camHold={x:camera.position.x,z:camera.position.z};}}
   else if(S.camHold){const m=Math.hypot(camera.position.x-S.camHold.x,camera.position.z-S.camHold.z);
     if(m>0.04){const ty=WALK.eye;camera.position.y+=(ty-camera.position.y)*Math.min(1,dt*5);if(Math.abs(camera.position.y-ty)<0.01){camera.position.y=ty;S.camHold=null;}}}
-  if(S.phase==='seek'){S.elapsed=(now-S.t0)/1000;const tm=$('#gTime');if(S.limit){const rem=S.limit-S.elapsed;tm.textContent='⏱ '+fmt(Math.ceil(rem));tm.classList.toggle('warn',rem<=30);if(rem<=0)endGame(false);}else{tm.textContent='⏱ '+fmt(S.elapsed);tm.classList.remove('warn');}}}
+  if(S.phase==='seek'&&!S.paused){S.elapsed=(now-S.t0)/1000;const tm=$('#gTime');if(S.limit){const rem=S.limit-S.elapsed;tm.textContent='⏱ '+fmt(Math.ceil(rem));tm.classList.toggle('warn',rem<=30);if(rem<=0)endGame(false);}else{tm.textContent='⏱ '+fmt(S.elapsed);tm.classList.remove('warn');}}}
 
 // ---------- 시작 ----------
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
