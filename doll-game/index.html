@@ -547,6 +547,9 @@ function toilet(x,y,dir){return fixture(x,y,dir,g=>{
   const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.185,0.13,0.1,32),PMAT);bowl.scale.set(1,1,1.3);bowl.position.set(0,0.36,0.4);g.add(bowl);
   const seat=new THREE.Mesh(new THREE.TorusGeometry(0.155,0.028,10,32),PMAT);seat.rotation.x=Math.PI/2;seat.scale.set(1,1.3,1);seat.position.set(0,0.42,0.4);g.add(seat);
   const cov=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.02,32),PMAT);cov.scale.set(1,1,1.28);cov.position.set(0,0.62,0.22);cov.rotation.x=-1.3;g.add(cov);});}
+function roundRectShape(w,d,r){const s=new THREE.Shape(),x=-w/2,y=-d/2;
+  s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+d-r);s.quadraticCurveTo(x+w,y+d,x+w-r,y+d);
+  s.lineTo(x+r,y+d);s.quadraticCurveTo(x,y+d,x,y+d-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s;}
 function basin(x,y,dir,w,d,top){return fixture(x,y,dir,g=>{   // 벽걸이형 세면기 (둥근 사각 + 오목한 볼)
   const b=new THREE.Mesh(new THREE.RoundedBoxGeometry(w,0.16,d,4,0.05),PMAT);b.position.set(0,top+0.08,d/2);g.add(b);
   const hole=new THREE.Mesh(new THREE.SphereGeometry(0.18,24,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0xeef0f0,roughness:0.15,side:THREE.BackSide}));
@@ -1032,7 +1035,7 @@ const TOP=0x8c918d;
 // 싱크대 하부장: 짙은 푸른색
 function counter(x0,y0,x1,y1,c){box(x0,y0,x1,y1,0.86,c||0x253349);box(x0-0.02,y0-0.02,x1+0.02,y1+0.02,0.04,TOP,0.86);}
 counter(8.1,1.95,10.85,2.55);            // 위쪽 줄 (개수대)
-{ // 개수대 줄: 왼쪽 끝 정수기(테라스 중문을 바라봄) · 그 오른쪽 그릇 건조대(90도 돌려 놓음) · 가운데 은색 스틸 싱크볼 + 거위목 수전 · 검은색 식기세척기
+{ // 개수대 줄: 왼쪽 끝 정수기(테라스 중문을 바라봄) · 정수기와 싱크볼 사이 그릇 건조대(90도 돌려 놓음) · 가운데 은색 스틸 싱크볼 + 거위목 수전 · 검은색 식기세척기
  const ST=new THREE.MeshStandardMaterial({color:0xd3d7da,metalness:0.85,roughness:0.25}),CH=CHROME,tp=0.9;
  const add=(geo,m,x,y,z,ry)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);if(ry)o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;scene.add(o);fullOnly.push(o);return o;};
  // 싱크볼 (상판에 묻힌 사각 볼: 테두리 + 안쪽 어두운 스테인리스 + 배수구)
@@ -1045,8 +1048,9 @@ counter(8.1,1.95,10.85,2.55);            // 위쪽 줄 (개수대)
   const c=new THREE.CatmullRomCurve3([[0,0.04,0],[0,0.3,0],[0,0.4,0.06],[0,0.38,0.17],[0,0.3,0.2]].map(v=>new THREE.Vector3(v[0]+fx,v[1]+tp,v[2]+fz)));
   const t=new THREE.Mesh(new THREE.TubeGeometry(c,30,0.014,10,false),CH);t.castShadow=true;scene.add(t);fullOnly.push(t);
   const lv=add(new THREE.BoxGeometry(0.015,0.015,0.1),CH,fx+0.04,tp+0.14,fz+0.04);lv.rotation.x=-0.4;}
- // 그릇 건조대: 정수기 오른쪽, 90도 돌려 긴 쪽이 아일랜드 방향 — 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
- {const G=new THREE.Group();G.position.set(W(8.36),tp,Z(2.52));G.rotation.y=Math.PI/2;scene.add(G);fullOnly.push(G);
+ // 그릇 건조대: 정수기와 싱크볼 사이, 90도 돌려 긴 쪽이 벽→앞 방향 — 물받이 + 철망 틀 + 세워 둔 접시 + 엎어 둔 컵
+ {const G=new THREE.Group();G.position.set(W(8.74),tp,Z(2.26));G.rotation.y=Math.PI/2;   // 정수기와 싱크볼 사이
+scene.add(G);fullOnly.push(G);
   const WR=new THREE.MeshStandardMaterial({color:0xe9eaea,metalness:0.6,roughness:0.35}),L=0.58,D=0.4,hh=0.17;
   const ga=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;G.add(o);return o;};
   ga(new THREE.BoxGeometry(L,0.025,D),fmat(0x9aa0a4),0,0.0125,0);                                  // 물받이
@@ -1214,7 +1218,21 @@ function showerSet(x,y,dir,rain){return fixture(x,y,dir,g=>{
     const hd2=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.014,40),CHROME);hd2.position.set(0,2.1,0.38);g.add(hd2);   // 해바라기 헤드
     const fc=new THREE.Mesh(new THREE.CircleGeometry(0.13,40),new THREE.MeshStandardMaterial({color:0x2a2c2f,roughness:0.7}));fc.rotation.x=Math.PI/2;fc.position.set(0,2.092,0.38);g.add(fc);}});}
 // 욕실
-box(0.11,0.11,1.9,0.86,0.55,PORC);  // 욕조: 위·왼쪽·오른쪽(샤워부스 벽) 벽에 붙임
+{ // 욕조: 위·왼쪽·오른쪽(샤워부스 벽) 벽에 붙임 — 테두리만 남기고 안을 파낸 모양
+ const X0=W(0.11),X1=W(1.9),Z0=Z(0.11),Z1=Z(0.86),L=X1-X0,D=Z1-Z0,H=0.55,cx=(X0+X1)/2,cz=(Z0+Z1)/2;
+ const G=new THREE.Group();G.position.set(cx,0,cz);scene.add(G);fullOnly.push(G);
+ const IN=new THREE.MeshStandardMaterial({color:0xcfdde3,roughness:0.45,side:THREE.DoubleSide}),TUB=new THREE.MeshStandardMaterial({color:0xeef0ee,roughness:0.4});   // 안쪽은 살짝 푸르게, 덜 반짝이게 해서 깊이가 보이도록
+ const sh=roundRectShape(L,D,0.03),il=L-0.2,id=D-0.18,ir=0.2,hp=new THREE.Path();   // 안쪽 구멍 (모서리 둥글게)
+ hp.moveTo(-il/2+ir,-id/2);hp.lineTo(il/2-ir,-id/2);hp.quadraticCurveTo(il/2,-id/2,il/2,-id/2+ir);hp.lineTo(il/2,id/2-ir);hp.quadraticCurveTo(il/2,id/2,il/2-ir,id/2);
+ hp.lineTo(-il/2+ir,id/2);hp.quadraticCurveTo(-il/2,id/2,-il/2,id/2-ir);hp.lineTo(-il/2,-id/2+ir);hp.quadraticCurveTo(-il/2,-id/2,-il/2+ir,-id/2);sh.holes.push(hp);
+ const shell=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:H-0.01,bevelEnabled:true,bevelThickness:0.01,bevelSize:0.004,bevelSegments:3,curveSegments:24}),TUB);
+ shell.rotation.x=-Math.PI/2;G.add(shell);
+ const fl=new THREE.Mesh(new THREE.ExtrudeGeometry(roundRectShape(il-0.01,id-0.01,ir),{depth:0.12,bevelEnabled:false,curveSegments:24}),IN);   // 안쪽 바닥 (0.12 높이)
+ fl.rotation.x=-Math.PI/2;G.add(fl);
+ const dr=new THREE.Mesh(new THREE.CircleGeometry(0.03,24),CHROME);dr.rotation.x=-Math.PI/2;dr.position.set(-L/2+0.28,0.122,0);G.add(dr);   // 배수구 (수전 쪽)
+ const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.16,12),CHROME);sp.rotation.z=Math.PI/2;sp.position.set(-L/2+0.08,0.68,0);G.add(sp);   // 왼쪽 벽 욕조 수전
+ const sp2=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.06,12),CHROME);sp2.position.set(-L/2+0.15,0.655,0);G.add(sp2);
+ G.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});}
 basin(0.11,1.29,'+x',0.5,0.44,0.7); box(0.24,1.2,0.4,1.38,0.68,PORC); box(0.11,1.25,0.2,1.33,0.18,0xb9c0c4,0.86);  // 하부장 없는 일반 세면대
 box(0.11,1.0,0.14,1.57,0.75,0xcfdde3,1.15);  // 거울   // 세면대 (욕조 옆, 왼쪽 벽)
 toilet(0.11,1.975,'+x');   // 변기
@@ -1243,14 +1261,23 @@ box(15.98,13.98,16.42,14.0,0.75,0xcfdde3,1.15);
 box(16.72,12.5,17.58,13.99,0.03,0xa9b8bd); showerSet(17.58,13.25,'-x',false);   // 샤워부스 벽: 슬라이드 바 + 핸드 샤워
 {const sg=new THREE.Mesh(unit,M.glass);sg.scale.set(0.025,1,0.95);sg.position.set(W(16.68),0,Z(13.52));scene.add(sg);const p={m:sg,bot:0,top:2.0};pieces.push(p);setPiece(p,99);}
 // 파우더룸·드레스룸·현관 신발장·다용도실
-box(0.06,3.1,0.6,4.5,0.82,0xd8b98c);
+{ // 파우더룸 화장대: 양옆 수납장 + 상판 아래 얇은 서랍 + 가운데 의자·다리가 들어가는 빈 공간 (폭 70cm, 높이 68cm)
+ const VC=0xd8b98c,LN=0xb89a70,x0=0.06,x1=0.6,ka=3.45,kb=4.15,hk=0.68;
+ box(x0,3.1,x1,ka,hk,VC); box(x0,kb,x1,4.5,hk,VC);                     // 양옆 수납장
+ box(x0,ka,0.12,kb,hk,VC);                                               // 빈 공간 뒤판
+ box(x0,3.1,x1,4.5,0.14,VC,hk);                                          // 상판 + 서랍 몸통
+ box(x1,3.12,x1+0.004,4.48,0.003,LN,hk);                                 // 서랍과 수납장 사이 선
+ [[3.1,ka],[kb,4.5]].forEach(([a,b])=>{box(x1,(a+b)/2-0.002,x1+0.004,(a+b)/2+0.002,hk-0.04,LN,0.02);   // 문 2짝 경계
+   [(a+b)/2-0.04,(a+b)/2+0.04].forEach(y=>knob(x1+0.01,y,hk-0.14));});
+ [3.45,4.15].forEach(y=>box(x1,y-0.0015,x1+0.004,y+0.0015,0.12,LN,hk+0.01));   // 서랍 3칸 경계
+ [3.28,3.8,4.33].forEach(y=>knob(x1+0.01,y,hk+0.07));}
 // 파우더룸: 화장대 앞 사각 거울 + 화장대 의자
 box(0.11,3.33,0.14,4.27,0.84,0xd8b98c,0.98); box(0.14,3.36,0.15,4.24,0.78,new THREE.MeshStandardMaterial({color:0xd3e2e8,roughness:0.12,metalness:0,emissive:0x3a464b,emissiveIntensity:0.35}),1.01);
 {const lw=fmat(0xd8b98c),cu=fmat(0xe9e4da),g=new THREE.Group();
  [[-0.16,-0.16],[-0.16,0.16],[0.16,-0.16],[0.16,0.16]].forEach(([x,z])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.013,0.42,10),lw);l.position.set(x,0.21,z);l.castShadow=true;g.add(l);});
  const s=new THREE.Mesh(unit,cu);s.scale.set(0.4,0.06,0.38);s.position.y=0.45;s.castShadow=true;g.add(s);
  const b=new THREE.Mesh(unit,lw);b.scale.set(0.035,0.24,0.36);b.position.set(0.18,0.62,0);b.rotation.z=-0.1;g.add(b);
- g.position.set(W(0.95),0,Z(3.8));scene.add(g);}
+ g.position.set(W(0.86),0,Z(3.8));scene.add(g);}
 // 드레스룸: 왼쪽 벽·서재 쪽 벽은 오픈형 행거, 안방 쪽 벽은 가슴 높이 서랍장
 {const MT=0xebe6dd,AL=new THREE.MeshStandardMaterial({color:0xc4c8cc,metalness:0.7,roughness:0.35});
  const COL=[0x2f3a4a,0xe9e4da,0x7a8b99,0x3d3d3f,0xb7a58a,0x8c4a3c,0xd9d2c4,0x55606b,0xa3b1a0,0x1f2124,0xc7b8a3,0x6b5a4e];
@@ -1942,6 +1969,14 @@ const CEIL=new THREE.Group();
  ROOMS.forEach(r=>{if(r.part||r.kind==='common'||!r.name)return;const [a,b,c,d]=r.r,xs=W(a),xe=W(c),nx=Math.max(1,Math.round((xe-xs)/1.6)),nz=Math.max(1,Math.round((d-b)/1.6));
    for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){const dl=new THREE.Mesh(new THREE.CircleGeometry(0.05,20),LM);dl.rotation.x=Math.PI/2;dl.position.set(xs+(i+0.5)*(xe-xs)/nx,H-0.004,Z(b+(j+0.5)*(d-b)/nz));CEIL.add(dl);}});
  CEIL.visible=false;scene.add(CEIL);}
+// ---------- 수직형 플로어 스탠드 (검은 받침·기둥 + 아이보리 갓, 은은하게 켜짐): 거실 큰 소파 옆, 안방 안락의자 옆 ----------
+function floorLamp(x,y){const g=new THREE.Group();g.position.set(W(x),0,Z(y));scene.add(g);fullOnly.push(g);
+ const bs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.16,0.025,24),fmat(0x2a2b2d));bs.position.y=0.012;bs.castShadow=true;g.add(bs);
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.45,8),fmat(0x2a2b2d));pole.position.y=0.74;pole.castShadow=true;g.add(pole);
+ const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide}));shade.position.y=1.55;g.add(shade);
+ const pl=new THREE.PointLight(0xffd9a0,0.3,3);pl.position.y=1.5;g.add(pl);}
+floorLamp(8.7,8.32);    // 거실 큰 소파 옆
+floorLamp(3.55,0.42);   // 안방 안락의자 옆 (검은 책장과 의자 사이, 창 쪽)
 // ---------- 거실 인테리어 제안 (스위치로 켜고 끔) ----------
 const SUG=new THREE.Group();scene.add(SUG);
 {const add=(m,x,y,z)=>{m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;SUG.add(m);return m;};
@@ -1981,11 +2016,7 @@ const SUG=new THREE.Group();scene.add(SUG);
   const sh=new THREE.Mesh(new THREE.SphereGeometry(0.2,28,14,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x2a2b2d,roughness:0.45,side:THREE.DoubleSide}));add(sh,tx,1.72,tz);
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.05,16,10),new THREE.MeshStandardMaterial({color:0xfff3dc,emissive:0xffd9a0,emissiveIntensity:1.5}));add(bulb,tx,1.73,tz);
   const pl=new THREE.PointLight(0xffd9a0,0.4,2.8);pl.position.set(tx,1.65,tz);SUG.add(pl);}
- // 5) 소파 옆 플로어 스탠드
- {const bs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.16,0.025,24),fmat(0x2a2b2d));add(bs,W(8.7),0.012,Z(8.32));
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.45,8),fmat(0x2a2b2d));add(pole,W(8.7),0.74,Z(8.32));
-  const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide}));add(shade,W(8.7),1.55,Z(8.32));
-  const pl=new THREE.PointLight(0xffd9a0,0.3,3);pl.position.set(W(8.7),1.5,Z(8.32));SUG.add(pl);}
+ // 5) 소파 옆 플로어 스탠드 → 실제 가구라 제안에서 빼고 기본으로 둠 (floorLamp)
  // 6) 소파 쿠션 (테라코타·오트밀·차콜)
  [[8.75,0xb8653f],[9.35,0xe2d6c0],[10.4,0x3a3b3e],[11.0,0xb8653f]].forEach(([y,c])=>{const cu=new THREE.Mesh(new THREE.RoundedBoxGeometry(0.42,0.42,0.14,3,0.06),new THREE.MeshStandardMaterial({color:c,roughness:0.95}));cu.rotation.y=-Math.PI/2;cu.rotation.z=0.08;add(cu,W(9.43),0.66,Z(y));});
 }
@@ -2533,14 +2564,14 @@ function buildConts(){
  [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1],k)=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장',{style:k?'folded':'socks'})));
  [0,0.25,0.5,0.75,1.0].forEach((z,i)=>drawer('x',1.42,-1,5.02,6.28,z+0.005,z+0.25,0.44,0xfafaf8,'드레스룸 큰 서랍장',{hc:0x8a8070,style:i%2?'socks':'folded'}));
  // 파우더룸 화장대 서랍
- [[3.12,3.8],[3.8,4.48]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.62,0.8,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:GOLD,style:'cosmetics'}));
+ [[3.11,3.45],[3.45,4.15],[4.15,4.49]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.69,0.81,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:GOLD,style:'cosmetics'}));   // 상판 아래 얇은 서랍 3칸
  // 서재: 이동 서랍장, 철제 서랍장
  [[0.05,0.24],[0.24,0.42],[0.42,0.61]].forEach(([a,b])=>drawer('y',11.5,1,0.99,1.41,a,b,0.42,0x34302d,'서재 책상 서랍장',{hc:0x8a8580,style:'stationery'}));
  for(let i=0;i<6;i++){const z=0.04+i*0.65/6;drawer('y',11.845,-1,2.48,2.79,z+0.003,z+0.65/6-0.003,0.38,0xf1f0ec,'서재 철제 서랍장',{hc:0x8d8d8a,style:i%2?'stationery':'containers'});}
- // 안방 샤워부스 앞 장: 위 서랍 2개 + 아래 문 2짝
+ // 안방 샤워부스 앞 장: 위 서랍 2개 + 아래 문 2짝 (왼쪽 끝은 옆 벽 두께에 묻혀 있어 벽 면 바로 옆부터)
  hollow({axis:'y',f:2.46,n:1,a0:2.0,a1:2.84,back:1.98,b:0,h:0.95,col:0xebe6dd,inner:0xe9e6e0,holes:[[2.022,2.418,0.752,0.948,0.42],[2.422,2.818,0.752,0.948,0.42],[2.022,2.418,0.012,0.738,0.44],[2.422,2.818,0.012,0.738,0.44]]});
- [[2.02,2.42],[2.42,2.82]].forEach(([a,b])=>drawer('y',2.46,1,a,b,0.75,0.95,0.42,0xfafaf8,'안방 샤워부스 앞 장 서랍',{hc:0x9a9da0,hollow:true,style:'cosmetics'}));
- door('y',2.46,1,2.02,2.42,0.01,0.74,0.44,0xfafaf8,'a','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8,shelves:[0,0.36],style:'linen'});
+ [[2.06,2.42],[2.42,2.82]].forEach(([a,b])=>drawer('y',2.46,1,a,b,0.75,0.95,0.42,0xfafaf8,'안방 샤워부스 앞 장 서랍',{hc:0x9a9da0,hollow:true,style:'cosmetics'}));
+ door('y',2.46,1,2.06,2.42,0.01,0.74,0.44,0xfafaf8,'a','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8,shelves:[0,0.36],style:'linen'});
  door('y',2.46,1,2.42,2.82,0.01,0.74,0.44,0xfafaf8,'b','안방 샤워부스 앞 장',{hc:0x9a9da0,inner:0xe6e1d8,shelves:[0,0.36],style:'bath'});
  // 아이방 4단 서랍장
  [[10.92,11.7],[11.7,12.48]].forEach(([a,b])=>[0.01,0.32,0.63,0.94].forEach((z,i)=>drawer('y',8.73,1,a+0.01,b-0.01,z+0.004,z+0.31,0.46,0xe9e1d2,'아이방 서랍장',{hc:0x8c7d66,style:['folded','socks','folded','toys'][i]})));
@@ -2679,12 +2710,8 @@ function buildConts(){
  {const wf=W(4.5)+0.112,tb=wf+0.16;[-0.68,0.68].forEach(dz=>pinSpot(new THREE.Vector3((wf+tb-0.03)/2,0.98,Z(10.4)+dz),Math.PI/2,0.66,'거실 TV 뒤',0.12,0.16,0.16));}   // 벽과 TV 사이 13cm 틈, 양쪽 끝 가까이에 끼움
  // 폴딩도어 위 벽과 에어컨 단내림 사이 5cm 틈에 끼움
  [5.75,8.85].forEach(x=>pinSpot(new THREE.Vector3(W(x),2.05,Z(12.318)),Math.PI,0.55,'폴딩도어 위 단내림 틈',0.12,0.1,0.06));
- // 소파 옆 플로어 스탠드 (집 인테리어 제안에 있던 것을 게임에 세움) — 갓 속, 기둥 끝에 끼움
- {const x=W(8.7),z=Z(8.32),BKs=gm(0x2a2b2d,{roughness:0.5});
-  const add=(g,m,y)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;o.userData.game=true;scene.add(o);return o;};
-  add(new THREE.CylinderGeometry(0.15,0.16,0.025,24),BKs,0.012);add(new THREE.CylinderGeometry(0.012,0.012,1.45,8),BKs,0.74);
-  add(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide,envMapIntensity:0.2}),1.55);
-  pinSpot(new THREE.Vector3(x,1.466,z),Math.PI/2,0.72,'소파 옆 스탠드 갓 속',0.3,0.24,0.3);}
+ // 플로어 스탠드 갓 속 (집의 floorLamp 두 개) — 기둥 끝에 끼움
+ [[8.7,8.32,'거실 소파 옆 스탠드 갓 속'],[3.55,0.42,'안방 안락의자 옆 스탠드 갓 속']].forEach(([x,y,n])=>pinSpot(new THREE.Vector3(W(x),1.466,Z(y)),Math.PI/2,0.72,n,0.3,0.24,0.3));
  // 검은 소파 등쿠션: 쿠션을 앞으로 눕히면 뒷면 가로 지퍼가 보이고, 지퍼를 열면 안쪽 주머니
  {const L=1.84,cx=W(7.95)-0.03-0.92,zb=Z(12.32),FBm=gm(0x26272a,{roughness:0.92}),ZP=gm(0x9a8a6a,{metalness:0.6,roughness:0.4}),PULL=gm(0xb9a77a,{metalness:0.8,roughness:0.3});
   [-L/2+0.12+0.3,L/2-0.12-0.3].forEach(dx=>{const ms=grab(cx+dx-0.38,0.33,zb-0.42,cx+dx+0.38,1.0,zb+0.12);
@@ -3052,8 +3079,9 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   fixed('공용 욕실 샤워 공간',W(17.2),0,Z(7.05),-Math.PI/2,'stand');
   fixed('작은 욕실 샤워부스',W(17.15),0,Z(13.25),-Math.PI/2,'stand');
   // 안방 욕조 안에 누움
-  fixed('안방 욕조 안',W(1.0),0.4,Z(0.48),-Math.PI/2,'lie');
+  fixed('안방 욕조 안',W(1.0),0.125,Z(0.48),-Math.PI/2,'lie');
   // 드레스룸: 서랍장 옆면과 옷걸이 오픈장 사이
+  L.push({name:'파우더룸 화장대 밑',fits:kids,res:p=>({parent:scene,pos:V(W(0.36),0,Z(3.8)),ry:Math.PI/2,pose:p.baby?'lie':'crouch',s:p.baby?1:0.7})});   // 높이 68cm 빈 공간
   fixed('드레스룸 서랍장과 옷걸이 사이',W(1.66),0,Z(7.12),Math.PI,'crouch');
   // 다용도실(보조주방 쪽 창고)
   fixed('다용도실 구석',W(10.55),0,Z(0.4),Math.PI,'crouch');
