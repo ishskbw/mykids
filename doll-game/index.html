@@ -2853,7 +2853,7 @@ const sFound=()=>tone([784,988,1319],0.22,'triangle',0.2),sOpen=()=>tone([330],0
 const DIFF=['매우 쉬움','쉬움','보통','어려움','최상'];
 const DIFF_TIP=['서서 둘러보면 보이는 곳에만 숨겨요 (유리 술장·카메라 제습함 안 포함)','대부분 보이는 곳, 가끔 서랍·장 속','서랍·장 속과 가구 틈에 골고루','주로 서랍·장 속, 바깥은 가려진 곳만','꼭꼭 숨겨요 · 서랍·장 속이나 엎드려야 보이는 곳'];
 const noHint=()=>!S.hintOn;
-function showMenu(){S.phase='menu';if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
+function showMenu(){S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기·침대 이불은 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
    <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족이 숨기</button></div></div>
@@ -2881,7 +2881,8 @@ function showMenu(){S.phase='menu';if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.d
     else if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}
     startHide();};}
 
-function clearDolls(){(S.shut||[]).forEach(d=>d.target=1);S.shut=[];S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
+function clearDolls(){(S.shut||[]).forEach(d=>d.target=1);S.shut=[];beacons.forEach(b=>scene.remove(b));beacons=[];   // 지난 판 노란 빛기둥도 지움
+  S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
 function closeAll(inst){CONTS.forEach(c=>{if(c.fixed)return;c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
 function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}">${iconOf(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
 function setBtns(list){btns.innerHTML='';list.forEach(([t,fn,pri])=>{const b=document.createElement('button');b.textContent=t;if(pri)b.className='pri';b.onclick=fn;btns.appendChild(b);});}
