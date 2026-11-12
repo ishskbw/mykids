@@ -3093,8 +3093,8 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   fixed('서재 아이 책상 밑',W(4.07),0,Z(8.95),-Math.PI/2,'crouch',kids);
   {const X1=MX(17.69)-0.11,X0=X1-1.5,cx=(X0+X1)/2-0.4;fixed('게스트룸 책상 밑',cx-OXN,0,Z(11.18),Math.PI,'crouch',kids);}
   fixed('거실 흰 테이블 밑',TCX,0,Z(11.09),0,'crouch',p=>p.H<=1.15);
-  // 베란다 바깥 난간에 매달리기 (난간 윗면 1.1m, 유리창 바깥 17cm)
-  [[2.2,'서재 발코니'],[7.0,'거실 발코니'],[11.9,'아이방 발코니']].forEach(([x,n])=>fixed(n+' 난간 밖에 매달림',W(x),1.1,Z(14.27)+0.1,Math.PI,'hang',p=>!p.baby));
+  // 베란다 바깥 난간에 매달리기 (난간 윗면 1.1m, 유리창 바깥 17cm) — 보관장 옆·벽 끝 구석 쪽만
+  [[0.92,'서재 발코니 보관장 옆'],[9.72,'거실 발코니 끝 구석'],[12.88,'아이방 발코니 보관장 옆'],[14.95,'창고 발코니 끝 구석']].forEach(([x,n])=>fixed(n+' 난간 밖에 매달림',W(x),1.1,Z(14.27)+0.1,Math.PI,'hang',p=>!p.baby));
   // 안방 침대 밑
   (window.BEDS||[]).forEach(b=>{if(b.top>0.5)fixed('안방 침대 밑',(b.X0+b.X1)/2-OXN,0.0,Z((b.y0+b.y1)/2),-Math.PI/2,'lie');});
   // 열어야 보이는 곳 (장·냉장고·세탁기·이불·보관장)
