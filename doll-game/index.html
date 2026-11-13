@@ -109,7 +109,11 @@ body.pmin #optBtn{display:none !important}
 <div id="stage"></div>
 
 </head>
-<body>
+<body class="game">
+<style>body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!important}
+#gBoot{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f6b05c;color:#5a3418;font:700 20px system-ui,sans-serif;transition:opacity .4s}
+#gBoot img{width:96px;height:96px;border-radius:24px;box-shadow:0 8px 24px rgba(0,0,0,.18)}#gBoot small{font-weight:500;font-size:14px;opacity:.75}</style>
+<div id="gBoot"><img src="/doll-game/icon-192.png" alt="" onerror="this.remove()"><div>우리집 인형 숨바꼭질</div><small>집을 불러오는 중…</small></div>
 <header class="panel">
   <div class="ptop">
     <div class="ptitle"><h1>우리집 3D</h1>
@@ -3302,7 +3306,7 @@ function setSound(on){SOUND=on;try{localStorage.setItem('dollgame.sound',on?'on'
 const DIFF=['매우 쉬움','쉬움','보통','어려움','최상'];
 const DIFF_TIP=['서서 둘러보면 보이는 곳에만 숨겨요 (유리 술장·카메라 제습함 안 포함)','대부분 보이는 곳, 가끔 서랍·장 속','서랍·장 속과 가구 틈에 골고루','주로 서랍·장 속, 바깥은 가려진 곳만','꼭꼭 숨겨요 · 서랍·장 속이나 엎드려야 보이는 곳'];
 const noHint=()=>!S.hintOn;
-function showMenu(){S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
+function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.out){b.dataset.out=1;b.style.opacity='0';setTimeout(()=>b.remove(),450);}}S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기·침대 이불은 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
    <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족이 숨기</button></div></div>
@@ -3491,7 +3495,7 @@ const FAM=[
  {name:'이지우',short:'지우',tag:'아기',H:0.55,baby:1,wrap:0xfbe3ec,ico:0xfbe3ec},
  {name:'숙자',short:'숙자',tag:'할머니',H:1.54,build:0.9,hair:'perm',hairC:0x8e8b88,top:0xb7ada0,bot:0x5b5852,shoe:0x5a4a42,ico:0xb7ada0},   // 아담한 체구, 수수한 옷
  {name:'영식',short:'영식',tag:'할아버지',H:1.74,build:0.86,hair:'thin',hairC:0xa9a6a1,top:0x2f5d8a,collar:1,bot:0x6b6458,shoe:0x3a3330,ico:0x2f5d8a},   // 호리호리, 단색 골프 티·단색 바지, 이마가 넓음
- {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'perm',hairC:0x6e5e56,dress:0xd9c6f5,glow:1,wings:1,angel:1,shoe:0xf3eefc,ico:0xe9e2fb},   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
+ {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'bob',hairC:0x3b2a22,top:0xf6f3ee,coat:0x2c3650,collar:1,bot:0x2c3650,shoe:0x1d1d1f,wings:1,angel:1,ico:0x2c3650},   // 커리어우먼 정장 + 흰 날개 (천사)   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
  {name:'영민',short:'영민',tag:'외할아버지',H:1.68,belly:1,hair:'thick',hairC:0xd8d6d2,glasses:0x3a3a3a,top:'hike',bot:0x3a3a3e,shoe:0x2a2a2c,ico:0xe2583b},   // 배가 조금 나옴, 안경, 숱 많은 흰머리, 화사한 여러 색 등산 티
  {name:'공병민',short:'병민',tag:'작은아빠',H:1.76,build:0.88,hair:'short',top:0x5a6e8c,bot:0x2b2f38,shoe:0xf2f2f0,ico:0x5a6e8c},
  {name:'여진',short:'여진',tag:'작은엄마',H:1.635,hair:'pony',top:0xe9c7b5,bot:0x3d4250,shoe:0xe8e2d8,ico:0xe9c7b5},
@@ -3560,7 +3564,7 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
   if(p.dress){const L2=legL*0.97,sk=add(new THREE.CylinderGeometry(sw*0.42,sw*0.82,L2,32,6,true),DRS,0,0.06-L2/2,0,pelvis);   // 발목까지 오는 드레스 치마
     const P=sk.geometry.attributes.position;for(let k=0;k<P.count;k++){const yy=P.getY(k),a=Math.atan2(P.getZ(k),P.getX(k)),f=(0.5-yy/L2)*0.06;P.setX(k,P.getX(k)+Math.cos(a)*Math.sin(a*9)*f);P.setZ(k,P.getZ(k)+Math.sin(a)*Math.sin(a*9)*f);}sk.geometry.computeVertexNormals();   // 주름
     const bw=add(new THREE.TorusGeometry(sw*0.47,0.018,8,28),new THREE.MeshStandardMaterial({color:0xf2d7a8,metalness:0.6,roughness:0.3,emissive:0xf2d7a8,emissiveIntensity:p.glow?0.4:0}),0,0.06,0,pelvis);bw.rotation.x=Math.PI/2;bw.scale.set(1,0.6,1);}   // 금빛 허리띠
-  if(p.wings){const WM=new THREE.MeshStandardMaterial({color:0xfbe9c4,roughness:0.75,emissive:0xfff3dc,emissiveIntensity:p.glow?0.22:0.1,side:THREE.DoubleSide});   // 깃털 모양이 보이게 빛은 약하게
+  if(p.wings){const WM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.7,emissive:0xffffff,emissiveIntensity:0.15,side:THREE.DoubleSide});   // 흰 날개   // 깃털 모양이 보이게 빛은 약하게
     [-1,1].forEach(k=>{const wg=new THREE.Group();wg.position.set(k*sw*0.18,torsoH*0.78,-td/2-0.01);wg.rotation.set(-0.25,k*0.5,k*0.18);torso.add(wg);
       for(let f=0;f<7;f++){const t=f/6,len=0.16+0.3*(1-Math.abs(t-0.35)*1.2),ang=-0.25+t*1.75;   // 위쪽은 길고 아래로 갈수록 짧은 깃털을 부채꼴로
         const fe=add(new THREE.SphereGeometry(1,14,8),WM,0,0,0,wg);fe.scale.set(len/2,0.035+0.02*(1-t),0.012);fe.position.set(k*Math.cos(ang)*len*0.5,Math.sin(ang)*len*0.5+0.05,-0.005*f);fe.rotation.z=k>0?ang:-ang;}
@@ -3795,7 +3799,7 @@ function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;
   const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);
   const angel=S.mode==='family'&&famOf(i).angel;
   if(angel){g.userData.bob=null;angelFarewell(d,g,wp,ws.x);}else d.anim={t:0,p:wp,s:ws.x};
-  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}
+  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),angel?900:1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}   // 천사는 말풍선과 겹치지 않게 짧게
 // 미옥(천사)을 찾으면: 내 앞 바닥으로 내려오며 원래 크기로 → "사랑해 ❤️" → 천천히 사라짐
 function angelFarewell(d,g,wp,s0){d._said=0;const cam=camera.position,fw=new THREE.Vector3(-Math.sin(WALK.yaw),0,-Math.cos(WALK.yaw));let tgt=null;
   for(const L of [1.5,1.25,1.0,0.8]){const q=new THREE.Vector3(cam.x+fw.x*L,0,cam.z+fw.z*L);const rc=new THREE.Raycaster(new THREE.Vector3(cam.x,1.0,cam.z),fw,0,L+0.3);
@@ -3809,9 +3813,8 @@ function angelFarewell(d,g,wp,s0){d._said=0;const cam=camera.position,fw=new THR
   const bub=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false,opacity:0}));bub.scale.set(0.9,0.35,1);bub.renderOrder=999;bub.userData.noPick=true;scene.add(bub);
   const t0=performance.now(),H=famOf(S.dolls.indexOf(d)).H;
   const step=now=>{const t=(now-t0)/1000;if(t<1.1){const k=THREE.MathUtils.smootherstep(t/1.1,0,1);g.position.lerpVectors(wp,tgt,k);g.scale.setScalar(s0+(1-s0)*k);g.rotation.y=r0+(ry-r0)*k;}
-    else{g.position.copy(tgt);g.scale.setScalar(1);g.rotation.y=ry;}
+    else{g.position.copy(tgt);g.scale.setScalar(1);const c2=camera.position;g.rotation.y=Math.atan2(c2.x-g.position.x,c2.z-g.position.z);}   // 내가 움직여도 나를 바라보고 말함
     bub.position.set(g.position.x,g.position.y+H*g.scale.x+0.35,g.position.z);bub.material.opacity=THREE.MathUtils.clamp((t-1.0)*3,0,1)*(t>3.2?Math.max(0,1-(t-3.2)/0.8):1);
-    if(t>1.2&&!d._said){d._said=1;say('💕 사랑해',1800);}
     if(t>2.8){const f=Math.max(0,1-(t-2.8)/1.2);g.traverse(o=>{if(o.material&&!Array.isArray(o.material))o.material.opacity=(o.userData.op0??1)*f;});g.position.y=tgt.y+(t-2.8)*0.25;}
     if(t<4.1)requestAnimationFrame(step);else{g.visible=false;scene.remove(bub);}};
   requestAnimationFrame(step);}
@@ -4017,7 +4020,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.018';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.019';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
