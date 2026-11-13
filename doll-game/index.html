@@ -3842,13 +3842,14 @@ async function rankSync(fs,db){const L=rankLoad(),pend=L.filter(r=>r.pending);if
   rankSave(L.filter(r=>!r.synced));}
 async function rankFetch(){if(!SHARED_HOST)return {shared:false,list:rankLoad(),away:true};
   try{return await tryTwice(async()=>{const {fs,db}=await withTimeout(rankDb(),15000);await rankSync(fs,db);const q=fs.query(fs.collection(db,'dollRanks'),fs.orderBy('score','desc'),fs.limit(100));
-    const sn=await withTimeout(fs.getDocs(q),15000);return {shared:true,list:sn.docs.map(d=>({id:d.id,...d.data()}))};});}
+    const sn=await withTimeout(fs.getDocs(q),15000);return {shared:true,list:sn.docs.map(d=>({id:d.id,...d.data()})).filter(r=>!NO_RANK(r))};});}
   catch(e){console.warn('rank fetch',e);return {shared:false,list:rankLoad()};}}
 async function rankAdd(rec){const local=()=>{const L=rankLoad(),id='L'+Date.now();L.push({id,...rec,pending:SHARED_HOST});L.sort((a,b)=>b.score-a.score);return rankSave(L)?{shared:false,id,away:!SHARED_HOST}:null;};
   if(!SHARED_HOST)return local();
   try{return await tryTwice(async()=>{const {fs,db}=await withTimeout(rankDb(),15000);const r=await withTimeout(fs.addDoc(fs.collection(db,'dollRanks'),rec),15000);return {shared:true,id:r.id};});}
   catch(e){console.warn('rank add',e);return local();}}
-const rankLoad=()=>{try{return JSON.parse(localStorage.getItem(RANK_KEY)||'[]')||[];}catch(e){return [];}};
+const NO_RANK=r=>r&&r.level==='사람이 숨김';   // 사람이 숨긴 판은 인형을 쉽게 둘 수 있어서 랭킹에 넣지 않음
+const rankLoad=()=>{try{return (JSON.parse(localStorage.getItem(RANK_KEY)||'[]')||[]).filter(r=>!NO_RANK(r));}catch(e){return [];}};
 const rankSave=L=>{try{localStorage.setItem(RANK_KEY,JSON.stringify(L.slice(0,200)));return true;}catch(e){return false;}};
 const DMUL=[0.6,0.8,1,1.3,1.6];
 function scoreOf(win){const fam=S.mode==='family',mul=fam?1.2:(S.auto?DMUL[S.diff]:1.0);
@@ -3879,7 +3880,7 @@ function endGame(win,gaveUp){if(S.ended)return;S.ended=true;S.phase='end';aim.hi
    <p class="s">${S.mode==='family'?'찾은 사람':'찾은 인형'} <b>${S.found} / ${S.n}</b> · 걸린 시간 <b>${fmt(t)}</b>${S.hints?` · 힌트 ${S.hints}번`:''}</p>
    ${miss.length?`<ul class="glist" style="text-align:left">${miss.map(o=>`<li><i>${iconOf(o.i,true)}</i>${o.d.where||roomName(o.d.g.getWorldPosition(new THREE.Vector3()))}</li>`).join('')}</ul><button class="gbig" id="gRev">못 찾은 ${S.mode==='family'?'사람':'인형'} 보러 가기</button>`:''}
    <div class="gscore"><div class="pt">${sc.toLocaleString()}<small>점</small></div>
-    <div id="gSaveRow" class="gsave">${S.found?`<input id="gName" maxlength="10" placeholder="이름" value="${escH(nm0)}" autocomplete="off"><button id="gSave">기록 저장</button>`:'<span class="s">하나도 못 찾아서 기록은 남기지 않아요</span>'}</div>
+    <div id="gSaveRow" class="gsave">${!S.auto?'<span class="s">사람이 숨긴 판은 랭킹에 올라가지 않아요</span>':S.found?`<input id="gName" maxlength="10" placeholder="이름" value="${escH(nm0)}" autocomplete="off"><button id="gSave">기록 저장</button>`:'<span class="s">하나도 못 찾아서 기록은 남기지 않아요</span>'}</div>
     <button class="glink" id="gRank">🏆 랭킹 보기</button></div>
    <button class="gbig ${miss.length?'sec':''}" id="gAgain">다시 하기</button></div>`;
   const bind=()=>{$('#gAgain').onclick=showMenu;if(miss.length&&$('#gRev'))$('#gRev').onclick=()=>reveal(miss);
@@ -4024,7 +4025,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.025';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.026';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
