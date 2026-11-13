@@ -3497,7 +3497,7 @@ const FAM=[
  {name:'시우',short:'시우',tag:'5학년',H:1.42,kid:1,build:1.2,belly:1,hair:'short',top:0xe0563f,bot:0x34495e,shoe:0xf2f2f0,ico:0xe0563f}];
 const famOf=i=>FAM[S.fam[i]];
 const FAMIX=n=>FAM.findIndex(f=>f.short===n);
-const FAMGRP=[{name:'🏠 우리가족',m:['유정','은비','유빈','병욱']},{name:'🚄 대전가족',m:['영민','미옥','은서','용문','서우','지우']},{name:'✈️ 인천가족',m:['영식','숙자','병민','여진','시온','시우']}].map(g=>({name:g.name,m:g.m.map(FAMIX)}));
+const FAMGRP=[{name:'🏠 우리가족',m:['유정','은비','유빈','병욱']},{name:'🚄 대전가족',m:['영민','미옥','은서','용문','서연','서우','지우']},{name:'✈️ 인천가족',m:['영식','숙자','병민','여진','시온','시우']}].map(g=>({name:g.name,m:g.m.map(FAMIX)}));
 const FTEX={};
 function famTex(k){if(FTEX[k])return FTEX[k];const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
   if(k==='stripeP'){const cs=['#f6d3e2','#ffffff','#cfe4f3','#ffffff','#f7e7b8','#ffffff'];for(let i=0;i<16;i++){x.fillStyle=cs[i%6];x.fillRect(0,i*8,128,8);}}
@@ -3978,7 +3978,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.015';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.016';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
