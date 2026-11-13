@@ -3792,8 +3792,29 @@ function placeHint(){if(S.phase!=='seek'||S.paused||noHint())return;const left=S
 function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;
   // 문 뒤에 숨은 사람을 다 찾으면 그 문은 다시 끝까지 열림
   (S.shut||[]).forEach(dr=>{if(!dr.maxOpen||!dr.objs||!dr.objs[0])return;const hp=dr.objs[0].getWorldPosition(new THREE.Vector3());if(!S.dolls.some(o=>o.g&&!o.found&&o.g.getWorldPosition(new THREE.Vector3()).distanceTo(hp)<1.4))delete dr.maxOpen;});dropBump(d);S.found++;sFound();
-  const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);d.anim={t:0,p:wp,s:ws.x};
-  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),900);}
+  const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);
+  const angel=S.mode==='family'&&famOf(i).angel;
+  if(angel){g.userData.bob=null;angelFarewell(d,g,wp,ws.x);}else d.anim={t:0,p:wp,s:ws.x};
+  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}
+// 미옥(천사)을 찾으면: 내 앞 바닥으로 내려오며 원래 크기로 → "사랑해 ❤️" → 천천히 사라짐
+function angelFarewell(d,g,wp,s0){d._said=0;const cam=camera.position,fw=new THREE.Vector3(-Math.sin(WALK.yaw),0,-Math.cos(WALK.yaw));let tgt=null;
+  for(const L of [1.5,1.25,1.0,0.8]){const q=new THREE.Vector3(cam.x+fw.x*L,0,cam.z+fw.z*L);const rc=new THREE.Raycaster(new THREE.Vector3(cam.x,1.0,cam.z),fw,0,L+0.3);
+    if(!rc.intersectObjects(BLOCK,false).length&&furnDepth(q.x,q.z)===0){tgt=q;break;}}
+  if(!tgt)tgt=new THREE.Vector3(cam.x+fw.x*0.8,0,cam.z+fw.z*0.8);
+  const ry=Math.atan2(cam.x-tgt.x,cam.z-tgt.z),r0=g.rotation.y;
+  g.traverse(o=>{if(o.isSprite)o.visible=true;if(o.material&&!Array.isArray(o.material)){o.material=o.material.clone();o.material.transparent=true;o.userData.op0=o.material.opacity;}});
+  // 말풍선
+  const c=document.createElement('canvas');c.width=512;c.height=200;const x=c.getContext('2d');x.fillStyle='rgba(255,255,255,0.95)';x.beginPath();x.roundRect?x.roundRect(10,10,492,140,60):x.rect(10,10,492,140);x.fill();
+  x.beginPath();x.moveTo(230,148);x.lineTo(256,190);x.lineTo(282,148);x.fill();x.fillStyle='#d9506b';x.font='bold 84px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('사랑해 ❤️',256,82);
+  const bub=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false,opacity:0}));bub.scale.set(0.9,0.35,1);bub.renderOrder=999;bub.userData.noPick=true;scene.add(bub);
+  const t0=performance.now(),H=famOf(S.dolls.indexOf(d)).H;
+  const step=now=>{const t=(now-t0)/1000;if(t<1.1){const k=THREE.MathUtils.smootherstep(t/1.1,0,1);g.position.lerpVectors(wp,tgt,k);g.scale.setScalar(s0+(1-s0)*k);g.rotation.y=r0+(ry-r0)*k;}
+    else{g.position.copy(tgt);g.scale.setScalar(1);g.rotation.y=ry;}
+    bub.position.set(g.position.x,g.position.y+H*g.scale.x+0.35,g.position.z);bub.material.opacity=THREE.MathUtils.clamp((t-1.0)*3,0,1)*(t>3.2?Math.max(0,1-(t-3.2)/0.8):1);
+    if(t>1.2&&!d._said){d._said=1;say('💕 사랑해',1800);}
+    if(t>2.8){const f=Math.max(0,1-(t-2.8)/1.2);g.traverse(o=>{if(o.material&&!Array.isArray(o.material))o.material.opacity=(o.userData.op0??1)*f;});g.position.y=tgt.y+(t-2.8)*0.25;}
+    if(t<4.1)requestAnimationFrame(step);else{g.visible=false;scene.remove(bub);}};
+  requestAnimationFrame(step);}
 function confetti(){conf.hidden=false;conf.innerHTML='';const C=['#f2b8c6','#f5d14a','#86c7ab','#9fc6e8','#e39a4f','#c9b6e4'];
   for(let i=0;i<90;i++){const e=document.createElement('i');e.style.left=Math.random()*100+'vw';e.style.background=C[i%C.length];e.style.animationDelay=Math.random()*0.8+'s';e.style.animationDuration=1.8+Math.random()*1.5+'s';conf.appendChild(e);}
   setTimeout(()=>conf.innerHTML='',4000);}
@@ -3996,9 +4017,9 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.017';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.018';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
-window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
+window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
 })();
 
