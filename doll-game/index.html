@@ -3812,7 +3812,9 @@ function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;
   if(angel){g.userData.bob=null;angelFarewell(d,g,wp,ws.x);}else d.anim={t:0,p:wp,s:ws.x};
   renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),angel?900:1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}   // 천사는 말풍선과 겹치지 않게 짧게
 // 미옥(천사)을 찾으면: 내 앞 바닥으로 내려오며 원래 크기로 → "사랑해 ❤️" → 천천히 사라짐
-function angelFarewell(d,g,wp,s0){d._said=0;const cam=camera.position,fw=new THREE.Vector3(-Math.sin(WALK.yaw),0,-Math.cos(WALK.yaw));let tgt=null;
+function angelFarewell(d,g,wp,s0){d._said=0;
+  {const i=S.dolls.indexOf(d),ng=makePerson(i,'stand'),e=new THREE.Euler().setFromQuaternion(g.getWorldQuaternion(new THREE.Quaternion()),'YXZ');   // 웅크림·누움 자세였어도 똑바로 선 모습으로 바꿔서 나를 보고 말함
+   ng.position.copy(wp);ng.rotation.set(0,e.y,0);ng.scale.setScalar(s0);scene.add(ng);g.parent&&g.parent.remove(g);d.g=ng;g=ng;}const cam=camera.position,fw=new THREE.Vector3(-Math.sin(WALK.yaw),0,-Math.cos(WALK.yaw));let tgt=null;
   for(const L of [1.5,1.25,1.0,0.8]){const q=new THREE.Vector3(cam.x+fw.x*L,0,cam.z+fw.z*L);const rc=new THREE.Raycaster(new THREE.Vector3(cam.x,1.0,cam.z),fw,0,L+0.3);
     if(!rc.intersectObjects(BLOCK,false).length&&furnDepth(q.x,q.z)===0){tgt=q;break;}}
   if(!tgt)tgt=new THREE.Vector3(cam.x+fw.x*0.8,0,cam.z+fw.z*0.8);
@@ -4031,7 +4033,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.020';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.021';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
