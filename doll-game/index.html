@@ -393,7 +393,7 @@ const OPENERS=[];
 function regDoor(d){d.objs.forEach(o=>o.traverse(m=>{if(m.isMesh)m.userData.door=d;}));OPENERS.push(d);return d;}
 // 각도로 움직이는 문: apply(t)에 0(닫힘)~1(열림) 값을 넘김
 function swingDoor(objs,apply,open){const d={objs,t:open?1:0,target:open?1:0,apply,
-  toggle(){d.target=d.target>0.5?0:1;},closed(){return d.t<0.6;},
+  toggle(){d.target=d.target>0.5?0:(d.maxOpen||1);},closed(){return d.t<0.6;},   // maxOpen: 문 뒤에 사람이 숨어 있으면 그만큼만 열림
   update(dt){if(Math.abs(d.t-d.target)>0.001){d.t+=Math.sign(d.target-d.t)*Math.min(Math.abs(d.target-d.t),dt*1.6);d.apply(d.t);}}};
   apply(d.t);return regDoor(d);}
 // 검은 프레임 유리문 한 짝 (로컬 x 0~w, 바닥 b부터 높이 h) — lower: 아래 막힌 판 높이(0이면 전체 유리)
@@ -3077,19 +3077,21 @@ function buildConts(){
    const fr=gm(0xb9bdc0,{metalness:0.7,roughness:0.3});[[0,0.02],[1.97,0.02]].forEach(([y,h])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,0.02),fr);b.position.set(L/2,y+h/2,0);g.add(b);});
    {const hd=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.3,10),fr);hd.position.set(L-0.06,1.05,0.03);g.add(hd);}
    swingDoor([g],t=>{g.rotation.y=Math.PI/2+t*1.3;},false);}}
- // 게스트룸 ↔ 창고 발코니(테라스): 유리벽 오른쪽에 테라스 쪽으로 열리는 유리문(왼쪽 뒤엔 고릴라랙) + 왼쪽 고정 유리, 5cm 문턱은 넘어감
+ // 게스트룸 ↔ 창고 발코니(테라스): 2짝 미닫이 유리문, 5cm 문턱은 넘어감
  {const a0=13.88,b0=15.05,mx=(W(a0)+W(b0))/2,zc=Z(12.4);
   const find=mat=>wallMeshes.findIndex(m=>m.material===mat&&Math.abs(m.position.x-mx)<0.03&&Math.abs(m.position.z-zc)<0.03);
   const kg=find(M.glass);if(kg>=0){const old=wallMeshes[kg];wallMeshes.splice(kg,1);old.parent&&old.parent.remove(old);
    const ks=find(M.frame);if(ks>=0)wallMeshes.splice(ks,1);   // 문턱(보이기는 그대로)
-   const xa=W(a0)+0.02,xd=W(14.3),xb=W(b0)-0.02,L=xb-xd-0.01;
-   {const fx=new THREE.Mesh(new THREE.BoxGeometry(xd-xa,2.07,0.03),M.glass);fx.position.set((xa+xd)/2,0.05+2.07/2,zc);scene.add(fx);wallMeshes.push(fx);}   // 고정 유리 (왼쪽)
-   const g=new THREE.Group();g.position.set(xb,0,zc);g.rotation.y=Math.PI;scene.add(g);   // 경첩: 오른쪽 끝
-   const lf=new THREE.Mesh(new THREE.BoxGeometry(L,2.05,0.014),M.glass);lf.position.set(L/2,0.06+1.025,0);g.add(lf);
-   const fr=gm(0x2a2b2d,{metalness:0.5,roughness:0.4});[[0.06,0.03],[2.08,0.03]].forEach(([y,h])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,0.025),fr);b.position.set(L/2,y+h/2,0);g.add(b);});
-   [0.012,L-0.012].forEach(x=>{const b=new THREE.Mesh(new THREE.BoxGeometry(0.024,2.05,0.025),fr);b.position.set(x,1.085,0);g.add(b);});
-   [-1,1].forEach(z=>{const hd=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.35,0.02),fr);hd.position.set(L-0.07,1.0,z*0.03);g.add(hd);});
-   swingDoor([g],t=>{g.rotation.y=Math.PI+t*1.45;},false);}}
+   // 2짝 미닫이 유리문: 왼쪽 짝은 바깥(테라스) 레일에 고정, 오른쪽 짝이 방 쪽 레일을 따라 왼쪽 짝 위로 겹치며 열림
+   const xa=W(a0)+0.02,xb=W(b0)-0.02,half=(xb-xa)/2,PW=half+0.03,fr=gm(0x2a2b2d,{metalness:0.5,roughness:0.4});
+   const panel=(x0,z)=>{const g=new THREE.Group();g.position.set(x0,0,z);scene.add(g);
+     const gl=new THREE.Mesh(new THREE.BoxGeometry(PW-0.05,2.0,0.012),M.glass);gl.position.set(PW/2,0.06+1.025,0);g.add(gl);
+     [[0.06,0.035],[2.075,0.035]].forEach(([y,h])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(PW,h,0.03),fr);b.position.set(PW/2,y+h/2,0);g.add(b);});
+     [0.0175,PW-0.0175].forEach(x=>{const b=new THREE.Mesh(new THREE.BoxGeometry(0.035,2.05,0.03),fr);b.position.set(x,1.085,0);g.add(b);});return g;};
+   const gF=panel(xa,zc+0.022),gM=panel(xb-PW,zc-0.022);
+   {const hd=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.32,0.03),fr);hd.position.set(0.07,1.0,-0.03);gM.add(hd);}   // 손잡이 (방 쪽)
+   const xM0=xb-PW,shift=half-0.02;
+   const dd=swingDoor([gM,gF],t=>{gM.position.x=xM0-t*shift;},false);dd.blockers=()=>dd.t<0.6?[gM,gF]:[gF];}}
  // 거실 큰 소파 옆: 흰색 정사각형 2단 회전 책장 (네 면을 돌려 가며 씀)
  // 1단: 가운데 칸막이가 좌우로 → 앞·뒤에서 책을 꽂음 / 2단: 엇갈려 칸막이가 앞뒤로 → 좌·우에서 꽂음
  // 책을 꽂지 않는 면은 막혀 있고, 바깥에 대각선 봉이 있어 책 한 권을 기대 꽂음
@@ -3337,7 +3339,7 @@ function showMenu(){S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[
     else if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}
     startHide();};}
 
-function clearDolls(){(S.shut||[]).forEach(d=>d.target=1);S.shut=[];beacons.forEach(b=>scene.remove(b));beacons=[];   // 지난 판 노란 빛기둥도 지움
+function clearDolls(){(S.shut||[]).forEach(d=>{d.target=1;delete d.maxOpen;});S.shut=[];beacons.forEach(b=>scene.remove(b));beacons=[];   // 지난 판 노란 빛기둥도 지움
   S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
 function closeAll(inst){CONTS.forEach(c=>{if(c.fixed)return;c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
 function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}">${iconOf(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
@@ -3351,7 +3353,7 @@ function closeOpen(){CONTS.forEach(c=>{if(!c.fixed)c.tgt=0;});sOpen();refreshBtn
 const closeBtn=()=>anyOpen()?[['🚪 열린 것 닫기',closeOpen,true]]:[];
 // 그만하기 전에 한 번 더 묻기 (묻는 동안 시간은 멈춤)
 function askQuit(){if(S.phase!=='seek'||S.paused)return;S.paused=performance.now();aim.hidden=true;msg.hidden=false;
-  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🏳️ 정말 그만할까요?</h1><p class="s">지금까지 ${S.mode==='family'?'찾은 사람':'찾은 인형'} <b>${S.found} / ${S.n}</b><br>그만하면 못 찾은 인형이 어디 있었는지 알려 줘요.</p>
+  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🏳️ 정말 그만할까요?</h1><p class="s">지금까지 ${S.mode==='family'?'찾은 사람':'찾은 인형'} <b>${S.found} / ${S.n}</b><br>그만하면 못 찾은 ${S.mode==='family'?'사람이':'인형이'} 어디 있었는지 알려 줘요.</p>
    <button class="gbig" id="gKeep">계속 찾기</button><button class="gbig sec" id="gQuit">그만하기</button></div>`;
   $('#gKeep').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;msg.hidden=true;aim.hidden=false;};
   $('#gQuit').onclick=()=>{S.t0+=performance.now()-S.paused;S.paused=0;endGame(false,true);};}
@@ -3377,8 +3379,8 @@ function askLeave(){const t=S.phase==='seek'&&!S.paused?performance.now():0;if(t
   $('#gStay').onclick=()=>{if(t){S.t0+=performance.now()-S.paused;S.paused=0;}leaveBox.hidden=true;armBack();};
   $('#gOut').onclick=()=>{leaveBox.hidden=true;goHome();};}
 function goHome(){S.paused=0;clearDolls();closeAll(true);beacons.forEach(b=>scene.remove(b));beacons=[];msg.hidden=true;showMenu();}
-function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),['🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()],['🏠 처음으로',goHome]]);
-  else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),...(noHint()?[]:[['🔥 힌트',hint]]),['🏳️ 그만하기',askQuit]]);
+function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),[S.mode==='family'?'🎲 남은 사람 자동으로':'🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()],['🏠 처음으로',goHome]]);
+  else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),...(noHint()?[]:[['🔥 힌트',hint],['📍 장소 힌트',placeHint]]),['🏳️ 그만하기',askQuit]]);
   else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
 
 function startHide(){armBack();clearDolls();roomDoors().forEach(d=>{d.target=1;});closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
@@ -3388,7 +3390,7 @@ function startHide(){armBack();clearDolls();roomDoors().forEach(d=>{d.target=1;}
   if(S.auto){autoRest(true);return;}
   $('#gTime').textContent='숨기는 중';$('#gTime').classList.remove('warn');
   updHideGuide();renderIcons();refreshBtns();aim.hidden=false;}
-function updHideGuide(){$('#gGuide').innerHTML=`<b>숨긴 인형 ${S.dolls.filter(d=>d.g).length} / ${S.n}</b><br>가구를 누르면 열리고 닫혀요 · 숨길 자리를 누르면 인형을 놓아요<br>바닥에 놓으려면 길게 누르기 · 놓은 인형을 누르면 다시 가져와요 · 소파 밑은 🐛 엎드려서`;}
+function updHideGuide(){$('#gGuide').innerHTML=`<b>${S.mode==='family'?'숨은 사람':'숨긴 인형'} ${S.dolls.filter(d=>d.g).length} / ${S.n}</b><br>가구를 누르면 열리고 닫혀요 · 숨길 자리를 누르면 인형을 놓아요<br>바닥에 놓으려면 길게 누르기 · 놓은 인형을 누르면 다시 가져와요 · 소파 밑은 🐛 엎드려서`;}
 function nextFree(){return S.dolls.findIndex(d=>!d.g);}
 function putDoll(i,res,where){const g=S.mode==='family'?makePerson(i,res.pose):makeDoll(i);if(res.extra){g.updateMatrixWorld(true);res.extra(g);}g.scale.setScalar(res.s||1);if(res.sy)g.scale.y*=res.sy;g.position.copy(res.pos);
   if(res.ry!=null)g.rotation.y=res.ry;else{const wp=res.parent.localToWorld(res.pos.clone());const a=Math.atan2(camera.position.x-wp.x,camera.position.z-wp.z);
@@ -3406,7 +3408,7 @@ function clearItems(c,g,d){d.hid=[];if(!c||!c.items||!c.items.length)return;g.up
 function removeDoll(i){const d=S.dolls[i];dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.hid=[];if(d.g){d.g.parent.remove(d.g);}d.g=null;d.cont=null;}
 function doneHide(){const n=S.dolls.filter(d=>d.g).length;if(n<S.n){say(`아직 ${S.n-n}개 남았어요<br><small>남은 건 🎲 자동으로 숨길 수도 있어요</small>`,1800);return;}
   aim.hidden=true;msg.hidden=false;S.phase='handover';
-  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🙈 숨기기 끝!</h1><p class="s">이제 찾는 사람에게 넘겨주세요.<br>${S.limit?fmt(S.limit)+' 안에':'시간 제한 없이'} 인형 ${S.n}개를 찾아야 해요.</p><button class="gbig" id="gSeek">찾기 시작</button></div>`;
+  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🙈 숨기기 끝!</h1><p class="s">이제 찾는 사람에게 넘겨주세요.<br>${S.limit?fmt(S.limit)+' 안에':'시간 제한 없이'} ${S.mode==='family'?`숨은 사람 ${S.n}명을`:`인형 ${S.n}개를`} 찾아야 해요.</p><button class="gbig" id="gSeek">찾기 시작</button></div>`;
   $('#gSeek').onclick=startSeek;}
 function autoRest(fromStart){OBST=null;const used=[];S.dolls.forEach(d=>{if(d.g)used.push(d.g.getWorldPosition(new THREE.Vector3()));});
   // 고른 난이도로 먼저 채우고, 자리가 모자라면 한 단계씩 보통 쪽으로 넓혀서 채움
@@ -3489,7 +3491,7 @@ const FAM=[
  {name:'이지우',short:'지우',tag:'아기',H:0.55,baby:1,wrap:0xfbe3ec,ico:0xfbe3ec},
  {name:'숙자',short:'숙자',tag:'할머니',H:1.54,build:0.9,hair:'perm',hairC:0x8e8b88,top:0xb7ada0,bot:0x5b5852,shoe:0x5a4a42,ico:0xb7ada0},   // 아담한 체구, 수수한 옷
  {name:'영식',short:'영식',tag:'할아버지',H:1.74,build:0.86,hair:'thin',hairC:0xa9a6a1,top:0x2f5d8a,collar:1,bot:0x6b6458,shoe:0x3a3330,ico:0x2f5d8a},   // 호리호리, 단색 골프 티·단색 바지, 이마가 넓음
- {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'perm',hairC:0x6e5e56,dress:0xf3eefc,glow:1,wings:1,angel:1,shoe:0xf3eefc,ico:0xe9e2fb},   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
+ {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'perm',hairC:0x6e5e56,dress:0xd9c6f5,glow:1,wings:1,angel:1,shoe:0xf3eefc,ico:0xe9e2fb},   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
  {name:'영민',short:'영민',tag:'외할아버지',H:1.68,belly:1,hair:'thick',hairC:0xd8d6d2,glasses:0x3a3a3a,top:'hike',bot:0x3a3a3e,shoe:0x2a2a2c,ico:0xe2583b},   // 배가 조금 나옴, 안경, 숱 많은 흰머리, 화사한 여러 색 등산 티
  {name:'공병민',short:'병민',tag:'작은아빠',H:1.76,build:0.88,hair:'short',top:0x5a6e8c,bot:0x2b2f38,shoe:0xf2f2f0,ico:0x5a6e8c},
  {name:'여진',short:'여진',tag:'작은엄마',H:1.635,hair:'pony',top:0xe9c7b5,bot:0x3d4250,shoe:0xe8e2d8,ico:0xe9c7b5},
@@ -3540,7 +3542,7 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
     g.updateMatrixWorld(true);const bb0=new THREE.Box3().setFromObject(body);body.position.y-=bb0.min.y;return g;}
   const BD=p.build||1,H=p.H,kid=!!p.kid,r=H*(kid?0.092:0.07),legL=H*(kid?0.43:0.47),torsoH=H-legL-2*r-0.03,sw=H*(kid?0.215:0.235)*BD,td=sw*0.55*(p.belly?1.1:1),
     hipW=sw*0.25,legR=sw*0.15,armL=H*(kid?0.34:0.36),armR=sw*0.1,th=(legL-0.05)/2;
-  const DRS=p.dress?new THREE.MeshStandardMaterial({color:p.dress,roughness:0.45,metalness:0.05,emissive:p.glow?0xfff1d2:0x000000,emissiveIntensity:p.glow?0.75:0,side:THREE.DoubleSide}):null;
+  const DRS=p.dress?new THREE.MeshStandardMaterial({color:p.dress,roughness:0.45,metalness:0.05,emissive:p.glow?0xf3e6ff:0x000000,emissiveIntensity:p.glow?0.3:0,side:THREE.DoubleSide}):null;
   const TOP=p.dress?DRS:fmt_(p.top),BOT=p.dress?DRS:gm(p.bot,{roughness:0.85}),SH=gm(p.shoe,{roughness:0.6});
   const R={};
   const pelvis=new THREE.Group();pelvis.position.y=legL;body.add(pelvis);R.pelvis=pelvis;
@@ -3558,7 +3560,7 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
   if(p.dress){const L2=legL*0.97,sk=add(new THREE.CylinderGeometry(sw*0.42,sw*0.82,L2,32,6,true),DRS,0,0.06-L2/2,0,pelvis);   // 발목까지 오는 드레스 치마
     const P=sk.geometry.attributes.position;for(let k=0;k<P.count;k++){const yy=P.getY(k),a=Math.atan2(P.getZ(k),P.getX(k)),f=(0.5-yy/L2)*0.06;P.setX(k,P.getX(k)+Math.cos(a)*Math.sin(a*9)*f);P.setZ(k,P.getZ(k)+Math.sin(a)*Math.sin(a*9)*f);}sk.geometry.computeVertexNormals();   // 주름
     const bw=add(new THREE.TorusGeometry(sw*0.47,0.018,8,28),new THREE.MeshStandardMaterial({color:0xf2d7a8,metalness:0.6,roughness:0.3,emissive:0xf2d7a8,emissiveIntensity:p.glow?0.4:0}),0,0.06,0,pelvis);bw.rotation.x=Math.PI/2;bw.scale.set(1,0.6,1);}   // 금빛 허리띠
-  if(p.wings){const WM=new THREE.MeshStandardMaterial({color:0xf4f1ea,roughness:0.75,emissive:0xfff3dc,emissiveIntensity:p.glow?0.22:0.1,side:THREE.DoubleSide});   // 깃털 모양이 보이게 빛은 약하게
+  if(p.wings){const WM=new THREE.MeshStandardMaterial({color:0xfbe9c4,roughness:0.75,emissive:0xfff3dc,emissiveIntensity:p.glow?0.22:0.1,side:THREE.DoubleSide});   // 깃털 모양이 보이게 빛은 약하게
     [-1,1].forEach(k=>{const wg=new THREE.Group();wg.position.set(k*sw*0.18,torsoH*0.78,-td/2-0.01);wg.rotation.set(-0.25,k*0.5,k*0.18);torso.add(wg);
       for(let f=0;f<7;f++){const t=f/6,len=0.16+0.3*(1-Math.abs(t-0.35)*1.2),ang=-0.25+t*1.75;   // 위쪽은 길고 아래로 갈수록 짧은 깃털을 부채꼴로
         const fe=add(new THREE.SphereGeometry(1,14,8),WM,0,0,0,wg);fe.scale.set(len/2,0.035+0.02*(1-t),0.012);fe.position.set(k*Math.cos(ang)*len*0.5,Math.sin(ang)*len*0.5+0.05,-0.005*f);fe.rotation.z=k>0?ang:-ang;}
@@ -3613,7 +3615,7 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
   g.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(body);body.position.y-=pose==='hang'?bb.max.y:bb.min.y;
   if(p.glow){   // 은은한 빛무리 + 반짝이 (벽·가구에는 가려짐)
     g.updateMatrixWorld(true);const b2=new THREE.Box3().setFromObject(body),ctr=g.worldToLocal(b2.getCenter(new THREE.Vector3())),sz=b2.getSize(new THREE.Vector3());
-    const hs=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color:0xffe9c2,transparent:true,opacity:0.6,depthWrite:false,blending:THREE.AdditiveBlending}));hs.position.copy(ctr);hs.scale.set(Math.max(sz.x,sz.z,sz.y*0.55)*1.45,sz.y*1.2,1);hs.userData.noPick=true;g.add(hs);
+    const hs=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color:0xffe9c2,transparent:true,opacity:0.3,depthWrite:false,blending:THREE.AdditiveBlending}));hs.position.copy(ctr);hs.scale.set(Math.max(sz.x,sz.z,sz.y*0.55)*1.45,sz.y*1.2,1);hs.userData.noPick=true;g.add(hs);
     const n=36,pos=new Float32Array(n*3);for(let k=0;k<n;k++){pos[3*k]=ctr.x+(Math.random()-0.5)*sz.x*1.3;pos[3*k+1]=ctr.y+(Math.random()-0.5)*sz.y*1.05;pos[3*k+2]=ctr.z+(Math.random()-0.5)*Math.max(0.3,sz.z*1.3);}
     const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));const pts=new THREE.Points(pg,new THREE.PointsMaterial({map:glowTex(),color:0xfff8e8,size:0.065,transparent:true,opacity:0.9,depthWrite:false,blending:THREE.AdditiveBlending}));pts.userData.noPick=true;g.add(pts);}
   g.userData.root=true;g.userData.dollIdx=i;tag(g,{dollIdx:i});g.userData.person=1;return g;}
@@ -3661,7 +3663,7 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
     const nb=u1.clone().sub(u0).normalize(),pos=hn.clone().addScaledVector(u0,0.55).addScaledVector(nb,0.17);pos.y=0;
     {const o=V(hn.x,1,hn.z),dr=V(pos.x-hn.x,0,pos.z-hn.z),L2=dr.length();dr.normalize();if(castAll(o,dr,L2+0.15).some(h=>!h.object.userData.door&&!invisM(h.object)))return;}
     if(roomName(pos)==='안방')return;   // 안방 문 뒤는 옷 행거가 차지함
-    L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;d.t=0.55;d.apply(0.55);if(d.objs&&d.objs[0])d.objs[0].updateMatrixWorld(true);if(!(S.shut||[]).includes(d))(S.shut=S.shut||[]).push(d);},
+    L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;d.t=0.55;d.maxOpen=0.55;d.apply(0.55);if(d.objs&&d.objs[0])d.objs[0].updateMatrixWorld(true);if(!(S.shut||[]).includes(d))(S.shut=S.shut||[]).push(d);},
       res:p=>({parent:scene,pos:pos.clone(),ry:Math.atan2(-nb.x,-nb.z),pose:'stand'})});});
   // 안방 통창 암막 커튼 뒤 (양쪽 짝 하나씩)
   [-5.98,-4.5].forEach(x=>L.push({name:'안방 암막 커튼 뒤',group:'안방 암막 커튼 뒤',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(x,0,(window.CURTAIN_Z||-6.33)-0.125),ry:0,pose:'stand'})}));
@@ -3730,12 +3732,12 @@ function angelPlace(i,p){const tryCeil=()=>{const RM=ROOMS.filter(r=>!r.minor&&[
     for(let t=0;t<25;t++){const rm=RM[Math.floor(Math.random()*RM.length)],[a,b,c,d]=rm.r;if(c-a<1.6||d-b<1.6)continue;
       const x=W(a+0.7+Math.random()*(c-a-1.4)),z=Z(b+0.7+Math.random()*(d-b-1.4));if(furnDepth(x,z)>0&&Math.random()<0.5)continue;
       const rc=new THREE.Raycaster(new THREE.Vector3(x,1.5,z),new THREE.Vector3(0,1,0),0,2);const h=rc.intersectObject(scene,true).find(h=>h.object.visible&&dollOf(h.object)==null);if(!h||h.point.y<2.0)continue;
-      putDoll(i,{parent:scene,pos:new THREE.Vector3(x,0,z),ry:Math.random()*6.28,pose:'lie'},roomName(new THREE.Vector3(x,1,z))+' 천장');const g=S.dolls[i].g;
-      g.rotation.z=Math.PI;g.updateMatrixWorld(true);{const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3());g.scale.multiplyScalar(0.28/Math.max(sz.x,sz.y,sz.z));}   // 천장에서도 인형만 하게
-      g.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(g);g.position.y+=h.point.y-0.012-bb.max.y;   // 등을 천장에 붙이고 아래를 봄
+      putDoll(i,{parent:scene,pos:new THREE.Vector3(x,0,z),ry:Math.random()*6.28,pose:'stand'},roomName(new THREE.Vector3(x,1,z))+' 천장 아래');const g=S.dolls[i].g;
+      g.updateMatrixWorld(true);{const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3());g.scale.multiplyScalar(0.5/sz.y);}   // 작게(50cm), 선 채로 — 사람 모양이 보이게
+      g.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(g);g.position.y+=h.point.y-0.12-bb.max.y;g.userData.bob=g.position.y;g.traverse(o=>{if(o.isSprite)o.visible=false;if(o.isPoints)o.material.size*=g.scale.x*1.5;});   // 천장 바로 아래 공중에 둥실 · 밝은 천장 앞이라 빛무리는 끄고 모양이 보이게
       if(unwall(g))return true;g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;}return false;};
   const tryTiny=()=>{for(let t=0;t<30;t++){const c=autoPick([],4);if(!c)continue;const r=Object.assign({},c.res,{pose:'curl'});const ds=r.s||1;r.s=1;putDoll(i,r,c.where);const g=S.dolls[i].g;
-      g.updateMatrixWorld(true);const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()),f=Math.min(1,0.24*ds/Math.max(sz.y,sz.x*0.7,sz.z*0.7));g.scale.multiplyScalar(f);   // 인형만 하게
+      g.updateMatrixWorld(true);const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()),f=Math.min(1,0.24*ds/Math.max(sz.y,sz.x*0.7,sz.z*0.7));g.scale.multiplyScalar(f);g.traverse(o=>{if(o.isSprite)o.visible=false;if(o.isPoints)o.material.size*=g.scale.x*1.5;});   // 인형만 하게 (빛무리는 끄고 반짝이는 몸에 맞게)
       if(unwall(g))return true;g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;}return false;};
   return Math.random()<0.5?(tryCeil()||tryTiny()):(tryTiny()||tryCeil());}
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
@@ -3748,7 +3750,7 @@ function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Ve
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
   if(best&&best.target>0.5){best.target=0;(S.shut=S.shut||[]).push(best);}}
 
-function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.ended=false;S.dolls.forEach(d=>d.found=false);
+function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.phints=0;S.ended=false;S.dolls.forEach(d=>{d.found=false;d.ph=false;});
   walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
   $('#gGuide').innerHTML=(S.mode==='family'?'붙박이장·냉장고·세탁기도 열어 보고, 침대 밑은 🐛 엎드려서 · 베란다 밖도 살펴보세요 · 사람을 찾으면 눌러요!':'서랍·옷장은 눌러서 열고, 책은 눌러서 꺼내 보세요 · 소파·침대 밑은 🐛 엎드려서 · 인형을 찾으면 눌러요!');renderIcons();refreshBtns();aim.hidden=false;
   say('찾기 시작!',1000);}
@@ -3774,11 +3776,24 @@ function hint(){if(noHint())return;const cam=camera.position,PD=pathDist(cam);le
     if(dist<bd){bd=dist;best=d;}});
   if(!best)return;S.hints++;
   const far=bd<0.9?'바로 코앞에 있어요!':bd<1.8?'아주 가까이 있어요':bd<3.5?'가까이 있어요':bd<6?'조금 떨어져 있어요':bd<9?'멀리 있어요':'아주 멀리 있어요';
-  const who=S.mode==='family'?famOf(S.dolls.indexOf(best)).name:'인형';
+  const who=S.mode==='family'?famOf(S.dolls.indexOf(best)).short:'인형';
   say(`${S.mode==='family'?'🙈':'🧸'} ${who}${josaIGa(who)} ${far}`,2200);}
-function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;dropBump(d);S.found++;sFound();
+// 장소 힌트: 못 찾은 사람(인형) 중 하나를 골라 그가 있는 공간 이름을 알려 줌 — 그렇게 찾은 사람은 점수를 조금만
+const eunNeun=w=>{const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<11172&&c%28?'은':'는';};
+function placeHint(){if(S.phase!=='seek'||S.paused||noHint())return;const left=S.dolls.map((d,i)=>({d,i})).filter(o=>!o.d.found&&o.d.g);if(!left.length)return;
+  S.paused=performance.now();aim.hidden=true;msg.hidden=false;const fam=S.mode==='family';
+  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>📍 장소 힌트</h1><p class="s">누가 어디 있는지 알려 줄까요?<br>이 힌트로 찾으면 점수를 조금만 받아요.</p>
+   <div class="gchips" id="gPH" style="justify-content:center;margin-bottom:12px">${left.map(o=>`<button data-i="${o.i}" style="display:inline-flex;align-items:center;gap:6px">${iconOf(o.i,true)}</button>`).join('')}</div>
+   <button class="gbig sec" id="gPHx">취소</button></div>`;
+  const resume=()=>{S.t0+=performance.now()-S.paused;S.paused=0;msg.hidden=true;aim.hidden=false;};
+  $('#gPHx').onclick=resume;
+  msg.querySelectorAll('#gPH button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,d=S.dolls[i];d.ph=true;S.phints=(S.phints||0)+1;resume();
+    const who=fam?famOf(i).short:'이 인형',room=roomName(d.g.getWorldPosition(new THREE.Vector3()));say(`📍 ${who}${eunNeun(who)} <b>${room}</b>에 있어요`,2600);});}
+function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;
+  // 문 뒤에 숨은 사람을 다 찾으면 그 문은 다시 끝까지 열림
+  (S.shut||[]).forEach(dr=>{if(!dr.maxOpen||!dr.objs||!dr.objs[0])return;const hp=dr.objs[0].getWorldPosition(new THREE.Vector3());if(!S.dolls.some(o=>o.g&&!o.found&&o.g.getWorldPosition(new THREE.Vector3()).distanceTo(hp)<1.4))delete dr.maxOpen;});dropBump(d);S.found++;sFound();
   const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);d.anim={t:0,p:wp,s:ws.x};
-  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).name} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),900);}
+  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),1400);if(!left)setTimeout(()=>endGame(true),900);}
 function confetti(){conf.hidden=false;conf.innerHTML='';const C=['#f2b8c6','#f5d14a','#86c7ab','#9fc6e8','#e39a4f','#c9b6e4'];
   for(let i=0;i<90;i++){const e=document.createElement('i');e.style.left=Math.random()*100+'vw';e.style.background=C[i%C.length];e.style.animationDelay=Math.random()*0.8+'s';e.style.animationDuration=1.8+Math.random()*1.5+'s';conf.appendChild(e);}
   setTimeout(()=>conf.innerHTML='',4000);}
@@ -3809,7 +3824,8 @@ const rankLoad=()=>{try{return JSON.parse(localStorage.getItem(RANK_KEY)||'[]')|
 const rankSave=L=>{try{localStorage.setItem(RANK_KEY,JSON.stringify(L.slice(0,200)));return true;}catch(e){return false;}};
 const DMUL=[0.6,0.8,1,1.3,1.6];
 function scoreOf(win){const fam=S.mode==='family',mul=fam?1.2:(S.auto?DMUL[S.diff]:1.0);
-  const base=S.found*100*mul,speed=Math.max(0,S.found*45-S.elapsed)*1.5,all=win?150:0,hint=S.hints*40;
+  const wOf=(d,i)=>(d.ph?0.3:1)*(fam&&['지우','미옥'].includes(famOf(i).short)?2:1);
+  const base=S.dolls.reduce((a,d,i)=>a+(d.found?wOf(d,i):0),0)*100*mul,speed=Math.max(0,S.found*45-S.elapsed)*1.5,all=win?150:0,hint=S.hints*2;   // 가깝다/멀다 힌트는 마음껏 써도 되게 1번에 2점만
   return Math.max(0,Math.round((base+speed+all-hint)*(S.hintOn?1:1.1)));}
 function levelOf(){return S.mode==='family'?'가족':(S.auto?DIFF[S.diff]:'사람이 숨김');}
 const escH=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -3821,8 +3837,8 @@ async function showRank(back,hl,tab,data){tab=tab||'all';menu.hidden=true;msg.hi
   msg.innerHTML=`<div class="gcard"><h1>🏆 랭킹</h1><p class="s" style="margin-top:-4px">${data.shared?'모두 함께 보는 랭킹이에요.':data.away?`여기서는 이 기기 기록만 보여요. 함께 보는 랭킹은 <a href="${RANK_URL}" target="_blank" rel="noopener">kong-gallery.com/doll-game</a> 에서 해야 올라가요.`:'지금은 함께 보는 랭킹에 연결이 안 돼서 이 기기 기록만 보여요. 연결되면 이 기기 기록도 자동으로 올라가요.'}</p>
    <div class="gchips" id="gRTab" style="margin:6px 0 10px">${[...(S._cond?[['same',`같은 조건 (${S._cond.mode==='family'?'가족':'인형'} ${S._cond.n}${S._cond.mode==='family'?'명':'개'}·${escH(S._cond.level)})`]]:[]),['all','전체 점수'],['doll','🧸 인형'],['family','👨‍👩‍👧 가족']].map(([v,t])=>`<button data-v="${v}" aria-pressed="${v===tab}">${t}</button>`).join('')}</div>
    ${rankRows(L,hl)}<details class="ghow"><summary>점수는 이렇게 매겨요</summary><ul>
-     <li>찾은 개수 × 100점 × 난이도 배수<br><small>매우 쉬움 0.6 · 쉬움 0.8 · 보통 1 · 어려움 1.3 · 최상 1.6 · 사람이 숨김 1.0 · 가족 모드 1.2</small></li>
-     <li>빨리 찾은 보너스: (찾은 개수 × 45초 − 걸린 시간) × 1.5점</li><li>모두 찾으면 +150점</li><li>힌트 1번에 −40점</li><li>힌트 없이 하면 마지막에 ×1.1</li>
+     <li>찾은 개수 × 100점 × 난이도 배수 (장소 힌트로 찾은 사람은 30%만 · 지우·미옥은 2배)<br><small>매우 쉬움 0.6 · 쉬움 0.8 · 보통 1 · 어려움 1.3 · 최상 1.6 · 사람이 숨김 1.0 · 가족 모드 1.2</small></li>
+     <li>빨리 찾은 보너스: (찾은 개수 × 45초 − 걸린 시간) × 1.5점</li><li>모두 찾으면 +150점</li><li>🔥 가깝다·멀다 힌트 1번에 −2점 (마음껏 써도 돼요)</li><li>힌트 없이 하면 마지막에 ×1.1</li>
      <li><b>같은 조건</b> 탭은 모드·개수·난이도가 같은 판끼리만 비교해요</li></ul></details>
    <button class="gbig" id="gRBack">${back==='end'?'닫기':'메뉴로'}</button>${!data.shared&&all.length?'<button class="gbig sec" id="gRClr" style="margin-top:6px">이 기기 기록 모두 지우기</button>':''}</div>`;
   msg.querySelectorAll('#gRTab button').forEach(b=>b.onclick=()=>showRank(back,hl,b.dataset.v,data));
@@ -3833,7 +3849,7 @@ function endGame(win,gaveUp){if(S.ended)return;S.ended=true;S.phase='end';aim.hi
   const miss=S.dolls.map((d,i)=>({d,i})).filter(o=>!o.d.found);
   msg.hidden=false;msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>${win?'🎉 모두 찾았어요!':gaveUp?'🏳️ 여기까지!':'⏰ 시간 끝!'}</h1>
    <p class="s">${S.mode==='family'?'찾은 사람':'찾은 인형'} <b>${S.found} / ${S.n}</b> · 걸린 시간 <b>${fmt(t)}</b>${S.hints?` · 힌트 ${S.hints}번`:''}</p>
-   ${miss.length?`<ul class="glist" style="text-align:left">${miss.map(o=>`<li><i>${iconOf(o.i,true)}</i>${o.d.where||roomName(o.d.g.getWorldPosition(new THREE.Vector3()))}</li>`).join('')}</ul><button class="gbig" id="gRev">못 찾은 인형 보러 가기</button>`:''}
+   ${miss.length?`<ul class="glist" style="text-align:left">${miss.map(o=>`<li><i>${iconOf(o.i,true)}</i>${o.d.where||roomName(o.d.g.getWorldPosition(new THREE.Vector3()))}</li>`).join('')}</ul><button class="gbig" id="gRev">못 찾은 ${S.mode==='family'?'사람':'인형'} 보러 가기</button>`:''}
    <div class="gscore"><div class="pt">${sc.toLocaleString()}<small>점</small></div>
     <div id="gSaveRow" class="gsave">${S.found?`<input id="gName" maxlength="10" placeholder="이름" value="${escH(nm0)}" autocomplete="off"><button id="gSave">기록 저장</button>`:'<span class="s">하나도 못 찾아서 기록은 남기지 않아요</span>'}</div>
     <button class="glink" id="gRank">🏆 랭킹 보기</button></div>
@@ -3869,7 +3885,7 @@ function pickAt(x,y){const r=renderer.domElement.getBoundingClientRect();ndc.set
   // 창문 유리(키 큰 투명 벽) 너머는 누를 수 없음 — 창밖 테라스 창고 문 등
   if(!WINGLASS){WINGLASS=new Set(wallMeshes.filter(m=>{const t=m.material;if(!t||Array.isArray(t)||!t.transparent)return false;const b=new THREE.Box3().setFromObject(m);return b.max.y>1.6&&b.max.y-b.min.y>1.2;}));}
   const gl=all.find(h=>WINGLASS.has(h.object)),lim=gl?gl.distance:1e9;
-  {const ok=hs.filter(h=>h.distance<lim+0.01);if(!ok.length)return null;if(ok.length<hs.length){hs.length=0;hs.push(...ok);}}
+  {const ok=hs.filter(h=>h.distance<lim+0.01||dollOf(h.object)!=null);if(!ok.length)return null;if(ok.length<hs.length){hs.length=0;hs.push(...ok);}}   // 숨은 사람·인형은 유리 너머에서도 누를 수 있음 (난간 밖에 매달린 사람 등)
   const dh=hs.find(h=>dollOf(h.object)!=null),f0=hs.find(h=>!invisM(h.object))||hs[0];
   if(dh&&dh.distance<=f0.distance+(isPerson(dh.object)?0.08:0.6))return dh;return hs[0];}
 const invisM=o=>{const m=o.material;return !!m&&!Array.isArray(m)&&(m.visible===false||(m.transparent&&m.opacity<0.05));};
@@ -3923,9 +3939,9 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
   let c=o.userData.cont||contOf(o);
   // 열린 장의 안쪽 판(칸막이·옆판)을 눌러도 그 장으로 침 → 누르면 닫힘
   if(!c&&d<G_REACH+1){const bb=new THREE.Box3(),w=new THREE.Vector3();let oc=null,od=1e9;CONTS.forEach(q=>{if(q.fixed||q.amt<=0.5||!bb.setFromObject(q.G).expandByScalar(0.05).containsPoint(h.point))return;const k=bb.getCenter(w).distanceTo(h.point);if(k<od){od=k;oc=q;}});if(oc){toggle(oc);return true;}}
-  if(c&&c.fixed){if(S.phase==='hide'&&d<G_REACH){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();return true;}return false;}
+  if(c&&c.fixed){if(S.phase==='hide'&&d<G_REACH){const i=nextFree();if(i<0){say(S.mode==='family'?'모두 숨었어요':'인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();return true;}return false;}
   if(c&&d<G_REACH){const role=o.userData.role||'hit';
-    if(role==='cav'&&S.phase==='hide'&&c.amt>0.6){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();setTimeout(()=>{c.tgt=0;if(c.pair)c.pair.tgt=0;},750);return true;}
+    if(role==='cav'&&S.phase==='hide'&&c.amt>0.6){const i=nextFree();if(i<0){say(S.mode==='family'?'모두 숨었어요':'인형을 모두 숨겼어요');return true;}const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();setTimeout(()=>{c.tgt=0;if(c.pair)c.pair.tgt=0;},750);return true;}
     toggle(c);return true;}
   if(S.phase==='hide'&&d<G_REACH&&!c){const n=nrm(h);const isFloor=floors.includes(o);
     if(n.y>0.6&&(!isFloor||coverDist(h.point)<1.6)){placeFree(h);return true;}}
@@ -3934,7 +3950,7 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
 window.gameLong=function(x,y){if(S.phase!=='hide')return;const h=pickAt(x,y);if(!h||h.distance>G_REACH+0.5)return;if(dollOf(h.object)!=null)return;
   const c=contOf(h.object);if(c){if(c.amt>0.6){const i=nextFree();if(i<0)return;const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();}return;}
   if(nrm(h).y>0.5)placeFree(h);};
-function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}
+function placeFree(h){const i=nextFree();if(i<0){say(S.mode==='family'?'모두 숨었어요':'인형을 모두 숨겼어요');return;}
   {const lc=CONTS.find(c=>c.type==='lift'&&c.amt>0.3&&(()=>{const l=c.G.worldToLocal(h.point.clone());return Math.abs(l.x)<=c.w/2+0.03&&Math.abs(l.z)<=(c.d||c.w)/2+0.03&&Math.abs(l.y)<0.08;})());
    if(lc){const r=lc.place(h.point);r.cont=lc;putDoll(i,r,lc.name);sPlace();renderIcons();updHideGuide();return;}}if(h.point.z>Z(14.12)){say('난간 밖에는 못 숨겨요',1100);return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
   putDoll(i,{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01)},roomName(h.point)+(floors.includes(h.object)?' 바닥':''));unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();}
@@ -3973,12 +3989,14 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
 // 다시 올리지는 않음 — 해상도를 바꿀 때마다 캔버스를 새로 만들어 한 번 검게 깜빡이므로, 오르내림이 반복되지 않게.
 {let n=0,t0=performance.now(),last=-1e9,steps=0;const loop=now=>{requestAnimationFrame(loop);if(document.hidden){t0=now;n=0;return;}n++;const dt=now-t0;if(dt<4000)return;
    const fps=n*1000/dt;n=0;t0=now;if(fps<35&&steps<3&&now-last>15000&&PRQ>0.5){PRQ=Math.max(0.5,PRQ*0.8);steps++;last=now;resize();}};requestAnimationFrame(loop);}
+// 공중에 뜬 천사: 위아래로 천천히 둥실둥실
+{const loop=now=>{requestAnimationFrame(loop);(S.dolls||[]).forEach(d=>{const g=d.g;if(!g||g.userData.bob==null||d.anim)return;g.position.y=g.userData.bob-0.025+Math.sin(now/650)*0.025;g.rotation.y+=0.002;});};requestAnimationFrame(loop);}
 // 소리 켜기/끄기 버튼 (왼쪽 아래)
 {const b=document.createElement('button');b.id='gSnd';b.textContent=SOUND?'🔊':'🔇';b.setAttribute('aria-label','소리 켜기/끄기');
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.016';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.017';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
