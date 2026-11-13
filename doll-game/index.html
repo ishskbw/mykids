@@ -1730,7 +1730,7 @@ scene.add(G);fullOnly.push(G);   // 앞(문·화면)이 게스트룸 문 쪽
      boxN(X-0.21,yc-0.5,X+0.21,yc+0.5,0.022,AC,ZB-0.022);
      boxN(xs,yc-0.44,xs+0.06,yc+0.44,0.004,SL,ZB-0.026);
      for(let k=0;k<5;k++){const x=room<0?X-0.02+k*0.04:X+0.02-k*0.04-0.006;boxN(x,yc-0.42,x+0.006,yc+0.42,0.003,GR,ZB-0.025);}}};
- soffit('x',4.61,11.74,9.84,12.29,7.2,-1);     // 거실: 폴딩도어 위
+ soffit('x',4.61,11.74,9.84,12.06,7.2,-1);     // 거실: 폴딩도어 위 (창 쪽 23cm는 위로 파인 홈으로 남김)
  soffit('y',5.64,1.93,6.19,6.29,4.11,+1);      // 주방: 식탁 벽 갤러리 액자 위 (단 내림 가운데)
  soffit('x',2.99,0.11,5.42,0.66,4.2,+1);       // 안방: 확장부 안락의자 뒤 통창 위
  soffit('x',0.5,11.74,4.39,12.29,2.45,-1);     // 서재: 창 있는 벽 위 (왼쪽 벽 책장 앞에서 시작)
@@ -2796,19 +2796,28 @@ function buildConts(){
    const lv=add(new THREE.CylinderGeometry(0.007,0.009,0.1,12),CH,cx+0.06,by+0.12,bz);lv.rotation.z=-1.25;
    add(new THREE.SphereGeometry(0.018,16,12),CH,cx+0.025,by+0.1,bz);}}
  // 안방 문 뒤(문을 열면 문짝과 왼쪽 벽 사이) 옷 행거: 바닥 수납 받침(서랍) + 검은 철제 기둥·봉 + 긴 옷들
- {const WX=-7.80,DX=0.46,Z0=-1.08,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.24,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
+ {const WX=-7.80,DX=0.46,Z0=-3.45,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.073,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
   const pa=invW(WX+0.012),pf=invW(WX+0.012+DX),ya=Z0+6.6,yb=Z1+6.6;   // 평면 좌표 (벽에서 1.2cm 띄움)
-  hollow({axis:'x',f:pf,n:1,a0:ya,a1:yb,back:pa,b:0.03,h:BH,col:0xf2f1ec,inner:0xe7e3da,holes:[[ya+0.02,yb-0.02,0.06,BH+0.01,0.4]]});
-  drawer('x',pf,1,ya+0.02,yb-0.02,0.06,BH+0.012,0.4,0xf2f1ec,'안방 문 뒤 행거 수납 서랍',{hc:0x8f8a80,hollow:true,style:'socks'});
-  const xm=WX+0.012+DX/2;[Z0+0.02,Z1-0.02].forEach(z=>{mk(new THREE.CylinderGeometry(0.012,0.012,TOPY-BH-0.03,12),BKm,xm,BH+0.03+(TOPY-BH-0.03)/2,z);});
+  // 바닥: 물건을 올려 두는 판자 (낮은 발 위)
+  {const PB=gm(0xd9c3a0,{roughness:0.7}),xc=WX+0.012+DX/2,zc0=(Z0+Z1)/2,PY=0.09;
+   const pl=mk(BX(DX,0.025,Z1-Z0),PB,xc,PY,zc0);pl.castShadow=true;pl.receiveShadow=true;
+   [Z0+0.03,zc0,Z1-0.03].forEach(z=>[xc-DX/2+0.03,xc+DX/2-0.03].forEach(x=>mk(BX(0.03,PY-0.0125,0.03),BKm,x,(PY-0.0125)/2,z)));
+   // 판자 위 물건: 신발 상자·가방·접은 담요
+   [[0.15,0.3,0.12,0xb9a58a],[0.9,0.32,0.14,0x8c6f5a],[1.6,0.28,0.1,0xe8e2d6],[2.4,0.3,0.12,0x3e4a5e]].forEach(([dz,w,h,c])=>{const o=mk(BX(DX*0.6,h,w),gm(c,{roughness:0.85}),xc-0.04,PY+0.0125+h/2,Z0+0.12+dz);o.castShadow=true;});
+   const G=new THREE.Group();G.position.set(xc,PY+0.0125,zc0);scene.add(G);const sp=openSpot(G,'안방 문 뒤 행거 판자 위',DX-0.06,0.3,Z1-Z0-0.06,{floor:0.002});setPart(pl,sp,'cav');pl.userData.solid=true;}
+  const xm=WX+0.012+DX/2;[Z0+0.02,(Z0+Z1)/2,Z1-0.02].forEach(z=>{mk(new THREE.CylinderGeometry(0.012,0.012,TOPY-BH-0.03,12),BKm,xm,BH+0.03+(TOPY-BH-0.03)/2,z);});
   mk(new THREE.CylinderGeometry(0.011,0.011,len,12),BKm,xm,TOPY,zc).rotation.x=Math.PI/2;      // 옷 거는 봉
   const COL=[0xc8b28c,0x2c3446,0x1c1c1e,0x8d8f93,0xa8754b,0x6b4b5c,0xe6e0d4];let sd=7;const R=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
-  const n=7;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));   // 벽·문짝에 닿지 않게 폭 제한
+  const n=20;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));   // 벽·문짝에 닿지 않게 폭 제한
     mk(new THREE.TorusGeometry(0.018,0.003,6,12,Math.PI*1.4),BKm,xm,TOPY+0.012,z).rotation.y=Math.PI/2;                 // 옷걸이 고리
     const hg=mk(new THREE.BoxGeometry(sw*0.92,0.012,0.012),gm(0x9a7a55,{roughness:0.6}),xm,TOPY-0.04,z);                // 옷걸이
     const g=new THREE.BoxGeometry(1,1,1,4,8,1),P=g.attributes.position;   // 어깨는 좁고 아래로 갈수록 넓어지는 긴 옷
     for(let i=0;i<P.count;i++){const yy=P.getY(i)+0.5,wv=sw+(bw-sw)*Math.pow(1-yy,1.2);P.setX(i,P.getX(i)*wv);P.setY(i,(yy-1)*L);P.setZ(i,P.getZ(i)*th*(yy>0.9?0.7:1)+Math.sin(P.getX(i)*9+k)*0.006*(1-yy));}
     g.computeVertexNormals();const m=mk(g,gm(c,{roughness:0.92}),xm,TOPY-0.035,z+(R()-0.5)*0.01);m.castShadow=true;m.receiveShadow=true;}}
+ // 거실 단내림과 폴딩도어 사이 천장 홈: 창 쪽 벽에 붙은 좁은 턱(9cm)에 인형을 숨김 — 가까이 가서 올려다봐야 보임
+ {const xa=W(4.61)+0.03,xb=W(9.84)-0.03,z1=Z(12.29),z0=z1-0.09,yT=H-0.13,len=xb-xa,cx=(xa+xb)/2,cz=(z0+z1)/2;
+  const L=mk(BX(len,0.018,z1-z0),gm(0xf2f1ec,{roughness:0.8}),cx,yT-0.009,cz);L.receiveShadow=true;L.castShadow=true;
+  const G=new THREE.Group();G.position.set(cx,yT,cz);scene.add(G);const c=openSpot(G,'거실 천장 홈',len-0.08,0.12,0.09,{floor:0.002,front:0.03,s:0.48});setPart(L,c,'cav');L.userData.solid=true;}
  // 파우더룸 화장대 서랍
  // 화장대: 왼쪽 4단 서랍장 · 의자 자리 위 얇은 서랍 · 오른쪽 끝 당겨 여는 슬라이딩 수납장
  [[0.03,0.21],[0.21,0.39],[0.39,0.57],[0.57,0.775]].forEach(([z0,z1],k)=>drawer('x',0.6,1,3.995,4.83,z0,z1,0.48,0xd8b98c,'파우더룸 화장대 서랍장',{hc:GOLD,style:k===3?'cosmetics':'folded'}));
@@ -2952,13 +2961,17 @@ function buildConts(){
  function liftSpot(ms,hd,ang,rise,name,top){if(!ms.length)return null;const bb=new THREE.Box3();ms.forEach(m=>bb.expandByObject(m));const c0=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3());
    const G=new THREE.Group();G.position.set(c0.x,top,c0.z);scene.add(G);const pv=new THREE.Group();G.add(pv);const ax=hd[0],sg=hd[1]==='+'?1:-1;
    if(ax==='x')pv.position.x=sg*sz.x/2;else pv.position.z=sg*sz.z/2;
-   const c=baseCont({type:'lift',G,name,w:sz.x,h:sz.y,gate:0.35});c.mov=pv;adopt(pv,ms,c);c.speed=0.9;
+   const c=baseCont({type:'lift',G,name,w:sz.x,h:sz.y,d:sz.z,gate:0.35});c.mov=pv;adopt(pv,ms,c);c.speed=0.9;
+   const ds=Math.min(0.85,Math.max(0.35,(sz.y-0.035)/0.25));   // 인형 크기: 닫았을 때 방석·베개 두께 안에 다 들어가게
    c.onAmt=t=>{const a=t*ang;if(ax==='x')pv.rotation.z=-sg*a;else pv.rotation.x=sg*a;pv.position.y=t*rise;};
    const hx=Math.max(0.02,sz.x/2-0.1),hz=Math.max(0.02,sz.z/2-0.1);
    // 인형은 들리는 쪽(축 반대편) 절반에
    const lim=(v,h,on)=>on?(sg>0?clampV(v,-h,0):clampV(v,0,h)):clampV(v,-h,h);
-   c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(lim(l.x,hx,ax==='x'),0.003,lim(l.z,hz,ax==='z')),s:0.85};};
-   c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*2*hx,0,(Math.random()-0.5)*2*hz)));return c;}
+   c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(lim(l.x,hx,ax==='x'),0.003,lim(l.z,hz,ax==='z')),s:ds};};
+   c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*2*hx,0,(Math.random()-0.5)*2*hz)));
+   // 시점: 옆으로 돌지 않고 들리는 쪽(앞)에서, 위에서 내려다봄
+   c.view=()=>{const n=ax==='x'?new THREE.Vector3(-sg,0,0):new THREE.Vector3(0,0,-sg);const t=G.localToWorld(ax==='x'?new THREE.Vector3(-sg*sz.x*0.15,0,0):new THREE.Vector3(0,0,-sg*sz.z*0.15));return{t,n,dist:0.75,up:0.95};};
+   return c;}
  // 정해진 한 자리 (TV 뒤·폴딩도어 틈·스탠드 갓 속)
  function pinSpot(pos,ry,s,name,hw,hh,hd){const G=new THREE.Group();G.position.copy(pos);G.rotation.y=ry;scene.add(G);
    const c=baseCont({type:'spot',G,name,w:hw,h:hh,d:hd,gate:-1});c.amt=1;c.tgt=1;c.fixed=true;
@@ -2978,6 +2991,15 @@ function buildConts(){
  // 큰 소파 방석 들기 (등 쪽 모서리를 축으로 앞이 들림)
  [[8.44,9.98],[9.98,10.75]].forEach(([a,b])=>{const ms=grab(W(8.97),0.29,Z(a)-0.01,W(9.63),0.49,Z(b)+0.01);liftSpot(ms,'x+',0.8,0.03,'큰 소파 방석 밑',0.31);});
  {const ms=grab(W(7.97),0.29,Z(10.75),W(9.85),0.49,Z(12.29));liftSpot(ms,'x+',0.42,0.03,'큰 소파 카우치 방석 밑',0.31);}
+ // 거실 큰 소파: 소파와 같은 가죽 쿠션 2개 (등받이에 기대 놓음, 좌방석을 들면 같이 들림)
+ {const seats=CONTS.filter(c=>c.name==='큰 소파 방석 밑');scene.updateMatrixWorld(true);
+  const LM=(()=>{let m=null;seats.forEach(c=>c.hits.forEach(h=>{if(!m&&h.material&&!Array.isArray(h.material))m=h.material;}));return m||gm(0x4d5257,{roughness:0.5});})();
+  const pillowGeo=()=>{const g=new THREE.BoxGeometry(0.44,0.44,0.15,14,14,4),P=g.attributes.position;   // 가운데가 도톰하고 모서리가 눌린 쿠션 모양
+    for(let i=0;i<P.count;i++){const u=P.getX(i)/0.22,v=P.getY(i)/0.22,k=1-0.55*Math.pow(Math.max(Math.abs(u),Math.abs(v)),3)-0.25*(u*u+v*v)/2;P.setZ(i,P.getZ(i)*Math.max(0.12,k));
+      const pinch=1-0.05*(1-Math.abs(v))*Math.abs(u)*Math.abs(u);P.setX(i,P.getX(i)*pinch);}g.computeVertexNormals();return g;};
+  seats.forEach((c,k)=>{const b=new THREE.Box3();c.hits.forEach(h=>b.expandByObject(h));const top=b.max.y,xb=b.max.x-0.13,zz=k===0?b.min.z+0.32:b.max.z-0.3;
+    const m=new THREE.Mesh(pillowGeo(),LM);m.position.set(xb,top+0.205,zz);m.rotation.set(0,-Math.PI/2,0);m.rotateX(-0.32);m.rotateZ(k?0.08:-0.08);
+    m.castShadow=true;m.receiveShadow=true;m.userData.game=true;scene.add(m);c.mov.attach(m);});}
  // 큰 소파 등받이: 앞뒤로 미끄러지는 등쿠션을 앞으로 당기면 뒤 틈에
  [[8.44,9.21],[9.21,9.98],[9.98,10.75]].forEach(([a,b])=>{const ms=grab(W(9.28),0.45,Z(a),W(9.76),0.95,Z(b));if(!ms.length)return;
    const G=new THREE.Group();G.position.set(W(9.52),0.47,Z((a+b)/2));scene.add(G);const mv=new THREE.Group();G.add(mv);
@@ -3797,7 +3819,9 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
 window.gameLong=function(x,y){if(S.phase!=='hide')return;const h=pickAt(x,y);if(!h||h.distance>G_REACH+0.5)return;if(dollOf(h.object)!=null)return;
   const c=contOf(h.object);if(c){if(c.amt>0.6){const i=nextFree();if(i<0)return;const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();}return;}
   if(nrm(h).y>0.5)placeFree(h);};
-function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}if(h.point.z>Z(14.12)){say('난간 밖에는 못 숨겨요',1100);return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
+function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}
+  {const lc=CONTS.find(c=>c.type==='lift'&&c.amt>0.3&&(()=>{const l=c.G.worldToLocal(h.point.clone());return Math.abs(l.x)<=c.w/2+0.03&&Math.abs(l.z)<=(c.d||c.w)/2+0.03&&Math.abs(l.y)<0.08;})());
+   if(lc){const r=lc.place(h.point);r.cont=lc;putDoll(i,r,lc.name);sPlace();renderIcons();updHideGuide();return;}}if(h.point.z>Z(14.12)){say('난간 밖에는 못 숨겨요',1100);return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
   putDoll(i,{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01)},roomName(h.point)+(floors.includes(h.object)?' 바닥':''));unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();}
 
 // ---------- 매 프레임 ----------
@@ -3829,7 +3853,7 @@ function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElemen
   buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.004';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.005';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
