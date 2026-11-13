@@ -1999,7 +1999,9 @@ renderer.domElement.addEventListener('pointerup',e=>{
   if(hit){const k=ownerIdx(hit.object.userData.k);select(ROOMS[k].kind==='common'||k===selected?-1:k);}else select(-1);
 });
 
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(typeof WALK!=='undefined'&&WALK.on)walkFov();}
+// 해상도: 기기 픽셀 배율(최대 2)을 쓰되 그리는 점이 약 220만 개를 넘지 않게, 그리고 버벅이면 PRQ로 더 낮춤
+let PRQ=1;const prFor=(w,h)=>Math.max(0.75,Math.min(window.devicePixelRatio||1,2,Math.sqrt(2.2e6/Math.max(1,w*h)))*PRQ);
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setPixelRatio(prFor(w,h));renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(typeof WALK!=='undefined'&&WALK.on)walkFov();}
 window.addEventListener('resize',resize);resize();
 const d0=fitDist(1);camera.position.set(-4*d0,15*d0,18*d0);controls.target.set(0.4,0,0.2);
 
@@ -3271,7 +3273,20 @@ const fmt=s=>{s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padSta
 // 소리
 let AC=null;function tone(fs,dur,type,vol){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime;
   fs.forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(0,t+i*dur*0.6);g.gain.linearRampToValueAtTime(vol||0.18,t+i*dur*0.6+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+i*dur*0.6+dur);o.connect(g);g.connect(AC.destination);o.start(t+i*dur*0.6);o.stop(t+i*dur*0.6+dur+0.05);});}catch(_){}}
-const sFound=()=>tone([784,988,1319],0.22,'triangle',0.2),sOpen=()=>tone([330],0.08,'square',0.05),sPlace=()=>tone([523,659],0.12,'sine',0.15),sWin=()=>tone([523,659,784,1047,1319],0.25,'triangle',0.2);
+// 효과음: 부드러운 합성음 (열기 = 나무 톡, 놓기 = 작은 퐁, 찾음 = 마림바 두 음, 다 찾음 = 종소리 화음) · 소리 켜기/끄기는 기기에 기억
+let SOUND=true;try{SOUND=localStorage.getItem('dollgame.sound')!=='off';}catch(e){}
+const actx=()=>{try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC;}catch(_){return null;}};
+function note(f,at,dur,vol,parts){const A=actx();if(!A)return;const t=A.currentTime+at,out=A.createGain();out.gain.value=vol;out.connect(A.destination);
+  (parts||[[1,1]]).forEach(([m,a])=>{const o=A.createOscillator(),g=A.createGain();o.type='sine';o.frequency.value=f*m;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(a,t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+dur/m**0.35);o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+0.05);});}
+function knock(at,freq,vol){const A=actx();if(!A)return;const t=A.currentTime+at,n=Math.floor(A.sampleRate*0.05),b=A.createBuffer(1,n,A.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,4);
+  const src=A.createBufferSource(),bp=A.createBiquadFilter(),g=A.createGain();src.buffer=b;bp.type='bandpass';bp.frequency.value=freq;bp.Q.value=4;g.gain.value=vol;src.connect(bp);bp.connect(g);g.connect(A.destination);src.start(t);}
+const MARIMBA=[[1,1],[4,0.25],[10,0.06]],BELL=[[1,1],[2.76,0.35],[5.4,0.12]];
+const sOpen=()=>{if(!SOUND)return;knock(0,900,0.5);note(196,0,0.09,0.06);},
+  sPlace=()=>{if(!SOUND)return;const A=actx();if(!A)return;const t=A.currentTime,o=A.createOscillator(),g=A.createGain();o.type='sine';o.frequency.setValueAtTime(620,t);o.frequency.exponentialRampToValueAtTime(260,t+0.09);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.13,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+0.2);},
+  sFound=()=>{if(!SOUND)return;note(1318.5,0,0.5,0.16,MARIMBA);note(1568,0.11,0.6,0.16,MARIMBA);},
+  sWin=()=>{if(!SOUND)return;[523.25,659.25,783.99,1046.5].forEach((f,i)=>note(f,i*0.13,1.4,0.11,BELL));note(1567.98,0.62,1.8,0.08,BELL);};
+function setSound(on){SOUND=on;try{localStorage.setItem('dollgame.sound',on?'on':'off');}catch(e){}const b=document.getElementById('gSnd');if(b)b.textContent=on?'🔊':'🔇';if(on)sPlace();}
 
 // ---------- 메뉴 ----------
 const DIFF=['매우 쉬움','쉬움','보통','어려움','최상'];
@@ -3287,6 +3302,7 @@ function showMenu(){S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[
    <div class="grow dollOnly"><b>누가 숨길까요?</b><div class="gchips" id="gWho"><button data-v="0" aria-pressed="${!S.auto}">👀 사람이 숨기기</button><button data-v="1" aria-pressed="${S.auto}">🎲 컴퓨터가 숨기기</button></div></div>
    <div class="grow" id="gDiffRow" ${S.auto?'':'hidden'}><b>컴퓨터 숨기기 난이도</b><div class="gchips" id="gDiff">${DIFF.map((t,i)=>`<button data-v="${i}" aria-pressed="${i===S.diff}">${t}</button>`).join('')}</div><p class="s" id="gDiffTip" style="margin:6px 0 0">${DIFF_TIP[S.diff]}</p></div>
    <div class="grow"><b>힌트</b><div class="gchips" id="gHint"><button data-v="1" aria-pressed="${S.hintOn}">🔥 쓸 수 있게</button><button data-v="0" aria-pressed="${!S.hintOn}">힌트 없이</button></div></div>
+   <div class="grow"><b>소리</b><div class="gchips" id="gSndM"><button data-v="1" aria-pressed="${SOUND}">🔊 켜기</button><button data-v="0" aria-pressed="${!SOUND}">🔇 끄기</button></div></div>
    <div class="grow"><b>가구를 열면 안이 잘 보이는 곳으로 시점 옮기기</b><div class="gchips" id="gCam"><button data-v="1" aria-pressed="${S.autoCam}">🎥 켜기</button><button data-v="0" aria-pressed="${!S.autoCam}">끄기</button></div></div>
    <button class="gbig" id="gGo">시작하기</button><button class="gbig sec" id="gRankM" style="margin-top:6px">🏆 랭킹</button></div>`;
   $('#gRankM').onclick=()=>{S._cond=null;showRank('menu');};
@@ -3296,6 +3312,7 @@ function showMenu(){S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[
   menu.querySelectorAll('#gWho button').forEach(b=>b.onclick=()=>{S.auto=b.dataset.v==='1';menu.querySelectorAll('#gWho button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#gDiffRow').hidden=!S.auto;});
   menu.querySelectorAll('#gDiff button').forEach(b=>b.onclick=()=>{S.diff=+b.dataset.v;menu.querySelectorAll('#gDiff button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#gDiffTip').textContent=DIFF_TIP[S.diff];});
   menu.querySelectorAll('#gHint button').forEach(b=>b.onclick=()=>{S.hintOn=b.dataset.v==='1';menu.querySelectorAll('#gHint button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  menu.querySelectorAll('#gSndM button').forEach(b=>b.onclick=()=>{setSound(b.dataset.v==='1');menu.querySelectorAll('#gSndM button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   menu.querySelectorAll('#gCam button').forEach(b=>b.onclick=()=>{S.autoCam=b.dataset.v==='1';menu.querySelectorAll('#gCam button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   const modeSync=()=>{menu.querySelectorAll('.dollOnly').forEach(e=>e.hidden=S.mode==='family');$('#gFamRow').hidden=S.mode!=='family';$('#gDiffRow').hidden=!(S.auto&&S.mode!=='family');};modeSync();
   menu.querySelectorAll('#gMode button').forEach(b=>b.onclick=()=>{S.mode=b.dataset.v;menu.querySelectorAll('#gMode button').forEach(x=>x.setAttribute('aria-pressed',x===b));modeSync();});
@@ -3328,7 +3345,16 @@ function askQuit(){if(S.phase!=='seek'||S.paused)return;S.paused=performance.now
 const inGame=()=>['hide','handover','seek','reveal'].includes(S.phase);
 const leaveBox=el('gLeaveBox','');leaveBox.hidden=true;
 function armBack(){if(S.backArmed)return;try{history.pushState({dollGame:1},'');S.backArmed=true;}catch(_){}}
-window.addEventListener('popstate',()=>{if(!S.backArmed)return;S.backArmed=false;if(inGame())askLeave();});
+window.addEventListener('popstate',()=>{if(!S.backArmed||S.exiting)return;S.backArmed=false;if(inGame())askLeave();else askExit();});
+// 사용자가 처음 누를 때 뒤로 가기 막이를 걸어 둠 (브라우저가 '누른 뒤에 만든 기록'만 인정하므로) — 카카오톡 인앱 브라우저 포함
+['pointerdown','touchstart','keydown'].forEach(t=>window.addEventListener(t,()=>{if(!S.backArmed&&!S.exiting&&leaveBox.hidden)armBack();},{capture:true,passive:true}));
+function askExit(){leaveBox.hidden=false;
+  leaveBox.innerHTML=`<div class="gcard" style="text-align:center"><h1>👋 게임을 종료하시겠어요?</h1><p class="s">종료하면 게임 화면을 닫아요.</p>
+   <button class="gbig" id="gStay">계속하기</button><button class="gbig sec" id="gOut">종료하기</button></div>`;
+  $('#gStay').onclick=()=>{leaveBox.hidden=true;armBack();};
+  $('#gOut').onclick=()=>{leaveBox.hidden=true;S.exiting=true;
+    if(/KAKAOTALK/i.test(navigator.userAgent)){location.href='kakaotalk://inappbrowser/close';return;}
+    if(history.length>1)history.back();setTimeout(()=>{try{window.close();}catch(e){}},400);};}
 window.addEventListener('beforeunload',e=>{if(inGame()){e.preventDefault();e.returnValue='';}});   // 새로고침·창 닫기: 브라우저 기본 확인
 function askLeave(){const t=S.phase==='seek'&&!S.paused?performance.now():0;if(t)S.paused=t;leaveBox.hidden=false;
   leaveBox.innerHTML=`<div class="gcard" style="text-align:center"><h1>🚪 게임에서 나가시겠어요?</h1><p class="s">나가면 지금 판은 끝나고 처음 화면으로 돌아가요.</p>
@@ -3869,8 +3895,16 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
+// 버벅임 자동 조절: 2초 동안 평균 프레임이 40 미만이면 해상도를 15% 낮추고, 57 이상이 계속되면 조금씩 되돌림
+{let n=0,t0=performance.now(),good=0;const loop=now=>{requestAnimationFrame(loop);if(document.hidden){t0=now;n=0;return;}n++;const dt=now-t0;if(dt<2000)return;
+   const fps=n*1000/dt;n=0;t0=now;let q=PRQ;if(fps<40&&PRQ>0.45){q=Math.max(0.45,PRQ*0.85);good=0;}else if(fps>57){if(++good>=3&&PRQ<1){q=Math.min(1,PRQ*1.1);good=0;}}else good=0;
+   if(q!==PRQ){PRQ=q;resize();}};requestAnimationFrame(loop);}
+// 소리 켜기/끄기 버튼 (왼쪽 아래)
+{const b=document.createElement('button');b.id='gSnd';b.textContent=SOUND?'🔊':'🔇';b.setAttribute('aria-label','소리 켜기/끄기');
+  b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
+  b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.008';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.009';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
