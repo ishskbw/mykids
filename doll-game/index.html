@@ -3314,7 +3314,7 @@ function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.o
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기·침대 이불은 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
    <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족</button></div></div>
    <div class="grow" id="gFamRow" ${S.mode==='family'?'':'hidden'}><b>숨을 사람 (컴퓨터가 숨겨요)</b>
-    <div class="gchips" id="gFamGrp" style="margin-bottom:6px">${FAMGRP.map((g,k)=>`<button data-g="${k}" aria-pressed="${g.m.every(v=>S.famSel.includes(v))}">${g.name}</button>`).join('')}</div><div class="gchips" id="gFam">${FAM.map((f,k)=>`<button data-v="${k}" aria-pressed="${S.famSel.includes(k)}">${f.short}</button>`).join('')}</div></div>
+    <div class="gchips" id="gFam">${FAM.map((f,k)=>`<button data-v="${k}" aria-pressed="${S.famSel.includes(k)}">${f.short}</button>`).join('')}</div></div>
    <div class="grow dollOnly"><b>숨길 인형 수</b><div class="gcnt"><button id="gMinus" aria-label="줄이기">−</button><span class="num" id="gNum">${S.n}</span><input type="range" id="gRange" min="1" max="30" value="${S.n}"><button id="gPlus" aria-label="늘리기">+</button></div></div>
    <div class="grow"><b>제한 시간</b><div class="gchips" id="gLim">${TL.map(([v,t])=>`<button data-v="${v}" aria-pressed="${v===S.limit}">${t}</button>`).join('')}</div></div>
    <div class="grow dollOnly"><b>누가 숨길까요?</b><div class="gchips" id="gWho"><button data-v="0" aria-pressed="${!S.auto}">👀 사람이 숨기기</button><button data-v="1" aria-pressed="${S.auto}">🎲 컴퓨터가 숨기기</button></div></div>
@@ -3334,13 +3334,9 @@ function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.o
   menu.querySelectorAll('#gCam button').forEach(b=>b.onclick=()=>{S.autoCam=b.dataset.v==='1';menu.querySelectorAll('#gCam button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   const modeSync=()=>{menu.querySelectorAll('.dollOnly').forEach(e=>e.hidden=S.mode==='family');$('#gFamRow').hidden=S.mode!=='family';$('#gDiffRow').hidden=!(S.auto&&S.mode!=='family');};modeSync();
   menu.querySelectorAll('#gMode button').forEach(b=>b.onclick=()=>{S.mode=b.dataset.v;menu.querySelectorAll('#gMode button').forEach(x=>x.setAttribute('aria-pressed',x===b));modeSync();});
-  const famSync=()=>{menu.querySelectorAll('#gFam button').forEach(x=>x.setAttribute('aria-pressed',S.famSel.includes(+x.dataset.v)));
-    menu.querySelectorAll('#gFamGrp button').forEach(x=>x.setAttribute('aria-pressed',FAMGRP[+x.dataset.g].m.every(v=>S.famSel.includes(v))));};
+  const famSync=()=>{menu.querySelectorAll('#gFam button').forEach(x=>x.setAttribute('aria-pressed',S.famSel.includes(+x.dataset.v)));};
   menu.querySelectorAll('#gFam button').forEach(b=>b.onclick=()=>{const k=+b.dataset.v,on=S.famSel.includes(k);if(on&&S.famSel.length<=1)return;
     S.famSel=on?S.famSel.filter(v=>v!==k):[...S.famSel,k].sort((a,b)=>a-b);famSync();});
-  // 가족 묶음: 누르면 한꺼번에 넣고, 이미 다 들어 있으면 한꺼번에 뺌 (한 명은 남김)
-  menu.querySelectorAll('#gFamGrp button').forEach(b=>b.onclick=()=>{const m=FAMGRP[+b.dataset.g].m,all=m.every(v=>S.famSel.includes(v));
-    let nx=all?S.famSel.filter(v=>!m.includes(v)):[...new Set([...S.famSel,...m])];if(!nx.length)return;S.famSel=nx.sort((a,b)=>a-b);famSync();});
   $('#gGo').onclick=()=>{menu.hidden=true;
     if(S.mode==='family'){S.dollN=S.dollN||S.n;S.dollAuto=S.dollAuto!=null?S.dollAuto:S.auto;S.fam=S.famSel.slice();S.n=S.fam.length;S.auto=true;}
     else if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}
@@ -3495,18 +3491,9 @@ const FAM=[
  {name:'이용문',short:'용문',tag:'큰이모부',H:1.8,hair:'short',glasses:0x3a3a3a,top:'whiteG',bot:0x2b2f38,shoe:0x3a3b3e,ico:0xf5f5f2},
  {name:'조서연',short:'서연',tag:'막내이모',H:1.63,hair:'long',top:0xf1ebdf,bot:0x232326,shoe:0xf2f2f0,ico:0xf1ebdf},
  {name:'이서우',short:'서우',tag:'큰이모 큰딸',H:1.2,kid:1,hair:'pig',bangs:1,ribbon:0x161616,top:0xf3ece0,bot:0xa9c6e2,shoe:0xa6e3e9,ico:0xa9c6e2},
- {name:'이지우',short:'지우',tag:'아기',H:0.55,baby:1,wrap:0xfbe3ec,ico:0xfbe3ec},
- {name:'숙자',short:'숙자',tag:'할머니',H:1.54,build:0.9,hair:'perm',hairC:0x8e8b88,top:0xb7ada0,bot:0x5b5852,shoe:0x5a4a42,ico:0xb7ada0},   // 아담한 체구, 수수한 옷
- {name:'영식',short:'영식',tag:'할아버지',H:1.74,build:0.86,hair:'thin',hairC:0xa9a6a1,top:0x2f5d8a,collar:1,bot:0x6b6458,shoe:0x3a3330,ico:0x2f5d8a},   // 호리호리, 단색 골프 티·단색 바지, 이마가 넓음
- {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'wavybob',hairC:0x1a1411,top:'blueShirt',collar:1,bot:0xe6e0d4,shoe:0x8a7a68,wings:1,angel:1,ico:0xf3c9c0},   // 연분홍 레이스 니트 · 짙은 회색 바지 · 숱 많은 웨이브 단발 · 은목걸이 + 흰 날개 (천사)   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
- {name:'영민',short:'영민',tag:'외할아버지',H:1.68,belly:1,hair:'thick',hairC:0xd8d6d2,glasses:0x2a2a2a,top:'orangeS',bot:0x3a3a3e,shoe:0x2a2a2c,ico:0xe2583b},   // 배가 조금 나옴, 안경, 숱 많은 흰머리, 주황 바탕에 줄무늬 티
- {name:'공병민',short:'병민',tag:'작은아빠',H:1.76,build:0.88,hair:'short',top:0x5a6e8c,bot:0x2b2f38,shoe:0xf2f2f0,ico:0x5a6e8c},
- {name:'여진',short:'여진',tag:'작은엄마',H:1.635,hair:'pony',top:0xe9c7b5,bot:0x3d4250,shoe:0xe8e2d8,ico:0xe9c7b5},
- {name:'시온',short:'시온',tag:'중1',H:1.72,hair:'short',top:0x3c6e47,bot:0x2a2d33,shoe:0xf2f2f0,ico:0x3c6e47},
- {name:'시우',short:'시우',tag:'5학년',H:1.42,kid:1,build:1.2,belly:1,hair:'short',top:0xe0563f,bot:0x34495e,shoe:0xf2f2f0,ico:0xe0563f}];
+ {name:'이지우',short:'지우',tag:'아기',H:0.55,baby:1,wrap:0xfbe3ec,ico:0xfbe3ec}];
 const famOf=i=>FAM[S.fam[i]];
 const FAMIX=n=>FAM.findIndex(f=>f.short===n);
-const FAMGRP=[{name:'🏠 우리가족',m:['유정','은비','유빈','병욱']},{name:'🚄 대전가족',m:['영민','미옥','은서','용문','서연','서우','지우']},{name:'✈️ 인천가족',m:['영식','숙자','병민','여진','시온','시우']}].map(g=>({name:g.name,m:g.m.map(FAMIX)}));
 const FTEX={};
 function famTex(k){if(FTEX[k])return FTEX[k];const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
   if(k==='stripeP'){const cs=['#f6d3e2','#ffffff','#cfe4f3','#ffffff','#f7e7b8','#ffffff'];for(let i=0;i<16;i++){x.fillStyle=cs[i%6];x.fillRect(0,i*8,128,8);}}
@@ -4036,7 +4023,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.023';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.024';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
