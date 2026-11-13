@@ -3757,7 +3757,7 @@ function angelPlace(i,p){const tryCeil=()=>{const RM=ROOMS.filter(r=>!r.minor&&[
   return Math.random()<0.5?(tryCeil()||tryTiny()):(tryTiny()||tryCeil());}
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
-  S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);if(p.angel&&angelPlace(i,p))return;const names=Object.keys(groups).sort(()=>Math.random()-0.5);
+  S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);if(p.angel&&angelPlace(i,p))return;const GW=n=>/커튼/.test(n)?5:1,names=Object.keys(groups).map(n=>[n,-Math.log(Math.random())/GW(n)]).sort((x,y)=>x[1]-y[1]).map(x=>x[0]);   // 커튼 뒤는 5배 자주 고름
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
       used.add(j);if(sp[j].ajar)sp[j].ajar();{const r0=sp[j].res(p);putDoll(i,r0,sp[j].name);const g=S.dolls[i].g;if(!unwall(g,/난간/.test(sp[j].name))){g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;continue;}g.parent.remove(g);S.dolls[i].g=null;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g,/난간/.test(sp[j].name));if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
 // 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
@@ -4033,7 +4033,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.021';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.022';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
