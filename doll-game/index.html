@@ -280,7 +280,7 @@ controls.enableDamping=true; controls.dampingFactor=0.08; controls.maxPolarAngle
 try{const pm=new THREE.PMREMGenerator(renderer);scene.environment=pm.fromScene(new THREE.RoomEnvironment(),0.04).texture;}catch(e){}
 scene.add(new THREE.HemisphereLight(0xffffff,0xb3aa9a,0.42));
 const sun=new THREE.DirectionalLight(0xfff1dc,0.62); sun.position.set(-6,18,14); sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-15,right:15,top:15,bottom:-15,near:1,far:60}); sun.shadow.bias=-0.0005;
+sun.shadow.mapSize.set(MOB?1024:2048,MOB?1024:2048); Object.assign(sun.shadow.camera,{left:-15,right:15,top:15,bottom:-15,near:1,far:60}); sun.shadow.bias=-0.0005;
 scene.add(sun); scene.add(new THREE.AmbientLight(0xffffff,0.06));
 
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:0xcfd1ca,roughness:1}));
@@ -2202,7 +2202,8 @@ document.getElementById('showSug').onchange=sugSync;sugSync();   // 제안은 �
   m.envMapIntensity=(m.metalness>0.5||m.roughness<0.2||m.transparent)?1:0.2;});});}
 let lastT=performance.now();
 let LASTR=0,SHN=0;
-function loop(now){requestAnimationFrame(loop);if(MOB){if(now-LASTR<31)return;LASTR=now;if(++SHN%6===1)renderer.shadowMap.needsUpdate=true;}const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+function loop(now){requestAnimationFrame(loop);if(MOB&&(++SHN&1))renderer.shadowMap.needsUpdate=true;   // 폰: 매 프레임 그리되 그림자는 2프레임에 한 번 (프레임 건너뛰기는 깜빡임을 일으켜 뺌)
+const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
   const sx=slideOpen?3.82:2.63; if(Math.abs(slideX-sx)>0.002){slideX+=(sx-slideX)*0.12;slide.position.x=W(slideX);}
   if(Math.abs(BF.th-BF.target)>0.002){BF.th+=(BF.target-BF.th)*0.1;bfUpdate();}
   OPENERS.forEach(d=>d.update&&d.update(dt));if(WALK.on)blockSync();
@@ -4023,7 +4024,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.024';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.025';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
