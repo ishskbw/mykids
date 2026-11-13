@@ -2105,16 +2105,16 @@ floorLamp(planX(-3.957-0.24),2.0);   // 갓 반지름 21cm + 3cm 띄움   // 안
    mk(new THREE.CylinderGeometry(0.007,0.009,0.1,12),CH,cx+0.06,by+0.12,bz).rotation.z=-1.25;
    mk(new THREE.SphereGeometry(0.018,16,12),CH,cx+0.025,by+0.1,bz);}}
 
- // 안방 문 뒤(문을 열면 문짝과 왼쪽 벽 사이) 옷 행거 (길이 78cm, 파우더룸 입구를 가리지 않게): 낮은 발 위 판자(신발 상자·가방) + 검은 철제 기둥 3개·봉 + 긴 옷 7벌
- {const WX=-7.80,DX=0.46,Z0=-1.08,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.073,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
+ // 안방 문 뒤(문을 열면 문짝과 왼쪽 벽 사이) 옷 행거 (뒷벽 길이만큼 — 파우더룸 입구(4.80) 앞에서 끝남): 낮은 발 위 판자(신발 상자·가방·담요) + 검은 철제 기둥 3개·봉 + 긴 옷 12벌
+ {const WX=-7.80,DX=0.46,Z0=4.82-6.6,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.073,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
   {const PB=gm(0xd9c3a0,{roughness:0.7}),xc=WX+0.012+DX/2,PY=0.09;
    mk(BX(DX,0.025,len),PB,xc,PY,zc);
    [Z0+0.03,zc,Z1-0.03].forEach(z=>[xc-DX/2+0.03,xc+DX/2-0.03].forEach(x=>mk(BX(0.03,PY-0.0125,0.03),BKm,x,(PY-0.0125)/2,z)));
-   [[0.02,0.28,0.12,0xb9a58a],[0.36,0.3,0.14,0x8c6f5a]].forEach(([dz,w,h,c])=>mk(BX(DX*0.6,h,w),gm(c,{roughness:0.85}),xc-0.04,PY+0.0125+h/2,Z0+0.12+dz));}
+   [[0.05,0.3,0.12,0xb9a58a],[0.55,0.32,0.14,0x8c6f5a],[1.05,0.26,0.1,0xe8e2d6]].forEach(([dz,w,h,c])=>mk(BX(DX*0.6,h,w),gm(c,{roughness:0.85}),xc-0.04,PY+0.0125+h/2,Z0+0.12+dz));}
   const xm=WX+0.012+DX/2;[Z0+0.02,zc,Z1-0.02].forEach(z=>mk(new THREE.CylinderGeometry(0.012,0.012,TOPY-BH-0.03,12),BKm,xm,BH+0.03+(TOPY-BH-0.03)/2,z));
   mk(new THREE.CylinderGeometry(0.011,0.011,len,12),BKm,xm,TOPY,zc).rotation.x=Math.PI/2;
   const COL=[0xc8b28c,0x2c3446,0x1c1c1e,0x8d8f93,0xa8754b,0x6b4b5c,0xe6e0d4];let sd=7;const R=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
-  const n=7;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));
+  const n=12;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));
     mk(new THREE.TorusGeometry(0.018,0.003,6,12,Math.PI*1.4),BKm,xm,TOPY+0.012,z).rotation.y=Math.PI/2;
     mk(new THREE.BoxGeometry(sw*0.92,0.012,0.012),gm(0x9a7a55),xm,TOPY-0.04,z);
     const g=new THREE.BoxGeometry(1,1,1,4,8,1),P=g.attributes.position;
