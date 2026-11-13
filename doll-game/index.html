@@ -262,9 +262,11 @@ const ownerIdx=k=>ROOMS[k].part?byId[ROOMS[k].part]:k;
 
 // ---------- 렌더러 ----------
 const stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+// 휴대폰·태블릿(터치 화면): 발열을 줄이려고 1초 30번만 그리고, 해상도 상한 1.5배, 그림자는 가끔만 다시 계산
+const MOB=matchMedia('(pointer:coarse)').matches;
+const renderer=new THREE.WebGLRenderer({antialias:!MOB});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,MOB?1.5:2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=MOB?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;if(MOB)renderer.shadowMap.autoUpdate=false;
 stage.appendChild(renderer.domElement);
 const labelR=new THREE.CSS2DRenderer();
 labelR.domElement.style.position='absolute';labelR.domElement.style.top='0';labelR.domElement.style.pointerEvents='none';
@@ -2010,7 +2012,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
 });
 
 // 해상도: 기기 픽셀 배율(최대 2)을 쓰되 그리는 점이 약 220만 개를 넘지 않게, 그리고 버벅이면 PRQ로 더 낮춤
-let PRQ=1;const prFor=(w,h)=>Math.max(0.75,Math.min(window.devicePixelRatio||1,2,Math.sqrt(2.2e6/Math.max(1,w*h)))*PRQ);
+let PRQ=1;const prFor=(w,h)=>Math.max(0.75,Math.min(window.devicePixelRatio||1,MOB?1.5:2,Math.sqrt((MOB?1.3e6:2.2e6)/Math.max(1,w*h)))*PRQ);
 let LASTSZ='';
 function resize(){const w=stage.clientWidth,h=stage.clientHeight,pr=prFor(w,h),key=w+'x'+h+'@'+pr.toFixed(3);if(key===LASTSZ)return;LASTSZ=key;   // 크기가 그대로면 캔버스를 다시 만들지 않음 (깜빡임 방지)
   renderer.setPixelRatio(pr);renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(typeof WALK!=='undefined'&&WALK.on)walkFov();}
@@ -2199,7 +2201,8 @@ document.getElementById('showSug').onchange=sugSync;sugSync();   // 제안은 �
 {const seen=new Set();scene.traverse(o=>{if(!o.isMesh)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m||seen.has(m)||!('envMapIntensity' in m))return;seen.add(m);
   m.envMapIntensity=(m.metalness>0.5||m.roughness<0.2||m.transparent)?1:0.2;});});}
 let lastT=performance.now();
-function loop(now){requestAnimationFrame(loop);const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+let LASTR=0,SHN=0;
+function loop(now){requestAnimationFrame(loop);if(MOB){if(now-LASTR<31)return;LASTR=now;if(++SHN%6===1)renderer.shadowMap.needsUpdate=true;}const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
   const sx=slideOpen?3.82:2.63; if(Math.abs(slideX-sx)>0.002){slideX+=(sx-slideX)*0.12;slide.position.x=W(slideX);}
   if(Math.abs(BF.th-BF.target)>0.002){BF.th+=(BF.target-BF.th)*0.1;bfUpdate();}
   OPENERS.forEach(d=>d.update&&d.update(dt));if(WALK.on)blockSync();
@@ -3622,6 +3625,7 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
   // 자세
   const L=R.legs,A=R.arms;
   if(pose==='crouch'){L.forEach(l=>{l.hip.rotation.x=-1.55;l.kn.rotation.x=2.15;});torso.rotation.x=0.5;A.forEach(a=>{a.sh.rotation.x=-1.1;a.el.rotation.x=-0.7;});hd.rotation.x=-0.35;}
+  else if(pose==='squat'){L.forEach(l=>{l.hip.rotation.x=-2.45;l.kn.rotation.x=2.7;});torso.rotation.x=0.55;A.forEach((a,k)=>{a.sh.rotation.x=-0.7;a.sh.rotation.z=(k?1:-1)*0.25;a.el.rotation.x=-1.6;});hd.rotation.x=-0.45;}   // 무릎 끌어안고 쭈그려 앉기 (낮게)
   else if(pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.95;l.kn.rotation.x=2.3;});torso.rotation.x=0.15;A.forEach(a=>{a.sh.rotation.x=-1.25;a.el.rotation.x=-0.5;});}
   else if(pose==='curl'){L.forEach(l=>{l.hip.rotation.x=-1.9;l.kn.rotation.x=2.4;});torso.rotation.x=0.6;A.forEach(a=>{a.sh.rotation.x=-1.3;a.el.rotation.x=-0.9;});hd.rotation.x=-0.3;body.rotation.z=Math.PI/2;}
   else if(pose==='lie'){body.rotation.x=-Math.PI/2;A.forEach((a,k)=>{a.sh.rotation.z=(k?1:-1)*0.15;});}
@@ -3647,7 +3651,7 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   const kids=p=>p.H<=1.25,small=p=>p.H<=1.46;
   const lieC=(cx,y,cz,ry,p,s)=>{const L=p.baby?0:p.H*(s||1);return V(cx+Math.sin(ry)*L/2,y,cz+Math.cos(ry)*L/2);};   // 누운 몸 가운데를 (cx,cz)에
   // 샤워 공간 3곳
-  fixed('안방 샤워부스',W(2.42),0,Z(0.93),Math.PI,'stand');
+  fixed('안방 샤워부스',W(2.3),0,Z(0.4),Math.PI/2,'squat');   // 욕조 쪽 막힌 벽 뒤 안쪽 구석에 쭈그려 앉음 — 유리문 밖에서는 안 보이고 문 앞에서 들여다봐야 보임
   L.push({name:'공용 욕실 샤워 공간',fits:()=>true,shut:[15.05,7.25],res:p=>({parent:scene,pos:V(W(17.33),0,Z(6.42)),ry:-Math.PI/2,pose:p.baby?'lie':'stand'})});   // 불투명 유리 뒤 안쪽 + 욕실 문 닫아 둠
   fixed('작은 욕실 샤워부스',W(17.15),0,Z(13.25),-Math.PI/2,'stand');
   // 안방 욕조 안에 누움
@@ -3682,9 +3686,7 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
       res:p=>({parent:scene,pos:pos.clone(),ry:Math.atan2(-nb.x,-nb.z),pose:'stand'})});});
   // 안방 통창 암막 커튼 뒤 (양쪽 짝 하나씩)
   [-5.98,-4.5].forEach(x=>L.push({name:'안방 암막 커튼 뒤',group:'안방 암막 커튼 뒤',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(x,0,(window.CURTAIN_Z||-6.33)-0.125),ry:0,pose:'stand'})}));
-  // 큰 소파 밑(다리 7cm라 납작하게) · 트램펄린 밑
-  L.push({name:'큰 소파 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.4),0.002,Z(8.36+Math.min(2.3,p.H*1.02))),ry:0,pose:'lie',sy:p.baby?0.35:0.27})});
-  L.push({name:'큰 소파 카우치 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(8.05)+Math.min(1.7,p.H*1.02),0.002,Z(11.55)),ry:Math.PI/2,pose:'lie',sy:p.baby?0.35:0.27})});
+  // 큰 소파 밑은 사람은 안 들어감(인형만) · 트램펄린 밑
   L.push({name:'트램펄린 밑',fits:kids,res:p=>({parent:scene,pos:lieC(W(5.12),0.002,Z(11.72),Math.PI/6,p),ry:Math.PI/6,pose:'lie'})});
   // 웃긴 자리들
   L.push({name:'드레스룸 서랍장 위',fits:()=>true,res:p=>({parent:scene,pos:V(W(1.66),1.252,Z(5.65)),ry:Math.PI/2,pose:p.baby?'lie':'curl',s:p.baby?1:Math.min(1,1.1/(0.6*p.H))})});   // 가슴 높이 서랍장 위에 고양이처럼
@@ -3743,18 +3745,19 @@ function unwall(g,wallsOnly){g.userData.wallsOnly=!!wallsOnly;if(!wallHits(g))re
       g.position.set(p0.x+d.x,p0.y,p0.z+d.z);if(!wallHits(g))return true;}
     g.position.copy(p0);}
   g.scale.copy(s0);g.position.copy(p0);return false;}
-function angelPlace(i,p){const tryCeil=()=>{const RM=ROOMS.filter(r=>!r.minor&&['living','bedroom','kitchen','dress'].includes(r.kind));
+function angelPlace(i,p){const tryCeil=()=>{const RM=ROOMS.filter(r=>!r.minor&&['bedroom','kitchen','dress'].includes(r.kind));   // 하늘에 뜬 미옥: 처음 서는 거실은 빼고(바로 보이니까), 조금 더 작게 — 숨은 미옥과 난이도를 맞춤
+
     for(let t=0;t<25;t++){const rm=RM[Math.floor(Math.random()*RM.length)],[a,b,c,d]=rm.r;if(c-a<1.6||d-b<1.6)continue;
       const x=W(a+0.7+Math.random()*(c-a-1.4)),z=Z(b+0.7+Math.random()*(d-b-1.4));if(furnDepth(x,z)>0&&Math.random()<0.5)continue;
       const rc=new THREE.Raycaster(new THREE.Vector3(x,1.5,z),new THREE.Vector3(0,1,0),0,2);const h=rc.intersectObject(scene,true).find(h=>h.object.visible&&dollOf(h.object)==null);if(!h||h.point.y<2.0)continue;
       putDoll(i,{parent:scene,pos:new THREE.Vector3(x,0,z),ry:Math.random()*6.28,pose:'stand'},roomName(new THREE.Vector3(x,1,z))+' 천장 아래');const g=S.dolls[i].g;
-      g.updateMatrixWorld(true);{const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3());g.scale.multiplyScalar(0.5/sz.y);}   // 작게(50cm), 선 채로 — 사람 모양이 보이게
+      g.updateMatrixWorld(true);{const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3());g.scale.multiplyScalar(0.38/sz.y);}   // 작게(50cm), 선 채로 — 사람 모양이 보이게
       g.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(g);g.position.y+=h.point.y-0.12-bb.max.y;g.userData.bob=g.position.y;g.traverse(o=>{if(o.isSprite)o.visible=false;if(o.isPoints)o.material.size*=g.scale.x*1.5;});   // 천장 바로 아래 공중에 둥실 · 밝은 천장 앞이라 빛무리는 끄고 모양이 보이게
       if(unwall(g))return true;g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;}return false;};
-  const tryTiny=()=>{for(let t=0;t<30;t++){const c=autoPick([],4);if(!c)continue;const r=Object.assign({},c.res,{pose:'curl'});const ds=r.s||1;r.s=1;putDoll(i,r,c.where);const g=S.dolls[i].g;
-      g.updateMatrixWorld(true);const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()),f=Math.min(1,0.24*ds/Math.max(sz.y,sz.x*0.7,sz.z*0.7));g.scale.multiplyScalar(f);g.traverse(o=>{if(o.isSprite)o.visible=false;if(o.isPoints)o.material.size*=g.scale.x*1.5;});   // 인형만 하게 (빛무리는 끄고 반짝이는 몸에 맞게)
+  const tryTiny=()=>{for(let t=0;t<30;t++){const c=autoPick([],2);if(!c)continue;const r=Object.assign({},c.res,{pose:'curl'});const ds=r.s||1;r.s=1;putDoll(i,r,c.where);const g=S.dolls[i].g;
+      g.updateMatrixWorld(true);const sz=new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()),f=Math.min(1,0.3*ds/Math.max(sz.y,sz.x*0.7,sz.z*0.7));g.scale.multiplyScalar(f);g.traverse(o=>{if(o.isSprite)o.visible=false;if(o.isPoints)o.material.size*=g.scale.x*1.5;});   // 인형만 하게 (빛무리는 끄고 반짝이는 몸에 맞게)
       if(unwall(g))return true;g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;}return false;};
-  return Math.random()<0.5?(tryCeil()||tryTiny()):(tryTiny()||tryCeil());}
+  return tryCeil()||tryCeil();}   // 미옥은 늘 어딘가 천장 아래 공중에 떠 있음 (작게 숨는 tryTiny는 쓰지 않음)
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
   S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);if(p.angel&&angelPlace(i,p))return;const GW=n=>/커튼/.test(n)?5:1,names=Object.keys(groups).map(n=>[n,-Math.log(Math.random())/GW(n)]).sort((x,y)=>x[1]-y[1]).map(x=>x[0]);   // 커튼 뒤는 5배 자주 고름
@@ -4033,7 +4036,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.022';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.023';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
