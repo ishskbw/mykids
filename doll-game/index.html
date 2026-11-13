@@ -734,7 +734,7 @@ function dryBox(x0,x1,y0,y1,h,lv){const BK=0x18191b,GLD=new THREE.MeshStandardMa
  box(x0+0.03,y0+0.004,x1-0.03,y0+0.012,h-0.12,GLD,0.07); box(x1-0.06,y0-0.012,x1-0.045,y0,Math.min(0.3,h*0.35),0x8a8d90,h*0.42);
  box(x0+0.1,y0+0.002,x0+0.22,y0+0.006,0.03,0x5fd3c8,h-0.062);
  const cam=[0x26272a,0x2e3033,0x34363a];[0.05,...lv].forEach((z,i)=>{if(i>0)box(x0+0.03,y0+0.03,x1-0.03,y1-0.02,0.01,0x2a2c2f,z);
-   box(x0+0.06,y0+0.08,x0+0.18,y0+0.2,0.1,cam[i%3],z+0.01);box(x0+0.22,y0+0.1,x0+0.3,y0+0.28,0.07,0x1f2022,z+0.01);});}
+   box(x0+0.06,y1-0.16,x0+0.18,y1-0.04,0.1,cam[i%3],z+0.01);box(x0+0.22,y1-0.2,x0+0.3,y1-0.03,0.07,0x1f2022,z+0.01);});}   // 카메라는 칸 뒤쪽 (유리문 앞쪽은 비워 둠)
 dryBox(3.3,3.74,11.88,12.28,1.02,[0.3,0.57,0.82]);   // 150L
 dryBox(2.84,3.22,11.94,12.28,0.62,[0.32]);           // 오른쪽(어른 책상 쪽) 작은 제습함
 // 작은 제습함 옆 이케아 철제 서랍장 (HELMER 형태: 흰색 철제 6단, 바퀴)
@@ -3420,8 +3420,14 @@ function glassObs(){if(GLASS_OBS)return GLASS_OBS;GLASS_OBS=GLASS_CABS.map(()=>[
     vol.forEach((v,k)=>{if(v.containsBox(b))GLASS_OBS[k].push(b.clone());});});return GLASS_OBS;}
 function glassPick(){const k=Math.floor(Math.random()*GLASS_CABS.length),[x0,x1,y0,y1,fl,cl,fr,nm]=GLASS_CABS[k],obs=glassObs()[k];const L=Math.floor(Math.random()*fl.length);
   const s=fit(cl[L]-fl[L]-0.01),hw=0.075*s;
-  for(let t=0;t<12;t++){const x=W(x0+0.05+Math.random()*(x1-x0-0.1)),z=Z(y0+0.05+Math.random()*(y1-y0-0.1));
+  // 유리문 앞에서 봤을 때 가리는 물건(카메라 등)이 없는 자리 — 앞쪽부터 찾음
+  const fy=fr>0?y1:y0,ray=new THREE.Ray(),hp=new THREE.Vector3();
+  for(let t=0;t<40;t++){const dep=t<24?0.04+Math.random()*0.1:0.05+Math.random()*(y1-y0-0.1),x=W(x0+0.05+Math.random()*(x1-x0-0.1)),z=Z(fy-fr*dep);
     const db=new THREE.Box3(new THREE.Vector3(x-hw,fl[L]+0.01,z-hw),new THREE.Vector3(x+hw,fl[L]+0.2*s,z+hw));if(obs.some(o=>o.intersectsBox(db)))continue;
+    // 앞 0.9m·눈높이(칸 높이+0.2m)에서 몸통과 머리가 둘 다 실제로 보여야 함 (카메라·선반 테두리·위 틀에 가리지 않게, 유리는 통과)
+    const eye=new THREE.Vector3(x,Math.min(1.5,fl[L]+0.35),Z(fy)+(fr>0?0.9:-0.9));
+    const seen=y=>{const c=new THREE.Vector3(x,y,z),d=c.clone().sub(eye),Ld=d.length();d.normalize();const hs=castAll(eye,d,Ld);return !hs.some(h=>h.distance<Ld-0.04&&!isCeil(h.object)&&!(h.object.material&&h.object.material.transparent)&&dollOf(h.object)==null);};
+    if(!seen(fl[L]+0.08*s)||!seen(fl[L]+0.19*s))continue;
     const fz=Z(y0+fr)-Z(y0),pos=new THREE.Vector3(x,fl[L]+0.002,z);
     return{res:{parent:scene,pos,s,ry:fz>0?0:Math.PI},wp:pos.clone(),where:nm};}
   return null;}
@@ -3460,7 +3466,7 @@ const FAM=[
  {name:'공유정',short:'유정',tag:'큰딸',H:1.45,kid:1,hair:'long',bangs:1,top:'stripeP',sleeve:'short',bot:0x1e2433,wide:1,shoe:0xf2f2f0,waist:0xf4f1ea,ico:0xf3c9da},
  {name:'조은비',short:'은비',tag:'엄마',H:1.62,hair:'bob',bangs:1,top:'stripeBW',coat:0xb9bcc0,bot:0x8fb0d6,wide:1,shoe:0xf2f2f0,ico:0xb9bcc0},
  {name:'공유빈',short:'유빈',tag:'작은딸',H:1.12,kid:1,hair:'side',bangs:1,clip:0xf5a7c4,top:'nordic',bot:0xa8c4e0,shoe:0xc9b8e6,ico:0x2c3f6b},
- {name:'공병욱',short:'병욱',tag:'아빠',H:1.78,hair:'short',cap:0xf4f4f2,top:0x1f2a44,bot:0x1c2235,shoe:0xf2f2f0,pack:0x1a1a1c,ico:0x1f2a44},
+ {name:'공병욱',short:'병욱',tag:'아빠',H:1.78,hair:'short',cap:0xf4f4f2,top:0x1f2a44,bot:0x1c2235,shoe:0xf2f2f0,ico:0x1f2a44},
  {name:'조은서',short:'은서',tag:'큰이모',H:1.62,hair:'bob',bangs:1,glasses:0xcbb68e,top:0xd9dcdf,bot:0x9dbbd8,shoe:0xb8bcc2,ico:0xd9dcdf},
  {name:'이용문',short:'용문',tag:'큰이모부',H:1.8,hair:'short',glasses:0x3a3a3a,top:'whiteG',bot:0x2b2f38,shoe:0x3a3b3e,ico:0xf5f5f2},
  {name:'조서연',short:'서연',tag:'막내이모',H:1.63,hair:'long',top:0xf1ebdf,bot:0x232326,shoe:0xf2f2f0,ico:0xf1ebdf},
@@ -3601,7 +3607,8 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
     const tt=d.t;const u0=at(0.55),u1=at(1);d.apply(tt);g.updateMatrixWorld(true);const hn=g.getWorldPosition(V(0,0,0));
     const nb=u1.clone().sub(u0).normalize(),pos=hn.clone().addScaledVector(u0,0.55).addScaledVector(nb,0.17);pos.y=0;
     {const o=V(hn.x,1,hn.z),dr=V(pos.x-hn.x,0,pos.z-hn.z),L2=dr.length();dr.normalize();if(castAll(o,dr,L2+0.15).some(h=>!h.object.userData.door&&!invisM(h.object)))return;}
-    L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;(S.shut=S.shut||[]).push(d);},
+    if(roomName(pos)==='안방')return;   // 안방 문 뒤는 옷 행거가 차지함
+    L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;d.t=0.55;d.apply(0.55);if(d.objs&&d.objs[0])d.objs[0].updateMatrixWorld(true);if(!(S.shut||[]).includes(d))(S.shut=S.shut||[]).push(d);},
       res:p=>({parent:scene,pos:pos.clone(),ry:Math.atan2(-nb.x,-nb.z),pose:'stand'})});});
   // 안방 통창 암막 커튼 뒤 (양쪽 짝 하나씩)
   [-5.98,-4.5].forEach(x=>L.push({name:'안방 암막 커튼 뒤',group:'안방 암막 커튼 뒤',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(x,0,(window.CURTAIN_Z||-6.33)-0.125),ry:0,pose:'stand'})}));
@@ -3670,7 +3677,7 @@ function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶�
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
   S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);const names=Object.keys(groups).sort(()=>Math.random()-0.5);
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
-      used.add(j);{const r0=sp[j].res(p);putDoll(i,r0,sp[j].name);const g=S.dolls[i].g;if(!unwall(g,/난간/.test(sp[j].name))){g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;continue;}g.parent.remove(g);S.dolls[i].g=null;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g,/난간/.test(sp[j].name));if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
+      used.add(j);if(sp[j].ajar)sp[j].ajar();{const r0=sp[j].res(p);putDoll(i,r0,sp[j].name);const g=S.dolls[i].g;if(!unwall(g,/난간/.test(sp[j].name))){g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;continue;}g.parent.remove(g);S.dolls[i].g=null;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g,/난간/.test(sp[j].name));if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
 // 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
 function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Vector3();let best=null,bd=1.3;
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
@@ -3904,7 +3911,7 @@ init();
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.009';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.010';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
