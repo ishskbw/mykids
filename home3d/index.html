@@ -634,16 +634,17 @@ bed(3.38,3.13,5.38,4.73,'r',0.25); bed(3.38,5.23,5.38,6.33,'r',0.25);  // 킹 + 
 }
 // 안방
 // 서재(안방): 왼쪽 벽 전체 책장, 창을 등지고 문 쪽을 보는 책상, 오른쪽 벽에 아이 책상+책장과 책장
-openShelf(0.11,8.21,0.45,12.29,2.1,'+x',11,BLACKGLASS);
+openShelf(0.11,8.21,0.45,11.96,2.1,'+x',11,BLACKGLASS);   // 창 쪽 끝은 벽에 닿지 않음 (그 사이에 암막 커튼이 모여 있음)
+const SDX=0.2;   // 서재 책상·모니터·의자·서랍을 오른쪽으로 옮긴 거리
 // 서재 책상: 어두운 월넛 상판 + 차콜 판다리·가림판 + 서랍장, 의자는 사무용 의자
-{const TOPD=0x3b2e27,LEG=0x2a2b2d;
- box(0.85,10.9,2.45,11.6,0.035,TOPD,0.705); box(0.87,10.92,2.43,11.58,0.008,0x4a3a30,0.74);
- box(0.88,10.95,0.92,11.55,0.705,LEG); box(2.38,10.95,2.42,11.55,0.705,LEG);
- box(0.92,10.95,2.38,10.98,0.42,LEG,0.25);
+{const TOPD=0x3b2e27,LEG=0x2a2b2d,D=SDX;   // 책상 전체를 오른쪽으로 D만큼 (왼쪽 책장과 사이로 지나갈 수 있게)
+ box(0.85+D,10.9,2.45+D,11.6,0.035,TOPD,0.705); box(0.87+D,10.92,2.43+D,11.58,0.008,0x4a3a30,0.74);
+ box(0.88+D,10.95,0.92+D,11.55,0.705,LEG); box(2.38+D,10.95,2.42+D,11.55,0.705,LEG);
+ box(0.92+D,10.95,2.38+D,10.98,0.42,LEG,0.25);
  // 분리형 이동 서랍장 (책상 왼쪽 아래, 바퀴 달림)
- box(0.99,11.02,1.41,11.5,0.56,0x34302d,0.05); [0.24,0.42].forEach(h=>box(1.0,11.5,1.4,11.505,0.004,0x55504b,h));
- [0.14,0.33,0.51].forEach(h=>box(1.15,11.505,1.25,11.515,0.015,0x8a8580,h));
- [[1.02,11.05],[1.36,11.05],[1.02,11.45],[1.36,11.45]].forEach(([x,y])=>box(x,y,x+0.03,y+0.03,0.05,0x1a1a1a));
+ box(0.99+D,11.02,1.41+D,11.5,0.56,0x34302d,0.05); [0.24,0.42].forEach(h=>box(1.0+D,11.5,1.4+D,11.505,0.004,0x55504b,h));
+ [0.14,0.33,0.51].forEach(h=>box(1.15+D,11.505,1.25+D,11.515,0.015,0x8a8580,h));
+ [[1.02,11.05],[1.36,11.05],[1.02,11.45],[1.36,11.45]].forEach(([x,y])=>box(x+D,y,x+D+0.03,y+0.03,0.05,0x1a1a1a));
 }
 // 서재 책상 위 32인치 모니터 2대 (앉는 쪽을 향함)
 [[1.3,0.12],[2.0,-0.12]].forEach(([mx,ry])=>{const g=new THREE.Group(),bk=fmat(0x1a1b1d);
@@ -651,7 +652,7 @@ openShelf(0.11,8.21,0.45,12.29,2.1,'+x',11,BLACKGLASS);
   const neck=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.03),bk);neck.position.set(0,0.12,-0.04);g.add(neck);
   const sc=new THREE.Mesh(new THREE.RoundedBoxGeometry(0.715,0.42,0.03,2,0.008),bk);sc.position.set(0,0.39,0);g.add(sc);
   const disp=new THREE.Mesh(new THREE.PlaneGeometry(0.69,0.39),new THREE.MeshStandardMaterial({color:0x1d2633,emissive:0x2b3a52,emissiveIntensity:0.35,roughness:0.15}));disp.position.set(0,0.395,0.0155);g.add(disp);
-  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.position.set(W(mx),0.74,Z(11.05));g.rotation.y=ry;scene.add(g);fullOnly.push(g);});
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.position.set(W(mx+SDX),0.74,Z(11.05));g.rotation.y=ry;scene.add(g);fullOnly.push(g);});
 function meshChair(wx,wz){const ch=new THREE.Group(),dk=fmat(0x232426),fb=fmat(0x3a3c40);
  for(let i=0;i<5;i++){const a=new THREE.Mesh(unit,dk);a.scale.set(0.3,0.025,0.035);const t=i*Math.PI*2/5;a.position.set(Math.cos(t)*0.15,0.06,Math.sin(t)*0.15);a.rotation.y=-t;ch.add(a);
    const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.035,14),dk);wh.rotation.z=Math.PI/2;wh.rotation.y=-t;wh.position.set(Math.cos(t)*0.29,0.03,Math.sin(t)*0.29);ch.add(wh);}  // 바퀴
@@ -666,7 +667,7 @@ function meshChair(wx,wz){const ch=new THREE.Group(),dk=fmat(0x232426),fb=fmat(0
  const hs=new THREE.Mesh(unit,dk);hs.scale.set(0.05,0.08,0.03);hs.position.set(0,0.74,0.01);bkg.add(hs);
  [-0.27,0.27].forEach(x=>{const ar=new THREE.Mesh(unit,dk);ar.scale.set(0.05,0.03,0.3);ar.position.set(x,0.68,0.02);ch.add(ar);const sp=new THREE.Mesh(unit,dk);sp.scale.set(0.03,0.2,0.03);sp.position.set(x,0.58,0.06);ch.add(sp);});
  ch.position.set(wx,0,wz);scene.add(ch);}
-meshChair(W(1.65),Z(11.9));
+meshChair(W(1.65+SDX),Z(11.9));
 { // 아이 책상: 한샘 아이 책상 (사진) — 아이보리 몸체, 둥근 옆판, 회색 각도 조절 상판 + 오른쪽 작은 보조 상판,
   // 뒤쪽 타공판(점 구멍) + 아래 낮은 선반 + LED 바, 맨 위 문 없는 오픈 칸 2개
  const IV=0xefe9dc,x0=3.72,x1=4.37,y0=8.35,y1=9.55,T=0.025,top=0.72,ext=0.36;
@@ -2280,8 +2281,8 @@ const SUG=new THREE.Group();scene.add(SUG);
  pb(8.15,2.24,10.8,2.27,0.012,1.435,LED); {const g=glow(W(10.8)-W(8.15),0.45,0.22);g.rotation.x=-Math.PI/2;g.position.set((W(8.15)+W(10.8))/2,0.912,Z(2.1));SUG.add(g);}
  [[2.6,3.28],[4.5,5.3]].forEach(([a,b])=>{pb(10.52,a,10.55,b,0.012,1.435,LED);const g=glow(b-a,0.4,0.2);g.rotation.x=-Math.PI/2;g.rotation.z=Math.PI/2;g.position.set(W(10.62),0.912,Z((a+b)/2));SUG.add(g);});
  // 서재: 책장 칸마다 LED 스트립 + 뒤판 빛 번짐, 모니터 뒤 바이어스 조명
- [0.38,0.74,1.10,1.46,2.075].forEach(z=>{pb(0.4,8.24,0.43,12.26,0.008,z-0.009,LED);
-   const g=glow(12.26-8.24,0.32,0.13);g.rotation.y=Math.PI/2;g.position.set(W(0.135),z-0.17,Z(10.25));SUG.add(g);});
+ [0.38,0.74,1.10,1.46,2.075].forEach(z=>{pb(0.4,8.24,0.43,11.93,0.008,z-0.009,LED);   // 책장 끝(11.96)까지
+   const g=glow(11.93-8.24,0.32,0.13);g.rotation.y=Math.PI/2;g.position.set(W(0.135),z-0.17,Z((8.24+11.93)/2));SUG.add(g);});
  // 안방: 킹 침대 위 가로 액자 1점 + 플러그형 벽등 2개
  {const xw=W(5.53)-0.11,FRM=sm(0x2a211c,0.5),ART=new THREE.MeshStandardMaterial({map:(()=>{const c=document.createElement('canvas');c.width=512;c.height=200;const x=c.getContext('2d');
      const gr=x.createLinearGradient(0,0,0,200);gr.addColorStop(0,'#d9d2c4');gr.addColorStop(0.55,'#c9b9a0');gr.addColorStop(1,'#8f8270');x.fillStyle=gr;x.fillRect(0,0,512,200);
