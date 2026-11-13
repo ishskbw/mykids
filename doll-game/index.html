@@ -2007,7 +2007,9 @@ renderer.domElement.addEventListener('pointerup',e=>{
 
 // 해상도: 기기 픽셀 배율(최대 2)을 쓰되 그리는 점이 약 220만 개를 넘지 않게, 그리고 버벅이면 PRQ로 더 낮춤
 let PRQ=1;const prFor=(w,h)=>Math.max(0.75,Math.min(window.devicePixelRatio||1,2,Math.sqrt(2.2e6/Math.max(1,w*h)))*PRQ);
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setPixelRatio(prFor(w,h));renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(typeof WALK!=='undefined'&&WALK.on)walkFov();}
+let LASTSZ='';
+function resize(){const w=stage.clientWidth,h=stage.clientHeight,pr=prFor(w,h),key=w+'x'+h+'@'+pr.toFixed(3);if(key===LASTSZ)return;LASTSZ=key;   // 크기가 그대로면 캔버스를 다시 만들지 않음 (깜빡임 방지)
+  renderer.setPixelRatio(pr);renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(typeof WALK!=='undefined'&&WALK.on)walkFov();}
 window.addEventListener('resize',resize);resize();
 const d0=fitDist(1);camera.position.set(-4*d0,15*d0,18*d0);controls.target.set(0.4,0,0.2);
 
@@ -3911,16 +3913,16 @@ function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElemen
 init();
 // 앱으로 설치(홈 화면): kong-gallery.com에서만 서비스 워커 등록
 if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))navigator.serviceWorker.register('/doll-game/sw.js',{scope:'/doll-game/'}).catch(e=>console.warn(e));
-// 버벅임 자동 조절: 2초 동안 평균 프레임이 40 미만이면 해상도를 15% 낮추고, 57 이상이 계속되면 조금씩 되돌림
-{let n=0,t0=performance.now(),good=0;const loop=now=>{requestAnimationFrame(loop);if(document.hidden){t0=now;n=0;return;}n++;const dt=now-t0;if(dt<2000)return;
-   const fps=n*1000/dt;n=0;t0=now;let q=PRQ;if(fps<40&&PRQ>0.45){q=Math.max(0.45,PRQ*0.85);good=0;}else if(fps>57){if(++good>=3&&PRQ<1){q=Math.min(1,PRQ*1.1);good=0;}}else good=0;
-   if(q!==PRQ){PRQ=q;resize();}};requestAnimationFrame(loop);}
+// 버벅임 자동 조절: 4초 동안 평균 프레임이 35 미만이면 해상도를 20% 낮춤 (한 판에 최대 3번, 최소 15초 간격).
+// 다시 올리지는 않음 — 해상도를 바꿀 때마다 캔버스를 새로 만들어 한 번 검게 깜빡이므로, 오르내림이 반복되지 않게.
+{let n=0,t0=performance.now(),last=-1e9,steps=0;const loop=now=>{requestAnimationFrame(loop);if(document.hidden){t0=now;n=0;return;}n++;const dt=now-t0;if(dt<4000)return;
+   const fps=n*1000/dt;n=0;t0=now;if(fps<35&&steps<3&&now-last>15000&&PRQ>0.5){PRQ=Math.max(0.5,PRQ*0.8);steps++;last=now;resize();}};requestAnimationFrame(loop);}
 // 소리 켜기/끄기 버튼 (왼쪽 아래)
 {const b=document.createElement('button');b.id='gSnd';b.textContent=SOUND?'🔊':'🔇';b.setAttribute('aria-label','소리 켜기/끄기');
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.013';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.014';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
