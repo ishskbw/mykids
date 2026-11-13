@@ -1,0 +1,19 @@
+{
+  "id": "/doll-game/",
+  "name": "우리집 인형 숨바꼭질",
+  "short_name": "인형 숨바꼭질",
+  "description": "우리 집 3D에서 하는 인형·가족 숨바꼭질",
+  "start_url": "/doll-game/",
+  "scope": "/doll-game/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#f6b05c",
+  "theme_color": "#f6b05c",
+  "lang": "ko",
+  "icons": [
+    { "src": "/doll-game/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/doll-game/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/doll-game/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

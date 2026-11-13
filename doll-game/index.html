@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>인형 숨바꼭질</title>
+<link rel="manifest" href="/doll-game/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/doll-game/apple-touch-icon.png">
+<meta name="theme-color" content="#f6b05c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="인형 숨바꼭질">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -3902,6 +3908,8 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
+// 앱으로 설치(홈 화면): kong-gallery.com에서만 서비스 워커 등록
+if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))navigator.serviceWorker.register('/doll-game/sw.js',{scope:'/doll-game/'}).catch(e=>console.warn(e));
 // 버벅임 자동 조절: 2초 동안 평균 프레임이 40 미만이면 해상도를 15% 낮추고, 57 이상이 계속되면 조금씩 되돌림
 {let n=0,t0=performance.now(),good=0;const loop=now=>{requestAnimationFrame(loop);if(document.hidden){t0=now;n=0;return;}n++;const dt=now-t0;if(dt<2000)return;
    const fps=n*1000/dt;n=0;t0=now;let q=PRQ;if(fps<40&&PRQ>0.45){q=Math.max(0.45,PRQ*0.85);good=0;}else if(fps>57){if(++good>=3&&PRQ<1){q=Math.min(1,PRQ*1.1);good=0;}}else good=0;
@@ -3911,7 +3919,7 @@ init();
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.010';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.011';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
