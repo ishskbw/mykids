@@ -2105,16 +2105,16 @@ floorLamp(planX(-3.957-0.24),2.0);   // 갓 반지름 21cm + 3cm 띄움   // 안
    mk(new THREE.CylinderGeometry(0.007,0.009,0.1,12),CH,cx+0.06,by+0.12,bz).rotation.z=-1.25;
    mk(new THREE.SphereGeometry(0.018,16,12),CH,cx+0.025,by+0.1,bz);}}
 
- // 안방 문 뒤(문을 열면 문짝과 왼쪽 벽 사이) 긴 옷 행거: 낮은 발 위 판자(신발 상자·가방·담요) + 검은 철제 기둥 3개·봉 + 긴 옷 20벌
- {const WX=-7.80,DX=0.46,Z0=-3.45,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.073,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
+ // 안방 문 뒤(문을 열면 문짝과 왼쪽 벽 사이) 옷 행거 (길이 78cm, 파우더룸 입구를 가리지 않게): 낮은 발 위 판자(신발 상자·가방) + 검은 철제 기둥 3개·봉 + 긴 옷 7벌
+ {const WX=-7.80,DX=0.46,Z0=-1.08,Z1=-0.30,zc=(Z0+Z1)/2,len=Z1-Z0,BH=0.073,TOPY=1.78,BKm=gm(0x1f2022,{metalness:0.6,roughness:0.4});
   {const PB=gm(0xd9c3a0,{roughness:0.7}),xc=WX+0.012+DX/2,PY=0.09;
    mk(BX(DX,0.025,len),PB,xc,PY,zc);
    [Z0+0.03,zc,Z1-0.03].forEach(z=>[xc-DX/2+0.03,xc+DX/2-0.03].forEach(x=>mk(BX(0.03,PY-0.0125,0.03),BKm,x,(PY-0.0125)/2,z)));
-   [[0.15,0.3,0.12,0xb9a58a],[0.9,0.32,0.14,0x8c6f5a],[1.6,0.28,0.1,0xe8e2d6],[2.4,0.3,0.12,0x3e4a5e]].forEach(([dz,w,h,c])=>mk(BX(DX*0.6,h,w),gm(c,{roughness:0.85}),xc-0.04,PY+0.0125+h/2,Z0+0.12+dz));}
+   [[0.02,0.28,0.12,0xb9a58a],[0.36,0.3,0.14,0x8c6f5a]].forEach(([dz,w,h,c])=>mk(BX(DX*0.6,h,w),gm(c,{roughness:0.85}),xc-0.04,PY+0.0125+h/2,Z0+0.12+dz));}
   const xm=WX+0.012+DX/2;[Z0+0.02,zc,Z1-0.02].forEach(z=>mk(new THREE.CylinderGeometry(0.012,0.012,TOPY-BH-0.03,12),BKm,xm,BH+0.03+(TOPY-BH-0.03)/2,z));
   mk(new THREE.CylinderGeometry(0.011,0.011,len,12),BKm,xm,TOPY,zc).rotation.x=Math.PI/2;
   const COL=[0xc8b28c,0x2c3446,0x1c1c1e,0x8d8f93,0xa8754b,0x6b4b5c,0xe6e0d4];let sd=7;const R=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
-  const n=20;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));
+  const n=7;for(let k=0;k<n;k++){const z=Z0+0.07+k*(len-0.14)/(n-1),L=0.95+R()*0.38,c=COL[k%COL.length],th=0.03+R()*0.03,sw=0.36+R()*0.04,bw=Math.min(DX-0.03,sw*(1.05+R()*0.2));
     mk(new THREE.TorusGeometry(0.018,0.003,6,12,Math.PI*1.4),BKm,xm,TOPY+0.012,z).rotation.y=Math.PI/2;
     mk(new THREE.BoxGeometry(sw*0.92,0.012,0.012),gm(0x9a7a55),xm,TOPY-0.04,z);
     const g=new THREE.BoxGeometry(1,1,1,4,8,1),P=g.attributes.position;
@@ -2129,8 +2129,9 @@ floorLamp(planX(-3.957-0.24),2.0);   // 갓 반지름 21cm + 3cm 띄움   // 안
     for(let i=0;i<P.count;i++){const u=P.getX(i)/0.22,v=P.getY(i)/0.22,k=1-0.55*Math.pow(Math.max(Math.abs(u),Math.abs(v)),3)-0.25*(u*u+v*v)/2;P.setZ(i,P.getZ(i)*Math.max(0.12,k));
       const pinch=1-0.05*(1-Math.abs(v))*Math.abs(u)*Math.abs(u);P.setX(i,P.getX(i)*pinch);}g.computeVertexNormals();return g;};
   [[8.44,9.98],[9.98,10.75]].forEach(([a,c],k)=>{const ms=grab(W(8.97),0.29,Z(a)-0.01,W(9.63),0.49,Z(c)+0.01);if(!ms.length)return;
-    const b=new THREE.Box3();ms.forEach(h=>b.expandByObject(h));const LM=[].concat(ms[0].material)[0],xb=b.max.x-0.13,zz=k===0?b.min.z+0.32:b.max.z-0.3;
-    const m=mk(pillowGeo(),LM,xb,b.max.y+0.205,zz);m.rotation.set(0,-Math.PI/2,0);m.rotateX(-0.32);m.rotateZ(k?0.08:-0.08);});}
+    const b=new THREE.Box3();ms.forEach(h=>b.expandByObject(h));const bk=new THREE.Box3();grab(W(9.28),0.45,Z(a),W(9.76),0.95,Z(c)).forEach(h=>bk.expandByObject(h));   // 등받이 앞면 바로 앞에 기대 세움
+    const LM=[].concat(ms[0].material)[0],xb=(bk.isEmpty()?b.max.x-0.21:bk.min.x)-0.13,zz=k===0?b.min.z+0.32:b.max.z-0.3;
+    const m=mk(pillowGeo(),LM,xb,b.max.y+0.225,zz);m.rotation.set(0,-Math.PI/2,0);m.rotateX(-0.32);m.rotateZ(k?0.08:-0.08);});}
  // 파우더룸 화장대 앞면: 왼쪽 4단 서랍장 · 의자 자리 위 얇은 서랍 · 오른쪽 끝 당겨 여는 슬라이딩 수납장 (금색 손잡이)
  {const LN=0xb89a70,xf=0.6,line=(a,b,z)=>box(xf,a,xf+0.003,b,0.003,LN,z),vline=(y,z0,z1)=>box(xf,y-0.002,xf+0.003,y+0.002,z1-z0,LN,z0);
   [0.21,0.39,0.57].forEach(z=>line(3.995,4.83,z));[[0.03,0.21],[0.21,0.39],[0.39,0.57],[0.57,0.775]].forEach(([a,b])=>knob(xf+0.01,4.41,(a+b)/2));
