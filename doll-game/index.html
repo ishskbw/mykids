@@ -2856,7 +2856,26 @@ function buildConts(){
  // 주방: 냉장고·김치냉장고·키큰장 (천장까지 짠 장 전체를 속이 빈 장으로)
  hollow({axis:'y',f:5.5,n:-1,a0:FRX0,a1:10.85,back:6.3,b:0,h:H,col:BUILT2,inner:0xe9e6e0,holes:[[7.672,8.518,0.012,1.888,0.62,0xf4f7f8],[8.582,9.328,0.012,1.888,0.62,0xf4f7f8],[9.414,10.136,0.162,2.138,0.7]]});
  const FRG=(a,b,hg,col,nm,st)=>door('y',5.5,-1,a,b,0.0,1.9,0.6,col,hg,nm,{inner:0xf4f7f8,glass:st==='fridge',shelfCol:0xe9edef,hc:0x6c7275,hy:1.0,shelves:[0,0.42,0.82,1.22,1.55],ang:1.6,style:st});
- FRG(7.67,8.095,'a',0xc4c9cb,'냉장고','fridge');FRG(8.095,8.52,'b',0xc4c9cb,'냉장고','fridge');FRG(8.58,8.955,'a',0xb3bbbe,'김치냉장고','kimchi');FRG(8.955,9.33,'b',0xb3bbbe,'김치냉장고','kimchi');
+ const FW=new THREE.MeshStandardMaterial({color:0xeceeec,roughness:0.42,metalness:0.05});   // 냉장고 문: 백색 (너무 새하얗지 않게, 덜 반짝이게)
+ const FRG2=(a,b,hg,nm,st,z0,z1,sh)=>door('y',5.5,-1,a,b,z0,z1,0.6,0xeceeec,hg,nm,{mat:FW,inner:0xf4f7f8,glass:st==='fridge',shelfCol:0xe9edef,hc:0x8a9094,hy:z1-z0>1.2?1.0:0.12,shelves:sh,ang:1.6,style:st});
+ FRG2(7.67,8.095,'a','냉장고','fridge',0.0,1.9,[0,0.42,0.82,1.22,1.55]);
+ {const fr=FRG2(8.095,8.52,'b','냉장고','fridge',0.0,1.9,[0,0.42,0.82,1.22,1.55]);
+  // 오른쪽 문의 홈바: 음료를 꺼내는 작은 문 (아래 경첩으로 앞으로 젖혀 열림, 큰 문과 같이 움직임)
+  const pv=fr.mov,px=fr.hits[0].position.x,hw=0.26,hh=0.3,y0=1.02,DK=new THREE.MeshStandardMaterial({color:0x2a2e31,roughness:0.7});
+  const hb=new THREE.Group();hb.position.set(px,y0,0.011);pv.add(hb);const flap=new THREE.Group();hb.add(flap);
+  const c=baseCont({type:'flap',G:hb,name:'냉장고 홈바',w:hw,h:hh,d:0.05,gate:0.3,speed:1.1});c.noHide=true;c.mov=flap;c.place=()=>null;c.rand=()=>null;
+  setPart(mk(BX(hw,hh,0.012),FW,0,hh/2,0.006,flap),c,'hit');
+  setPart(mk(BX(0.12,0.016,0.014),gm(0x8a9094,{metalness:0.6,roughness:0.35}),0,hh-0.03,0.018,flap),c,'hit');   // 위쪽 손잡이 홈
+  [[0,0.0005],[0,hh-0.0005]].forEach(([x,y])=>mk(BX(hw+0.006,0.003,0.004),DK,x,y,0.001,hb));[[-hw/2,hh/2],[hw/2,hh/2]].forEach(([x,y])=>mk(BX(0.003,hh,0.004),DK,x,y,0.001,hb));   // 문 둘레 틈
+  const IN=new THREE.Group();hb.add(IN);c.inner.push(IN);IN.visible=false;
+  mk(BX(hw-0.012,hh-0.012,0.002),DK,0,hh/2,0.0005,IN);                                              // 열면 보이는 어두운 안쪽
+  const DR=[0xd84b3c,0x3d7a3f,0xf2c14b,0x2f62a8,0xe8e8e8];DR.forEach((col,k)=>{const x=-hw/2+0.03+k*0.05,tall=k%2?0.13:0.1;
+    mk(new THREE.CylinderGeometry(0.019,0.019,tall,14),gm(col,{roughness:0.4,metalness:k%2?0:0.6}),x,0.012+tall/2,0.012,IN);});   // 음료 캔·병
+  c.onAmt=a=>{flap.rotation.x=a*1.45;};
+  c.view=()=>({t:hb.localToWorld(new THREE.Vector3(0,hh/2,0)),n:new THREE.Vector3(0,0,1).transformDirection(hb.matrixWorld),dist:0.8,up:0.25});}
+ // 김치냉장고: 위는 양문, 아래는 서랍 2단
+ FRG2(8.58,8.955,'a','김치냉장고','kimchi',0.95,1.9,[0,0.42]);FRG2(8.955,9.33,'b','김치냉장고','kimchi',0.95,1.9,[0,0.42]);
+ [[0.012,0.47],[0.48,0.94]].forEach(([z0,z1])=>drawer('y',5.5,-1,8.585,9.325,z0,z1,0.55,0xeceeec,'김치냉장고 서랍',{hc:0x8a9094,hollow:true,style:'containers'}));
  door('y',5.5,-1,9.41,10.14,0.15,2.15,0.68,0xf1efe9,'b','주방 키큰장',{co:0.002,inner:0xe9e6e0,style:'pantry'});
  // 개수대 줄: 싱크볼 아래 문 2짝 + 식기세척기
  hollow({axis:'y',f:2.55,n:1,a0:8.1,a1:10.85,back:1.95,b:0,h:0.86,col:NAVY,inner:0xdcd8cf,holes:[[8.755,9.297,0.085,0.835,0.5],[9.303,9.677,0.085,0.835,0.5],[9.683,10.177,0.085,0.835,0.57,0xc4c8cb]]});
@@ -3014,16 +3033,7 @@ function buildConts(){
    c.rand=()=>c.place(G.localToWorld(new THREE.Vector3((Math.random()-0.5)*(w-0.3),0,0)));
    c.person=p=>({parent:G,pos:new THREE.Vector3((Math.random()-0.5)*(w-0.6),0.09,-d/2-0.02),ry:0,pose:'stand'});
    UNIT_BOX.push([Math.min(X0,X1),Math.min(z0,z1),Math.max(X0,X1),Math.max(z0,z1),-0.07,2.08]);});
- // 주방 발코니 세탁기 앞 빨래 바구니 (게임에서 둠): 라탄 바구니 + 위에 쌓인 빨래
- {const x=W(9.22),z=Z(0.64),G=new THREE.Group();G.position.set(x,0,z);scene.add(G);const WK=new THREE.MeshStandardMaterial({color:0xc9a978,roughness:0.95,side:THREE.DoubleSide});envFix(WK);
-  const a=(geo,m,px,py,pz)=>{const o=mk(geo,m,px,py,pz,G);o.castShadow=true;o.receiveShadow=true;return o;};
-  a(new THREE.CylinderGeometry(0.29,0.25,0.46,28,1,true),WK,0,0.23,0);a(new THREE.CylinderGeometry(0.25,0.25,0.02,24),WK,0,0.01,0);
-  {const t=a(new THREE.TorusGeometry(0.29,0.015,8,28),gm(0xa98c5e,{roughness:0.9}),0,0.46,0);t.rotation.x=Math.PI/2;}
-  const CL=[0xf4f1ea,0x8fb0d6,0xf3c9da,0x55606b,0xe9d27a,0xd9dcdf,0x2f3a4a];
-  for(let k=0;k<7;k++){const an=k/7*Math.PI*2,o=a(new THREE.SphereGeometry(0.11,12,8),gm(CL[k],{roughness:0.95}),Math.cos(an)*0.17,0.42+(k%2)*0.03,Math.sin(an)*0.17);o.scale.set(1.2,0.45,0.9);o.rotation.y=an;}
-  {const o=a(new THREE.SphereGeometry(0.12,12,8),gm(0xc7b8a3,{roughness:0.95}),0,0.33,0);o.scale.set(1.3,0.5,1.1);}
-  // 바구니는 걸어서 지나갈 수 있게 (다용도실 문 앞이라 막히지 않도록 충돌에 넣지 않음)
-  openSpot(G,'주방 발코니 빨래 바구니 속',0.4,0.4,0.4,{floor:0.03});}
+ // (주방 발코니 세탁기 앞 빨래 바구니는 없앰)
  // 안방 샤워부스: 욕실 쪽 유리벽을 여닫는 유리문으로 (경첩은 안쪽 끝, 욕실 쪽으로 열림)
  {const gx=W(1.96),gz=Z((0.86+1.87)/2),k=wallMeshes.findIndex(m=>m.material===M.glass&&Math.abs(m.position.x-gx)<0.02&&Math.abs(m.position.z-gz)<0.08);
   if(k>=0){const old=wallMeshes[k];wallMeshes.splice(k,1);old.parent&&old.parent.remove(old);
@@ -3083,6 +3093,10 @@ function buildConts(){
    if(handle)setPart(mk(BX(0.015,Math.min(0.3,(zt-zb)*0.35),0.015),gm(0x8a8d90,{metalness:0.7,roughness:0.3}),s*(L-0.03),(zt-zb)*0.5,nz*0.015,G),c,'hit');
    c.onAmt=a=>{G.rotation.y=(hingeA?-nz:nz)*a*1.5;};c.place=()=>null;c.rand=()=>null;
    c.view=()=>({t:new THREE.Vector3((X0+X1)/2,zb+(zt-zb)*0.5,zf),n:new THREE.Vector3(0,0,nz),dist:Math.max(0.8,L*1.6),up:0.25});   // 문 앞(열리는 쪽)에서 봄
+   // 제습함: 몸통(집 코드의 상자들)을 눌러도 이 문이 열고 닫힘
+   if(handle){scene.updateMatrixWorld(true);const zA=Math.min(zf,zf-nz*0.6),zB=Math.max(zf,zf-nz*0.6);
+     scene.traverse(o=>{if(!o.isMesh||!o.visible||o.userData.game||o.userData.cont)return;const b=new THREE.Box3().setFromObject(o);
+       if(b.min.x>X0-0.07&&b.max.x<X1+0.07&&b.min.z>zA-0.05&&b.max.z<zB+0.05&&b.min.y>zb-0.1&&b.max.y<zt+0.1)setPart(o,c,'hit');});}
    return c;};
  {const xm=(5.62+6.5)/2;glassDoor(5.623,xm,2.4,0.06,1.86,true,1,'현관 술장 유리문');glassDoor(xm,6.497,2.4,0.06,1.86,false,1,'현관 술장 유리문');}
  glassDoor(3.33,3.71,11.888,0.07,0.97,true,-1,'서재 카메라 제습함 유리문',true);
@@ -3543,7 +3557,6 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
   // 웃긴 자리들
   L.push({name:'드레스룸 서랍장 위',fits:()=>true,res:p=>({parent:scene,pos:V(W(1.66),1.252,Z(5.65)),ry:Math.PI/2,pose:p.baby?'lie':'curl',s:p.baby?1:Math.min(1,1.1/(0.6*p.H))})});   // 가슴 높이 서랍장 위에 고양이처럼
   L.push({name:'드레스룸 옷걸이 봉',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(W(1.3),1.8,Z(7.74)-0.12),ry:Math.PI,pose:'hang',s:Math.min(1,1.74/(p.H*1.28))})});   // 옷 사이에 옷걸이처럼 매달림
-  L.push({name:'주방 발코니 빨래 바구니 속',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.22),0.03,Z(0.64)),ry:Math.PI,pose:p.baby?'lie':'crouch',s:p.baby?1:Math.min(1,0.66/(0.58*p.H)),extra:p.baby?null:sockOnHead})});
   L.push({name:'식탁 밑',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(W(6.375),0.002,Z(4.55)+0.9+0.32),ry:0,pose:'lie'})});   // 누워서 다리만 식탁 끝으로 삐죽
   // 안방 침대 밑
   (window.BEDS||[]).forEach(b=>{if(b.top>0.5)L.push({name:'안방 침대 밑',fits:()=>true,res:p=>({parent:scene,pos:lieC((b.X0+b.X1)/2-OXN-0.1,0,Z((b.y0+b.y1)/2),-Math.PI/2,p),ry:-Math.PI/2,pose:'lie'})});});   // 몸 가운데를 침대 가운데(머리판 쪽 조금 피함)에
@@ -3769,7 +3782,7 @@ function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElemen
   buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.002';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.003';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
