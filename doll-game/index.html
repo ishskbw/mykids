@@ -2487,7 +2487,7 @@ const FG={x0:-11,z0:-8.6,res:0.05,nx:460,nz:370,d:null},FURN=[],BODY_R=0.17;
 const SOFA_BOX=[];let SOFA_M=[];
 function buildFurn(){
   {const a=new THREE.Box3(new THREE.Vector3(W(7.93),-0.01,Z(8.2)),new THREE.Vector3(W(9.86),1.05,Z(12.32)));
-   const cx=W(7.95)-0.03-0.92,zb=Z(12.32),b=new THREE.Box3(new THREE.Vector3(cx-0.96,-0.01,zb-0.96),new THREE.Vector3(cx+0.96,1.1,zb+0.03));SOFA_BOX.push(a,b);
+   const cx=W(7.95)-0.03-0.92,zb=Z(12.32),b=new THREE.Box3(new THREE.Vector3(cx-0.96,-0.01,zb-0.96),new THREE.Vector3(cx+0.96,1.1,zb+0.03));const tr=new THREE.Box3(new THREE.Vector3(W(5.12)-0.8,-0.01,Z(11.72)-0.8),new THREE.Vector3(W(5.12)+0.8,1.15,Z(11.72)+0.8));SOFA_BOX.push(a,b,tr);   // 트램펄린도 밟고 지나감 (베란다 드나드는 길)
    const bb=new THREE.Box3();scene.updateMatrixWorld(true);SOFA_M=[];scene.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||o.userData.person)return;bb.setFromObject(o);if(!bb.isEmpty()&&SOFA_BOX.some(x=>x.containsBox(bb)))SOFA_M.push(o);});}const nx=FG.nx,nz=FG.nz,occ=new Uint8Array(nx*nz),b=new THREE.Box3(),sz=new THREE.Vector3();
   const skip=new Set([...floors,...wallMeshes]);OPENERS.forEach(d=>d.objs.forEach(o=>o.traverse(m=>{if(m.isMesh)skip.add(m);})));BF.g.forEach(g=>g.traverse(m=>{if(m.isMesh)skip.add(m);}));
   const vis=o=>{while(o){if(!o.visible)return false;o=o.parent;}return true;};
@@ -2714,6 +2714,7 @@ function buildConts(){
    const G=new THREE.Group();G.position.set(W(9.52),0.47,Z((a+b)/2));scene.add(G);const mv=new THREE.Group();G.add(mv);
    const c=baseCont({type:'slide',G,name:'큰 소파 등받이 뒤',w:0.2,h:0.4,gate:0.55});c.mov=mv;adopt(mv,ms,c);c.speed=0.9;
    c.onAmt=t=>{mv.position.x=-t*0.26;};
+   c.camFn=()=>{const t=G.localToWorld(new THREE.Vector3(0.03,0.08,0)),p=G.localToWorld(new THREE.Vector3(-0.62,0,0));p.y=0.47+WALK.eye;return{t,p};};   // 앞에서, 소파 위에 올라서서 등받이 뒤를 내려다봄
    c.place=p=>{const l=G.worldToLocal(p.clone());return{parent:G,pos:new THREE.Vector3(0.025,0.003,clampV(l.z,-(b-a)/2+0.12,(b-a)/2-0.12)),s:0.6,ry:-Math.PI/2};};
    c.rand=()=>c.place(G.localToWorld(new THREE.Vector3(0,0,(Math.random()-0.5)*(b-a-0.3))));});
  // 큰 소파 밑 (다리 7cm라 작은 인형만) · 트램펄린 밑
@@ -3032,6 +3033,7 @@ function autoPick(used,dv){dv=dv==null?S.diff:dv;
   const pool=dv===0?open:dv===1?(Math.random()<0.3&&covered.length?covered:open):dv===2?(covered.length&&Math.random()<0.75?covered:hits):covered;
   if(!pool.length)return null;const h=pool[Math.floor(Math.random()*pool.length)];
   if(floors.includes(h.object)&&coverDist(h.point)>1.5&&dv>=2)return null;
+  if(h.point.z>Z(14.12)||h.point.z<Z(-0.02))return null;   // 바깥 난간·창 밖에는 두지 않음
   if(used.some(u=>u.distanceTo(h.point)<0.4))return null;const cd=coverDist(h.point);if(cd<0.07)return null;
   const s=fit(cd-0.01),hh=0.2*s;if(!sightOK(h.point,hh))return null;
   if(dv<=1||dv>=3){const e=eyeScore(h.point,hh);if(dv===0&&e<4)return null;if(dv===1&&e<2)return null;if(dv===3&&e>3)return null;if(dv===4&&e>0)return null;}
@@ -3312,7 +3314,9 @@ function viewOf(c){const G=c.G,L=(x,y,z)=>G.localToWorld(new THREE.Vector3(x,y,z
    case 'flap':return{t:L(0,0.3,-c.d*0.4),n:nrmL(new THREE.Vector3(0,0,1)),dist:0.95,up:0.55};
    case 'round':return{t:L(0,c.h*0.5+0.25,-0.2),n:nrmL(new THREE.Vector3(0,0,1)),dist:1.0,up:0.1};
    default:{const ty=Math.min(c.h*0.5,1.1);return{t:L(0,ty,-Math.min(c.d||0.4,0.5)*0.45),n:nrmL(new THREE.Vector3(0,0,1)),dist:Math.max(0.95,Math.min(1.6,0.45+sz*0.9)),up:0.15};}}}
-function camTo(c){if(!S.autoCam||!WALK.on||c.fixed)return;const v=viewOf(c);if(!v)return;const n=v.n.clone();n.y=0;if(n.lengthSq()<1e-6)return;n.normalize();
+function camTo(c){if(!S.autoCam||!WALK.on||c.fixed)return;
+  if(c.camFn){const{t,p}=c.camFn(),dx=t.x-p.x,dy=t.y-p.y,dz=t.z-p.z,yaw=Math.atan2(-dx,-dz),pitch=THREE.MathUtils.clamp(Math.atan2(dy,Math.hypot(dx,dz)),-1.3,1.1);
+    S.cam={p0:camera.position.clone(),p1:p,y0:WALK.yaw,y1:WALK.yaw+angDiff(WALK.yaw,yaw),q0:WALK.pitch,q1:pitch,t:0,dur:0.7};S.camHold=null;WALK.auto=null;WALK.wheel=WALK.strafe=0;return;}const v=viewOf(c);if(!v)return;const n=v.n.clone();n.y=0;if(n.lengthSq()<1e-6)return;n.normalize();
   let dist=v.dist;const o=new THREE.Vector3(v.t.x,THREE.MathUtils.clamp(v.t.y,0.45,1.2),v.t.z).addScaledVector(n,0.1);camRC.set(o,n);camRC.far=dist+0.5;
   const hit=camRC.intersectObjects(BLOCK.concat(FURN),false)[0];if(hit)dist=Math.max(0.35,Math.min(dist,hit.distance+0.1-0.3));
   while(dist>0.4){const q=v.t.clone().addScaledVector(n,dist);if(furnDepth(q.x,q.z)===0)break;dist-=0.05;}   // 다른 가구 자리 안이면 앞으로 당김
@@ -3342,7 +3346,7 @@ window.gameTap=function(x,y,type){if(!['hide','seek','reveal'].includes(S.phase)
 window.gameLong=function(x,y){if(S.phase!=='hide')return;const h=pickAt(x,y);if(!h||h.distance>G_REACH+0.5)return;if(dollOf(h.object)!=null)return;
   const c=contOf(h.object);if(c){if(c.amt>0.6){const i=nextFree();if(i<0)return;const r=c.place(h.point);r.cont=c;putDoll(i,r,c.name);sPlace();renderIcons();updHideGuide();}return;}
   if(nrm(h).y>0.5)placeFree(h);};
-function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
+function placeFree(h){const i=nextFree();if(i<0){say('인형을 모두 숨겼어요');return;}if(h.point.z>Z(14.12)){say('난간 밖에는 못 숨겨요',1100);return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
   putDoll(i,{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01)},roomName(h.point)+(floors.includes(h.object)?' 바닥':''));sPlace();renderIcons();updHideGuide();}
 
 // ---------- 매 프레임 ----------
@@ -3373,7 +3377,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
-window.__G={S,CONTS,OPENERS,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
+window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
 })();
 
