@@ -1724,6 +1724,8 @@ scene.add(G);fullOnly.push(G);   // 앞(문·화면)이 게스트룸 문 쪽
 // ---------- 천장형 에어컨: 창 쪽 벽 위로 천장을 한 단 내리고(단 내리기) 1방향 천장형 에어컨을 하나씩 매립 ----------
 // 단 내리기: 천장에서 15cm 내려옴(아래 면 2.15m, 폴딩도어·창 윗틀보다 위), 벽에서 약 55cm 폭
 // soffit(o, 평면 x0,y0,x1,y1, 에어컨 중심(길이 방향 평면 좌표), 방 쪽 방향(+1/-1))
+const SOFF=new THREE.Group();SOFF.visible=false;   // 단 내림·에어컨은 1인칭 걷기에서만 보임
+{const n0=scene.children.length;
 {const SB=0.15,ZB=H-SB,CL=0xf2f1ec,AC=0xfafaf8,SL=0x4f5356,GR=0xdcdcd8;
  const soffit=(o,x0,y0,x1,y1,ac,room)=>{box(x0,y0,x1,y1,SB,CL,ZB);
    if(o==='x'){const X=MX(ac),yc=(y0+y1)/2,ys=room<0?yc-0.21+0.03:yc+0.21-0.09;   // 벽이 가로(y 고정)일 때
@@ -1741,6 +1743,7 @@ scene.add(G);fullOnly.push(G);   // 앞(문·화면)이 게스트룸 문 쪽
  soffit('x',10.62,11.74,13.76,12.29,12.2,-1);  // 아이방: 창 있는 벽 위 (붙박이장 옆부터)
  soffit('x',13.88,11.74,17.63,12.29,15.75,-1); // 게스트룸: 창 있는 벽 위
  soffit('x',12.95,1.93,15.7,2.48,14.0,+1);}    // 장난감방: 창 있는 벽 위 (붙박이장 옆까지)
+ const made=scene.children.slice(n0);made.forEach(o=>{SOFF.add(o);const k=pieces.findIndex(p=>p.m===o);if(k>=0)pieces.splice(k,1);});scene.add(SOFF);}
 
 // ---------- 액자 배치안 ----------
 const FR={groups:[],labels:[],on:true};
@@ -1903,12 +1906,12 @@ const fovRange=document.getElementById('fovRange');
 function walkFov(){const h=THREE.MathUtils.degToRad(+fovRange.value);let v=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(h/2)/camera.aspect));
   camera.fov=Math.max(60,Math.min(112,v));camera.updateProjectionMatrix();}
 fovRange.oninput=()=>{if(WALK.on)walkFov();};
-function walkStart(px,py,yaw){WALK.on=true;CEIL.visible=true;controls.enabled=false;anim=null;if(mode!=='full')setMode('full');
+function walkStart(px,py,yaw){WALK.on=true;CEIL.visible=true;SOFF.visible=true;controls.enabled=false;anim=null;if(mode!=='full')setMode('full');
   camera.position.set(W(px),WALK.eye,Z(py));WALK.yaw=yaw;WALK.pitch=-0.05;WALK.auto=null;WALK.wheel=WALK.strafe=0;applyLook();walkFov();
   document.body.classList.add('walking');cross.hidden=COARSE;walkBtn.textContent='걷기 끝내기';resetBtn.textContent='걷기 끝내기';
   hintEl.textContent=COARSE?'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 두 손가락 벌리기로 앞뒤 · 발자국 아래를 누르면 뒤로':'끌어서 둘러보기 · 바닥을 누르면 그쪽으로 걷기 · 문을 누르면 열고 닫기 · 휠로 앞뒤 · ↑↓·W S 앞뒤 · ←→·Q E 회전 · A D 옆걸음 · Shift 빨리';
   WALK.labels=!labelR.domElement.classList.contains('nolabels');labelR.domElement.classList.add('nolabels');select(-1);}
-function walkStop(){WALK.on=false;CEIL.visible=false;controls.enabled=true;camera.fov=45;camera.updateProjectionMatrix();
+function walkStop(){WALK.on=false;CEIL.visible=false;SOFF.visible=false;controls.enabled=true;camera.fov=45;camera.updateProjectionMatrix();
   document.body.classList.remove('walking');cross.hidden=true;walkBtn.textContent='1인칭으로 걸어보기';resetBtn.textContent='전체 보기';hintEl.textContent=HINT0;
   labelR.domElement.classList.toggle('nolabels',!WALK.labels);controls.target.set(camera.position.x-Math.sin(WALK.yaw),0.8,camera.position.z-Math.cos(WALK.yaw));overview();}
 walkBtn.onclick=()=>{WALK.on?walkStop():walkStart(7.0,7.3,Math.PI);};
