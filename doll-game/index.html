@@ -3309,7 +3309,7 @@ const noHint=()=>!S.hintOn;
 function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.out){b.dataset.out=1;b.style.opacity='0';setTimeout(()=>b.remove(),450);}}S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기·침대 이불은 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
-   <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족이 숨기</button></div></div>
+   <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족</button></div></div>
    <div class="grow" id="gFamRow" ${S.mode==='family'?'':'hidden'}><b>숨을 사람 (컴퓨터가 숨겨요)</b>
     <div class="gchips" id="gFamGrp" style="margin-bottom:6px">${FAMGRP.map((g,k)=>`<button data-g="${k}" aria-pressed="${g.m.every(v=>S.famSel.includes(v))}">${g.name}</button>`).join('')}</div><div class="gchips" id="gFam">${FAM.map((f,k)=>`<button data-v="${k}" aria-pressed="${S.famSel.includes(k)}">${f.short}</button>`).join('')}</div></div>
    <div class="grow dollOnly"><b>숨길 인형 수</b><div class="gcnt"><button id="gMinus" aria-label="줄이기">−</button><span class="num" id="gNum">${S.n}</span><input type="range" id="gRange" min="1" max="30" value="${S.n}"><button id="gPlus" aria-label="늘리기">+</button></div></div>
@@ -3495,8 +3495,8 @@ const FAM=[
  {name:'이지우',short:'지우',tag:'아기',H:0.55,baby:1,wrap:0xfbe3ec,ico:0xfbe3ec},
  {name:'숙자',short:'숙자',tag:'할머니',H:1.54,build:0.9,hair:'perm',hairC:0x8e8b88,top:0xb7ada0,bot:0x5b5852,shoe:0x5a4a42,ico:0xb7ada0},   // 아담한 체구, 수수한 옷
  {name:'영식',short:'영식',tag:'할아버지',H:1.74,build:0.86,hair:'thin',hairC:0xa9a6a1,top:0x2f5d8a,collar:1,bot:0x6b6458,shoe:0x3a3330,ico:0x2f5d8a},   // 호리호리, 단색 골프 티·단색 바지, 이마가 넓음
- {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'bob',hairC:0x3b2a22,top:0xf6f3ee,coat:0x2c3650,collar:1,bot:0x2c3650,shoe:0x1d1d1f,wings:1,angel:1,ico:0x2c3650},   // 커리어우먼 정장 + 흰 날개 (천사)   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
- {name:'영민',short:'영민',tag:'외할아버지',H:1.68,belly:1,hair:'thick',hairC:0xd8d6d2,glasses:0x3a3a3a,top:'hike',bot:0x3a3a3e,shoe:0x2a2a2c,ico:0xe2583b},   // 배가 조금 나옴, 안경, 숱 많은 흰머리, 화사한 여러 색 등산 티
+ {name:'미옥',short:'미옥',tag:'외할머니',H:1.56,hair:'wavybob',hairC:0x1a1411,top:'blueShirt',collar:1,bot:0xe6e0d4,shoe:0x8a7a68,wings:1,angel:1,ico:0xf3c9c0},   // 연분홍 레이스 니트 · 짙은 회색 바지 · 숱 많은 웨이브 단발 · 은목걸이 + 흰 날개 (천사)   // 천사: 날개, 아주 좁은 곳·천장에도 숨음 (최상 난이도)
+ {name:'영민',short:'영민',tag:'외할아버지',H:1.68,belly:1,hair:'thick',hairC:0xd8d6d2,glasses:0x2a2a2a,top:'orangeS',bot:0x3a3a3e,shoe:0x2a2a2c,ico:0xe2583b},   // 배가 조금 나옴, 안경, 숱 많은 흰머리, 주황 바탕에 줄무늬 티
  {name:'공병민',short:'병민',tag:'작은아빠',H:1.76,build:0.88,hair:'short',top:0x5a6e8c,bot:0x2b2f38,shoe:0xf2f2f0,ico:0x5a6e8c},
  {name:'여진',short:'여진',tag:'작은엄마',H:1.635,hair:'pony',top:0xe9c7b5,bot:0x3d4250,shoe:0xe8e2d8,ico:0xe9c7b5},
  {name:'시온',short:'시온',tag:'중1',H:1.72,hair:'short',top:0x3c6e47,bot:0x2a2d33,shoe:0xf2f2f0,ico:0x3c6e47},
@@ -3507,10 +3507,17 @@ const FAMGRP=[{name:'🏠 우리가족',m:['유정','은비','유빈','병욱']}
 const FTEX={};
 function famTex(k){if(FTEX[k])return FTEX[k];const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
   if(k==='stripeP'){const cs=['#f6d3e2','#ffffff','#cfe4f3','#ffffff','#f7e7b8','#ffffff'];for(let i=0;i<16;i++){x.fillStyle=cs[i%6];x.fillRect(0,i*8,128,8);}}
+  else if(k==='orangeS'){x.fillStyle='#ee7a2c';x.fillRect(0,0,128,128);for(let i=0;i<6;i++){const y=10+i*20;x.fillStyle='#2f4a78';x.fillRect(0,y,128,5);x.fillStyle='#f6efe2';x.fillRect(0,y+6,128,2);}}
   else if(k==='stripeBW'){for(let i=0;i<16;i++){x.fillStyle=i%2?'#f4f2ee':'#1d1d1f';x.fillRect(0,i*8,128,8);}}
   else if(k==='nordic'){x.fillStyle='#2c3f6b';x.fillRect(0,0,128,128);const band=(y,col,h)=>{x.fillStyle=col;x.fillRect(0,y,128,h);};
     band(10,'#4f9a7a',10);band(26,'#efe7d6',4);for(let i=0;i<8;i++){x.fillStyle='#efe7d6';x.beginPath();x.moveTo(i*16+8,36);x.lineTo(i*16+15,46);x.lineTo(i*16+8,56);x.lineTo(i*16+1,46);x.closePath();x.fill();x.fillStyle='#d9534f';x.fillRect(i*16+6,44,4,4);}
     band(62,'#efe7d6',4);band(70,'#4f9a7a',10);for(let i=0;i<16;i++){x.fillStyle='#efe7d6';x.fillRect(i*8+2,88,4,4);}band(98,'#efe7d6',4);}
+  else if(k==='blueShirt'){x.fillStyle='#b9cbe8';x.fillRect(0,0,128,128);x.fillStyle='rgba(255,255,255,0.35)';for(let i=0;i<128;i+=3)x.fillRect(i,0,1,128);   // 연하늘 셔츠: 잔 세로줄 + 가운데 여밈 + 검은 단추
+    x.fillStyle='#a9bde0';x.fillRect(60,0,8,128);x.fillStyle='#1c1c1e';for(let y=14;y<128;y+=22){x.beginPath();x.arc(64,y,2.6,0,7);x.fill();}}
+  else if(k==='pinkKnit'){x.fillStyle='#f6d4cb';x.fillRect(0,0,128,128);   // 연분홍 니트: 위쪽 레이스 구멍 무늬(아래로 V자), 밑단 물결 레이스
+    x.fillStyle='rgba(150,110,105,0.55)';for(let r=0;r<7;r++)for(let c2=0;c2<16;c2++){const cx=c2*8+(r%2?4:0),cy=4+r*6;if(cy>8+44*(1-Math.abs(cx-64)/64))continue;x.beginPath();x.ellipse(cx,cy,2.2,1.6,0,0,7);x.fill();}
+    x.fillStyle='rgba(160,120,110,0.45)';for(let c2=0;c2<8;c2++){x.beginPath();x.moveTo(c2*16,112);x.lineTo(c2*16+8,122);x.lineTo(c2*16+16,112);x.lineWidth=1.5;x.strokeStyle='rgba(160,120,110,0.6)';x.stroke();x.beginPath();x.arc(c2*16+8,116,1.6,0,7);x.fill();}
+    x.fillStyle='rgba(255,255,255,0.08)';for(let y=0;y<128;y+=2)x.fillRect(0,y,128,1);}
   else if(k==='hike'){const cs=['#e2583b','#f2b632','#2f8fbf','#3fae6a','#f4f1ea'];x.fillStyle=cs[0];x.fillRect(0,0,128,128);   // 여러 색이 사선으로 이어진 등산복
     [[1,30,58],[2,58,86],[3,86,104],[4,104,112]].forEach(([c2,a,b])=>{x.fillStyle=cs[c2];x.beginPath();x.moveTo(0,a);x.lineTo(128,a-34);x.lineTo(128,b-34);x.lineTo(0,b);x.closePath();x.fill();});
     x.fillStyle='#1d1d1f';x.fillRect(60,0,4,40);}
@@ -3555,7 +3562,8 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
   if(p.coat){add(new THREE.RoundedBoxGeometry(sw,torsoH,td,3,0.05),gm(p.coat,{roughness:0.9}),0,torsoH/2+0.04,0,torso);
     add(new THREE.BoxGeometry(sw*0.34,torsoH*0.85,0.01),TOP,0,torsoH*0.55,td/2+0.003,torso);}
   else add(new THREE.RoundedBoxGeometry(sw,torsoH,td,3,0.05),TOP,0,torsoH/2+0.04,0,torso);
-  if(p.belly){const bl=add(new THREE.SphereGeometry(sw*0.42,20,14),typeof p.top==='number'?TOP:gm(p.ico,{roughness:0.85}),0,torsoH*0.32,td*0.28,torso);bl.scale.set(1.05,0.95,0.75);}   // 나온 배
+  if(p.necklace){const nk=add(new THREE.TorusGeometry(sw*0.2,0.004,6,28),gm(0xdcdfe3,{metalness:0.9,roughness:0.25}),0,torsoH+0.01,td*0.18,torso);nk.rotation.x=Math.PI/2.3;add(new THREE.SphereGeometry(0.008,8,6),gm(0xdcdfe3,{metalness:0.9,roughness:0.25}),0,torsoH-0.05,td/2+0.004,torso);}
+  if(p.belly){const bl=add(new THREE.SphereGeometry(sw*0.42,20,14),TOP,0,torsoH*0.32,td*0.28,torso);bl.scale.set(1.05,0.95,0.75);}   // 나온 배
   if(p.collar){const C=p.dress?DRS:TOP;[-1,1].forEach(k=>{const c=add(new THREE.BoxGeometry(sw*0.2,0.012,0.07),C,k*sw*0.1,torsoH+0.035,td*0.32,torso);c.rotation.set(0.5,0,k*0.25);});   // 골프 티 카라 + 단추 여밈
     add(new THREE.BoxGeometry(0.03,torsoH*0.22,0.006),C,0,torsoH*0.86,td/2+0.002,torso);[0,1].forEach(k=>add(new THREE.SphereGeometry(0.006,8,6),gm(0xf2f2f0),0,torsoH*(0.9-k*0.07),td/2+0.007,torso));}
   if(p.waist){const t=add(new THREE.TorusGeometry(sw*0.5,0.035,8,20),gm(p.waist,{roughness:0.9}),0,0.07,0,torso);t.rotation.x=Math.PI/2;t.scale.set(1,0.62,1);
@@ -3588,8 +3596,11 @@ function makePerson(i,pose){const p=famOf(i),g=new THREE.Group(),body=new THREE.
     return c;};
   if(p.hair==='bob')drape(r*1.25,0.08);
   if(p.hair==='long')drape(r*(kid?2.9:3.1),0.25);
+  if(p.hair==='wavybob'){drape(r*1.15,0.22);for(let k=0;k<14;k++){const a=Math.PI*0.25+k/13*Math.PI*1.5,y=-r*(0.35+0.35*(k%2));add(new THREE.SphereGeometry(r*0.36,12,10),HR,Math.cos(a)*r*1.12,y,-Math.abs(Math.sin(a))*r*0.55-r*0.05,hd);}
+    const fr=add(new THREE.SphereGeometry(r*0.5,14,10),HR,r*0.45,r*0.62,r*0.55,hd);fr.scale.set(1.3,0.55,0.7);}   // 숱 많은 웨이브 단발 + 옆으로 넘긴 앞머리
   if(p.hair==='thin'){cap.rotation.x=-0.62;cap.scale.set(0.98,0.9,0.98);const bk=add(new THREE.SphereGeometry(r*1.05,20,14),HR,0,-r*0.12,-r*0.18,hd);bk.scale.set(1,0.8,0.85);}   // 이마가 넓음 (대머리 아님)
-  if(p.hair==='thick'){cap.scale.set(1.08,1.12,1.06);cap.position.y+=r*0.05;const bk=add(new THREE.SphereGeometry(r*1.1,20,14),HR,0,-r*0.02,-r*0.12,hd);bk.scale.set(1.02,0.95,0.95);}
+  if(p.hair==='thick'){cap.scale.set(1.14,1.2,1.12);cap.position.y+=r*0.08;const bk=add(new THREE.SphereGeometry(r*1.13,20,14),HR,0,-r*0.02,-r*0.14,hd);bk.scale.set(1.05,0.97,0.97);
+    for(let i=0;i<9;i++){const a=-1.2+i*0.3;add(new THREE.SphereGeometry(r*0.3,12,9),HR,Math.sin(a)*r*0.78,r*0.72-Math.abs(a)*r*0.12,Math.cos(a)*r*0.45,hd);}}
   if(p.hair==='pony'){const bk=add(new THREE.SphereGeometry(r*1.04,20,14),HR,0,0,-r*0.1,hd);bk.scale.set(1,0.95,0.95);
     const pt=add(new THREE.CylinderGeometry(r*0.24,r*0.1,r*1.5,12),HR,0,-r*0.55,-r*1.25,hd);pt.rotation.x=0.35;add(new THREE.TorusGeometry(r*0.2,r*0.06,8,14),gm(0x3b2f2a),0,r*0.12,-r*1.05,hd).rotation.x=1.2;}
   if(p.hair==='perm'){for(let k=0;k<26;k++){const a=k*2.4,t=0.15+(k%9)/9*1.15,x=Math.sin(t)*Math.cos(a),y=Math.cos(t),z=Math.sin(t)*Math.sin(a);if(z>0.55&&y<0.75)continue;   // 얼굴 쪽은 비움
@@ -4020,7 +4031,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.019';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.020';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
