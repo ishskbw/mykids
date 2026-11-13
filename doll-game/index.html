@@ -3353,7 +3353,8 @@ const leaveBox=el('gLeaveBox','');leaveBox.hidden=true;
 function armBack(){if(S.backArmed)return;try{history.pushState({dollGame:1},'');S.backArmed=true;}catch(_){}}
 window.addEventListener('popstate',()=>{if(!S.backArmed||S.exiting)return;S.backArmed=false;if(inGame())askLeave();else askExit();});
 // 사용자가 처음 누를 때 뒤로 가기 막이를 걸어 둠 (브라우저가 '누른 뒤에 만든 기록'만 인정하므로) — 카카오톡 인앱 브라우저 포함
-['pointerdown','touchstart','keydown'].forEach(t=>window.addEventListener(t,()=>{if(!S.backArmed&&!S.exiting&&leaveBox.hidden)armBack();},{capture:true,passive:true}));
+// 아이폰 사파리는 손을 뗄 때(touchend)·탭(click)만 '사용자가 누른 것'으로 쳐서, 그때 걸어야 뒤로 가기에서 건너뛰지 않음
+['click','touchend','pointerup','keydown'].forEach(t=>window.addEventListener(t,()=>{if(!S.backArmed&&!S.exiting&&leaveBox.hidden)armBack();},{capture:true,passive:true}));
 function askExit(){leaveBox.hidden=false;
   leaveBox.innerHTML=`<div class="gcard" style="text-align:center"><h1>👋 게임을 종료하시겠어요?</h1><p class="s">종료하면 게임 화면을 닫아요.</p>
    <button class="gbig" id="gStay">계속하기</button><button class="gbig sec" id="gOut">종료하기</button></div>`;
@@ -3919,7 +3920,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.011';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.012';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
