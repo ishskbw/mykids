@@ -2178,21 +2178,52 @@ const DOLL_TYPES=['곰','토끼','오리','고양이','펭귄'];
 const DOLL_COLS=[[0xa0703f,0xf2b8c6,0xf5d14a,0x9a9a9e,0x2b2f3a],[0xd9a35a,0xf3efe8,0xf7e8a0,0xe39a4f,0x3c5a8a],[0x6b4a33,0xc9b6e4,0xa8d8a0,0x3a3a3c,0x7a2f3a],[0xe8d5b5,0x9fc6e8,0xf6a5a0,0xf4f0e8,0x4b6b4b],[0x8a5a3a,0xffd3e0,0xffe08a,0xc8c8cc,0x1f3b5c],[0xc68642,0xd7f0ff,0xfff3c4,0xb0703a,0x5b7f5b]];
 function dollColor(i){return DOLL_COLS[Math.floor(i/5)%DOLL_COLS.length][i%5];}
 function dollType(i){return i%5;}
+// 봉제 인형: 큰 머리 · 앉은 자세(다리 앞으로) · 보송한 천 무늬 · 반짝이는 단추 눈 · 수놓은 코 · 발바닥 패드 · 리본
+const FUZZ=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='#c8c8c8';x.fillRect(0,0,128,128);
+  for(let i=0;i<5200;i++){const v=170+Math.random()*85|0;x.fillStyle=`rgb(${v},${v},${v})`;const a=Math.random()*6.28,l=1+Math.random()*2.5,px=Math.random()*128,py=Math.random()*128;
+    x.fillRect(px,py,Math.max(1,Math.cos(a)*l),Math.max(1,Math.sin(a)*l));}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);return t;})();
+const plush=(()=>{const c={};return (col,k)=>{const key=col+'|'+(k||0);if(c[key])return c[key];
+  const m=new THREE.MeshStandardMaterial({color:col,roughness:1,map:FUZZ,bumpMap:FUZZ,bumpScale:0.004,emissive:col,emissiveIntensity:0.1});envFix(m);return c[key]=m;};})();
 function makeDoll(i){const t=dollType(i),col=dollColor(i),g=new THREE.Group();
-  const M=gm(col,{roughness:0.95,emissive:col,emissiveIntensity:0.16}),L=gm(0xf6efe4,{roughness:0.95,emissive:0xf6efe4,emissiveIntensity:0.12}),BK=gm(0x151515,{roughness:0.3}),OR=gm(0xf09a3a,{roughness:0.7}),PK=gm(0xf3a0b0,{roughness:0.9});
-  const S=(r,m,x,y,z,sx,sy,sz)=>{const o=mk(new THREE.SphereGeometry(r,16,12),m,x,y,z,g);if(sx)o.scale.set(sx,sy,sz);o.castShadow=true;return o;};
-  if(t===4){S(0.068,M,0,0.095,0,1,1.45,1);S(0.05,L,0,0.085,0.03,1,1.3,0.7);S(0.052,M,0,0.19,0);
-    S(0.008,BK,-0.02,0.2,0.046);S(0.008,BK,0.02,0.2,0.046);const bk=mk(new THREE.ConeGeometry(0.012,0.03,10),OR,0,0.185,0.06,g);bk.rotation.x=Math.PI/2;
-    S(0.02,OR,-0.03,0.012,0.03,1.2,0.4,1.6);S(0.02,OR,0.03,0.012,0.03,1.2,0.4,1.6);S(0.022,M,-0.07,0.1,0,0.5,1.6,1);S(0.022,M,0.07,0.1,0,0.5,1.6,1);}
-  else if(t===2){S(0.072,M,0,0.07,0,1,0.85,1.15);S(0.05,M,0,0.155,0.02);const bk=mk(BX(0.05,0.014,0.04),OR,0,0.145,0.07,g);
-    S(0.008,BK,-0.02,0.165,0.06);S(0.008,BK,0.02,0.165,0.06);S(0.03,M,-0.065,0.08,-0.01,0.5,0.9,1.3);S(0.03,M,0.065,0.08,-0.01,0.5,0.9,1.3);S(0.02,M,0,0.09,-0.085,1,0.6,0.8);}
-  else{S(0.064,M,0,0.07,0,1,1.05,0.95);S(0.045,L,0,0.07,0.035,1,1.1,0.6);S(0.056,M,0,0.165,0);
-    S(0.026,M,-0.06,0.09,0.02);S(0.026,M,0.06,0.09,0.02);S(0.03,M,-0.035,0.022,0.04,1,0.8,1.2);S(0.03,M,0.035,0.022,0.04,1,0.8,1.2);
-    S(0.0075,BK,-0.021,0.175,0.05);S(0.0075,BK,0.021,0.175,0.05);
-    if(t===0){S(0.022,L,0,0.155,0.048);S(0.009,BK,0,0.162,0.069);S(0.021,M,-0.042,0.21,0);S(0.021,M,0.042,0.21,0);S(0.012,L,-0.042,0.21,0.012);S(0.012,L,0.042,0.21,0.012);}
-    if(t===1){S(0.007,PK,0,0.158,0.055);[-1,1].forEach(k=>{S(0.019,M,k*0.025,0.25,0,0.75,2.6,0.5);S(0.011,PK,k*0.025,0.25,0.008,0.6,2.2,0.3);});S(0.02,L,0,0.06,-0.065);}
-    if(t===3){S(0.007,PK,0,0.158,0.055);[-1,1].forEach(k=>{const e=mk(new THREE.ConeGeometry(0.022,0.045,4),M,k*0.035,0.222,0,g);e.rotation.y=Math.PI/4;e.rotation.z=-k*0.25;});
-      const tl=mk(new THREE.CylinderGeometry(0.008,0.008,0.12,8),M,0.04,0.06,-0.07,g);tl.rotation.z=-0.9;tl.rotation.x=0.4;}}
+  const lc=new THREE.Color(col).lerp(new THREE.Color(0xfff6ea),0.72).getHex();
+  const M=plush(col),L=plush(t===4?0xf7f5f0:lc),EY=gm(0x0e0c0c,{roughness:0.12,metalness:0.2}),HI=gm(0xffffff,{roughness:0.2,emissive:0xffffff,emissiveIntensity:0.6}),
+    NS=gm(0x3a2620,{roughness:0.55}),PK=plush(0xf4a6b4),OR=gm(0xf2a23c,{roughness:0.55}),CK=gm(0xf5a9b0,{roughness:0.9,transparent:true,opacity:0.55});
+  const S=(r,m,x,y,z,sx,sy,sz,seg)=>{const o=mk(new THREE.SphereGeometry(r,seg||24,seg?Math.round(seg*0.7):18),m,x,y,z,g);if(sx)o.scale.set(sx,sy,sz);o.castShadow=true;return o;};
+  const eyes=(y,z,dx)=>[-1,1].forEach(k=>{S(0.0095,EY,k*dx,y,z,1,1.1,0.7,14);S(0.0028,HI,k*dx+0.003,y+0.004,z+0.006,1,1,1,8);
+    const ck=S(0.012,CK,k*(dx+0.016),y-0.017,z-0.006,1,0.6,0.35,12);});
+  // 앉은 몸 + 다리(발바닥 패드) + 팔
+  const seated=(bodyY)=>{S(0.06,M,0,bodyY,0,1,1.08,0.92);S(0.04,L,0,bodyY-0.004,0.033,0.95,1.05,0.55);
+    [-1,1].forEach(k=>{S(0.026,M,k*0.034,0.022,0.04,0.95,0.85,1.35);const pd=S(0.017,L,k*0.034,0.022,0.075,1,1,0.35,14);
+      S(0.021,M,k*0.062,bodyY+0.014,0.022,0.8,1.25,0.85).rotation.z=k*0.5;});};
+  if(t===2){   // 오리: 통통한 몸 · 넓적한 주황 부리 · 물갈퀴 · 작은 날개 · 머리 깃털
+    S(0.068,M,0,0.07,0,1.02,0.92,1.12);S(0.045,L,0,0.06,0.04,1,0.9,0.6);S(0.056,M,0,0.162,0.012);
+    const bill=mk(new THREE.SphereGeometry(0.03,18,12),OR,0,0.152,0.064,g);bill.scale.set(1.15,0.38,0.9);bill.castShadow=true;
+    eyes(0.176,0.058,0.022);[-1,1].forEach(k=>{S(0.03,M,k*0.066,0.082,-0.005,0.42,0.85,1.25).rotation.z=k*0.35;const f=S(0.022,OR,k*0.03,0.008,0.05,1.2,0.3,1.4,14);});
+    S(0.012,M,0,0.222,0.0,0.7,1.6,0.7,12);S(0.022,M,0,0.09,-0.083,1,0.6,0.75);}
+  else if(t===4){   // 펭귄: 둥근 몸 · 흰 배 · 주황 부리와 발 · 날개 · 목도리
+    S(0.07,M,0,0.098,0,1,1.4,0.95);S(0.055,L,0,0.088,0.026,0.95,1.3,0.7);S(0.04,L,0,0.165,0.03,1,0.9,0.75);
+    eyes(0.178,0.06,0.02);const bk=mk(new THREE.ConeGeometry(0.012,0.03,14),OR,0,0.163,0.072,g);bk.rotation.x=Math.PI/2;
+    [-1,1].forEach(k=>{S(0.024,OR,k*0.03,0.012,0.04,1.2,0.4,1.6,14);S(0.024,M,k*0.072,0.1,0,0.45,1.55,0.95).rotation.z=k*0.3;});
+    const sc=mk(new THREE.TorusGeometry(0.052,0.011,10,28),plush(0xd9534f),0,0.135,0,g);sc.rotation.x=Math.PI/2;sc.scale.set(1,0.95,1);}
+  else{seated(0.07);
+    S(0.058,M,0,0.168,0.004,1.06,0.98,1);                    // 큰 머리
+    S(0.026,L,0,0.153,0.05,1.25,0.85,0.75);                   // 주둥이
+    eyes(0.178,0.05,0.022);
+    if(t===0){   // 곰: 둥근 귀 + 안쪽 펠트, 수놓은 코·입, 나비 리본
+      S(0.008,NS,0,0.16,0.07,1.3,0.8,0.7,12);[-1,1].forEach(k=>{S(0.022,M,k*0.044,0.215,-0.004,1,1,0.6);S(0.013,L,k*0.044,0.215,0.006,1,1,0.4,14);});
+      const bw=plush(0xd9534f);[-1,1].forEach(k=>{const c=mk(new THREE.ConeGeometry(0.014,0.026,14),bw,k*0.014,0.118,0.05,g);c.rotation.z=k*Math.PI/2;});S(0.007,bw,0,0.118,0.052,1,1,1,12);}
+    if(t===1){   // 토끼: 길고 늘어진 귀(한쪽은 접힘) · 분홍 코 · 솜꼬리
+      S(0.007,PK,0,0.162,0.07,1.2,0.9,0.8,12);
+      [-1,1].forEach(k=>{const e=new THREE.Group();e.position.set(k*0.024,0.214,-0.004);e.rotation.z=-k*0.22;if(k>0)e.rotation.x=-0.5;g.add(e);
+        const a=mk(new THREE.SphereGeometry(0.019,18,14),M,0,0.045,0,e);a.scale.set(0.8,2.5,0.5);const b=mk(new THREE.SphereGeometry(0.011,14,10),PK,0,0.045,0.007,e);b.scale.set(0.7,2.2,0.3);});
+      S(0.02,L,0,0.05,-0.062);}
+    if(t===3){   // 고양이: 둥근 세모 귀 · 분홍 코 · 수염 · 줄무늬 · 휘어진 꼬리
+      S(0.007,PK,0,0.162,0.07,1.2,0.8,0.8,12);
+      [-1,1].forEach(k=>{const e=mk(new THREE.ConeGeometry(0.022,0.042,16),M,k*0.036,0.222,-0.004,g);e.rotation.z=-k*0.28;e.scale.z=0.6;
+        const ei=mk(new THREE.ConeGeometry(0.012,0.026,12),PK,k*0.035,0.219,0.004,g);ei.rotation.z=-k*0.28;ei.scale.z=0.4;
+        [-0.004,0.006].forEach(dy=>{const w=mk(new THREE.CylinderGeometry(0.0009,0.0009,0.04,4),NS,k*0.045,0.153+dy,0.062,g);w.rotation.z=Math.PI/2+k*dy*12;});});
+      const tl=mk(new THREE.TorusGeometry(0.04,0.009,10,20,Math.PI*1.2),M,0.03,0.05,-0.07,g);tl.rotation.set(0,Math.PI/2,0.6);}}
   tag(g,{dollIdx:i});g.userData.root=true;return g;}
 function dollSVG(i,on){const t=dollType(i),c='#'+dollColor(i).toString(16).padStart(6,'0'),f=on?c:'rgba(120,105,90,.13)',s=on?'#2a2420':'rgba(110,95,80,.55)';
   const sw=on?1.4:1.6,da=on?'':' stroke-dasharray="2.2 1.8"';let ears='';
@@ -2551,7 +2582,14 @@ walkTap=function(x,y,type){const r=cv.getBoundingClientRect();
 // 이불 걷기: 머리 쪽 끝을 잡아 발치 쪽으로 둥글게 말아 넘기는 모양 (판 전체가 뚜껑처럼 들리지 않게)
 // pv 안의 모든 이불 조각(구김·접힌 끝·인형 불룩함 포함)의 꼭짓점을 접힘선 F를 기준으로 원통에 감아 뒤집어 얹음
 // ax 'x': 머리→발치가 pv의 -x 방향, 'z': +z 방향 · len: 이불 길이
-function clothFold(c,pv,ax,len){const r=0.085,v=new THREE.Vector3(),PI=Math.PI;c.speed=0.7;c.flen=len;c.fax=ax;
+function rumple(pv,ax,len){pv.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(pv),sz=bb.getSize(new THREE.Vector3()),w=ax==='x'?sz.z:sz.x,mat=pv.children[0]&&pv.children[0].material;if(!mat)return;
+  let sd=Math.round(len*1000+w*77);const R=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+  const at=(u,v,y,sx,sy,sz,ry)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(0.16,18,12),mat);m.position.set(ax==='x'?-u:v,y,ax==='x'?v:u);m.scale.set(sx,sy,sz);m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;m.userData.game=true;pv.add(m);};
+  // 크게 뭉친 이불 덩어리 1~2개 (사람·인형이 숨은 것처럼 보일 수 있게)
+  const nb=1+(R()<0.5?1:0);for(let k=0;k<nb;k++)at(len*(0.3+R()*0.45),(R()-0.5)*w*0.45,0.05,1.6+R()*1.1,0.42+R()*0.25,1.0+R()*0.6,R()*3);
+  // 잔 구김
+  for(let k=0;k<6;k++)at(len*(0.1+R()*0.8),(R()-0.5)*w*0.75,0.045,0.7+R()*0.9,0.13+R()*0.1,0.35+R()*0.5,R()*3);}
+function clothFold(c,pv,ax,len){rumple(pv,ax,len);const r=0.085,v=new THREE.Vector3(),PI=Math.PI;c.speed=0.7;c.flen=len;c.fax=ax;
   const reg=m=>{if(m.userData.f0)return;m.geometry=m.geometry.clone();m.updateMatrix();const P=m.geometry.attributes.position,b=new Float32Array(P.count*3);
     for(let i=0;i<P.count;i++){v.fromBufferAttribute(P,i).applyMatrix4(m.matrix);b[3*i]=v.x;b[3*i+1]=v.y;b[3*i+2]=v.z;}m.userData.f0=b;m.userData.inv=m.matrix.clone().invert();};
   c.onAmt=t=>{const F=t*0.86*len;pv.children.forEach(m=>{if(!m.isMesh||!m.geometry)return;reg(m);const b=m.userData.f0,P=m.geometry.attributes.position,inv=m.userData.inv;
@@ -2965,7 +3003,8 @@ function putDoll(i,res,where){const g=S.mode==='family'?makePerson(i,res.pose):m
   if(res.ry!=null)g.rotation.y=res.ry;else{const wp=res.parent.localToWorld(res.pos.clone());const a=Math.atan2(camera.position.x-wp.x,camera.position.z-wp.z);
     const pq=new THREE.Quaternion();res.parent.getWorldQuaternion(pq);const e=new THREE.Euler().setFromQuaternion(pq,'YXZ');g.rotation.y=a-e.y;}
   res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;g.userData.cont=res.cont||null;clearItems(res.cont,g,S.dolls[i]);dropBump(S.dolls[i]);S.dolls[i].bump=duvetBump(res.cont,g);}
-function duvetBump(c,g){if(!c||c.type!=='duvet'||!c.dmat)return null;const pv=c.mov,keep=c.amt;c.onAmt(0);pv.updateMatrixWorld(true);g.updateMatrixWorld(true);
+function duvetBump(c,g){return null;   // 숨은 게 있든 없든 이불 모양은 같게
+  if(!c||c.type!=='duvet'||!c.dmat)return null;const pv=c.mov,keep=c.amt;c.onAmt(0);pv.updateMatrixWorld(true);g.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()),r=Math.max(sz.x,sz.z);
   const m=new THREE.Mesh(GEO.sph,c.dmat);m.userData.game=true;m.scale.set(sz.x*0.62+0.04,Math.min(0.12,sz.y*0.45)+0.02,sz.z*0.62+0.04);
   m.position.copy(pv.worldToLocal(new THREE.Vector3(ctr.x,c.top+0.066,ctr.z)));m.castShadow=true;m.receiveShadow=true;pv.add(m);setPart(m,c,'hit');
