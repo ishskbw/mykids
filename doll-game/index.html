@@ -1264,7 +1264,7 @@ ledge(0.11,0.87,0.26,2.89,[[0.18,1.12,0.03,0.17,0xf4f1ea],[0.19,1.2,0.025,0.12,0
 basin(0.26,1.29,'+x',0.5,0.44,0.7); box(0.39,1.2,0.55,1.38,0.68,PORC); box(0.26,1.25,0.35,1.33,0.18,0xb9c0c4,0.86);  // 하부장 없는 일반 세면대 (돌출 벽 앞)
 box(0.11,1.0,0.14,1.57,0.75,0xcfdde3,1.15);  // 거울   // 세면대 (욕조 옆, 왼쪽 벽)
 toilet(0.26,2.45,'+x');   // 변기 (돌출 벽 앞, 왼쪽 벽 가까이 — 변기 가운데에서 벽까지 약 44cm)
-showerSet(2.77,0.9,'-x',true);   // 안방 샤워부스: 해바라기 수전 + 핸드 샤워
+showerSet(2.42,0.11,'+y',true);   // 안방 샤워부스: 해바라기 수전 + 핸드 샤워 (옆쪽 벽, 샤워부스 가운데)
 // 공용 욕실: 욕조 없음, 오른쪽 샤워 공간을 불투명 유리로 반만 막음 (샤워 공간 바닥도 욕실과 같은 타일 — 따로 깐 판 없음)
 {const fg=new THREE.Mesh(unit,new THREE.MeshStandardMaterial({color:0xe9f0f2,roughness:0.6,transparent:true,opacity:0.72}));
  fg.scale.set(0.025,1,1.05);fg.position.set(W(16.82),0,Z(6.58));scene.add(fg);const p={m:fg,bot:0,top:2.0};pieces.push(p);setPiece(p,99);}
@@ -1426,8 +1426,9 @@ regDoor({objs:[slide],toggle(){slideOpen=!slideOpen;document.getElementById('sli
  const cw=(x1-x0)/nc,rh=(h-0.03)/nr;
  box(x0+0.02,y0,x1-0.02,y1-0.02,0.03,0xdedcd6);                                          // 아래 받침
  box(x0,y0,x1,y0+0.01,h,0xe2d7c4);                                                        // 뒤판
- for(let i=0;i<=nc;i++){const x=x0+i*cw;box(Math.max(x0,x-T/2),y0,Math.min(x1,x+T/2),y1,h-0.03,WHT,0.03);box(Math.max(x0,x-T/2),y1-0.004,Math.min(x1,x+T/2),y1,h-0.03,ED,0.03);}
- for(let j=0;j<=nr;j++){const z=0.03+j*rh-(j===nr?T:j?T/2:0);box(x0,y0,x1,y1,T,WHT,z);box(x0,y1-0.004,x1,y1,T,ED,z);}
+ // 판은 앞 테두리 띠 뒤에서 끝나고, 띠는 1mm 앞으로 — 같은 면이 겹쳐 번쩍이던 것(z-fighting) 없앰
+ for(let i=0;i<=nc;i++){const x=x0+i*cw;box(Math.max(x0,x-T/2),y0,Math.min(x1,x+T/2),y1-0.004,h-0.03,WHT,0.03);box(Math.max(x0,x-T/2),y1-0.004,Math.min(x1,x+T/2),y1+0.0018,h-0.03,ED,0.03);}
+ for(let j=0;j<=nr;j++){const z=0.03+j*rh-(j===nr?T:j?T/2:0);box(x0+0.0005,y0,x1-0.0005,y1-0.004,T,WHT,z);box(x0+0.0005,y1-0.004,x1-0.0005,y1+0.001,T,ED,z);}
  // 칸마다 책 (전집처럼 같은 색이 이어지는 칸도 있게)
  let sd=53;const r=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
  const COL=[0xe9a23b,0x3f7fbf,0xd9534f,0x4caf7a,0xf2d04b,0x8a5fb0,0xf3f0e8,0x2f4a5c,0xe57fa8,0x6fc1d9,0xc9b28a,0x9ccc65];
@@ -3768,7 +3769,7 @@ function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElemen
   buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.001';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.002';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
