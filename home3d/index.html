@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>랜선집들이</title>
+<link rel="manifest" href="/home3d/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/home3d/apple-touch-icon.png">
+<meta name="theme-color" content="#2e6a55">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="랜선집들이">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -2415,6 +2421,7 @@ function loop(now){requestAnimationFrame(loop);const dt=Math.min(0.05,(now-lastT
   if(WALK.on)walkStep(dt);else controls.update();renderer.render(scene,camera);labelR.render(scene,camera);}
 requestAnimationFrame(loop);
 })();
+if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))navigator.serviceWorker.register('/home3d/sw.js',{scope:'/home3d/'}).catch(e=>console.warn(e));
 </script>
 </body>
 </html>

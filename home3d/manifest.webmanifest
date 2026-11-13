@@ -1,0 +1,18 @@
+{
+  "id": "/home3d/",
+  "name": "랜선집들이",
+  "short_name": "랜선집들이",
+  "description": "우리 집을 3D로 둘러보는 랜선 집들이",
+  "start_url": "/home3d/",
+  "scope": "/home3d/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#2e6a55",
+  "theme_color": "#2e6a55",
+  "lang": "ko",
+  "icons": [
+    { "src": "/home3d/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/home3d/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/home3d/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
