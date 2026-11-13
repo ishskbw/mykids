@@ -1990,7 +1990,7 @@ function floorLamp(x,y){const g=new THREE.Group();g.position.set(W(x),0,Z(y));sc
  const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.21,0.28,28,1,true),new THREE.MeshStandardMaterial({color:0xf2ece0,emissive:0xffe3b8,emissiveIntensity:0.35,roughness:0.9,side:THREE.DoubleSide}));shade.position.y=1.55;g.add(shade);
  const pl=new THREE.PointLight(0xffd9a0,0.3,3);pl.position.y=1.5;g.add(pl);}
 // (거실 큰 소파 옆 스탠드는 게임에서 뺌 — 그 자리에 2단 회전 책장)
-floorLamp(3.55,0.42);   // 안방 안락의자 옆 (검은 책장과 의자 사이, 창 쪽)
+floorLamp(5.45,2.33);   // 안방 침대 옆 2단 서랍장 옆 (헤드 벽 쪽)
 // ---------- 거실 인테리어 제안 (스위치로 켜고 끔) ----------
 const SUG=new THREE.Group();scene.add(SUG);
 {const add=(m,x,y,z)=>{m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;SUG.add(m);return m;};
@@ -2635,8 +2635,9 @@ function rumple(pv,ax,len){pv.updateMatrixWorld(true);const m0=pv.children[0],ma
   const st=0.022,nu=Math.max(8,Math.round(L/st)),nv=Math.max(8,Math.round(w/st)),g=new THREE.PlaneGeometry(L,w,nu,nv);g.rotateX(-Math.PI/2);
   const P=g.attributes.position;for(let i=0;i<P.count;i++){const pu=P.getX(i)+u0+L/2,pv2=-P.getZ(i);const h=hAt(pu,pv2);
     if(ax==='x')P.setXYZ(i,-pu,top+0.0025+h,vc+pv2);else P.setXYZ(i,vc+pv2,top+0.0025+h,pu);}
-  g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.castShadow=true;m.receiveShadow=true;m.userData.game=true;pv.add(m);}
-function clothFold(c,pv,ax,len){rumple(pv,ax,len);const r=0.085,v=new THREE.Vector3(),PI=Math.PI;c.speed=0.7;c.flen=len;c.fax=ax;
+  g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.castShadow=true;m.receiveShadow=true;m.userData.game=true;pv.add(m);return m;}
+function clothFold(c,pv,ax,len){{const sh=rumple(pv,ax,len);if(sh)setPart(sh,c,'hit');}   // 주름 표면도 누르면 이불이 걷힘
+ const r=0.085,v=new THREE.Vector3(),PI=Math.PI;c.speed=0.7;c.flen=len;c.fax=ax;
   const reg=m=>{if(m.userData.f0)return;m.geometry=m.geometry.clone();m.updateMatrix();const P=m.geometry.attributes.position,b=new Float32Array(P.count*3);
     for(let i=0;i<P.count;i++){v.fromBufferAttribute(P,i).applyMatrix4(m.matrix);b[3*i]=v.x;b[3*i+1]=v.y;b[3*i+2]=v.z;}m.userData.f0=b;m.userData.inv=m.matrix.clone().invert();};
   c.onAmt=t=>{const F=t*0.86*len;pv.children.forEach(m=>{if(!m.isMesh||!m.geometry)return;reg(m);const b=m.userData.f0,P=m.geometry.attributes.position,inv=m.userData.inv;
@@ -2662,6 +2663,35 @@ function buildConts(){
  // 드레스룸 서랍장
  [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1],k)=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장',{style:k?'folded':'socks'})));
  [0,0.25,0.5,0.75,1.0].forEach((z,i)=>drawer('x',1.42,-1,5.02,6.28,z+0.005,z+0.25,0.44,0xfafaf8,'드레스룸 큰 서랍장',{hc:0x8a8070,style:i%2?'socks':'folded'}));
+ // 안방 침대 옆: 밝은 나무색 2단 서랍장 (헤드 벽에 붙임, 방 쪽을 봄)
+ {const OAK=0xd9bf98,f=5.243,a0=2.57,a1=3.07;
+  hollow({axis:'x',f,n:-1,a0,a1,back:5.66,b:0.04,h:0.52,col:OAK,inner:0xeadfcd,holes:[[a0+0.02,a1-0.02,0.06,0.305,0.36],[a0+0.02,a1-0.02,0.305,0.545,0.36]]});
+  [[0.06,0.305],[0.305,0.545]].forEach(([z0,z1],k)=>drawer('x',f,-1,a0+0.02,a1-0.02,z0,z1,0.36,OAK,'안방 침대 옆 서랍장',{hc:0x8a7356,hollow:true,style:k?'folded':'socks'}));
+  [[0.012,0.012],[0.012,0.488],[0.388,0.012],[0.388,0.488]].forEach(([dx,dz])=>mk(BX(0.03,0.04,0.03),gm(OAK,{roughness:0.6}),W(5.66)-0.03-dx*0.95,0.02,Z(a0)+0.015+dz*0.97));}
+ // 안방: 안락의자 뒤 통창 암막 커튼 2짝 — 기본은 닫힘, 한 짝씩 눌러서 걷고 닫음. 커튼과 유리 사이(약 20cm)에 숨을 수 있음
+ {const X0=-6.29,X1=-3.93,cz=-6.33,xm=(X0+X1)/2,BK=new THREE.MeshStandardMaterial({color:0x6e665d,roughness:0.97,side:THREE.DoubleSide});scene.updateMatrixWorld(true);
+  let top=H-0.02;{const rc=new THREE.Raycaster(new THREE.Vector3(xm,1.6,cz),new THREE.Vector3(0,1,0),0,2);const h=rc.intersectObjects(scene.children,true).find(h=>h.object.visible&&!(h.object.material&&h.object.material.transparent));if(h)top=h.point.y-0.004;}
+  mk(BX(X1-X0+0.04,0.022,0.035),gm(0xeeeeec,{roughness:0.5}),xm,top-0.011,cz);   // 천장 레일
+  const hh=top-0.035-0.012;
+  [[X0,xm],[xm,X1]].forEach(([a,b],k)=>{const outer=k?b:a,w=b-a+0.02,G=new THREE.Group();scene.add(G);
+    const c=baseCont({type:'curtain',G,name:'안방 암막 커튼 뒤',w,h:hh,d:0.2,gate:0.3,speed:0.8});
+    const g=new THREE.PlaneGeometry(w,hh,Math.round(w/0.012),24),P=g.attributes.position,X=new Float32Array(P.count);for(let i=0;i<P.count;i++)X[i]=P.getX(i)+(a+b)/2;
+    const m=setPart(mk(g,BK,(a+b)/2,top-0.035-hh/2,cz,G),c,'hit');m.castShadow=true;m.receiveShadow=true;c.mov=m;
+    const N=Math.round(w/0.11);
+    const y0=top-0.035-hh/2;
+    // 커튼 뒤에 숨은 사람만큼 천이 앞으로 불룩 (몸 앞면 + 4cm, 좌우·머리 위로 부드럽게 줄어듦)
+    const bulges=()=>(S.dolls||[]).filter(d=>d.g&&!d.found&&d.where==='안방 암막 커튼 뒤').map(d=>{if(!d._cb){const bb=new THREE.Box3().setFromObject(d.g);d._cb={x:(bb.min.x+bb.max.x)/2,w:bb.max.x-bb.min.x,f:bb.max.z+0.04,top:bb.max.y};}return d._cb;});
+    c.onAmt=t=>{const sq=1-0.8*THREE.MathUtils.smoothstep(t,0,1),B=bulges();for(let i=0;i<P.count;i++){const u=(X[i]-a)/(b-a);const x=outer+(X[i]-outer)*sq,wy=y0+P.getY(i);
+        let z=Math.sin(u*Math.PI*2*N)*0.035*(1+1.3*(1-sq)/0.8);
+        B.forEach(q=>{const dx=Math.abs(x-q.x)-q.w*0.35;const fx=dx<=0?1:dx>0.25?0:0.5+0.5*Math.cos(dx/0.25*Math.PI);const fy=wy<=q.top?1:wy>q.top+0.45?0:0.5+0.5*Math.cos((wy-q.top)/0.45*Math.PI);
+          z+=Math.max(0,q.f-cz)*fx*fy;});
+        P.setXYZ(i,x-(a+b)/2,P.getY(i),z);}P.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();};
+    c.onAmt(0);
+    {const v=setPart(mk(BX(b-a-0.12,0.004,0.16),INVIS,(a+b)/2,0.01,cz-0.13,G),c,'cav');v.userData.solid=true;}
+    c.place=p=>({parent:scene,pos:new THREE.Vector3(clampV(p.x,Math.min(a,b)+0.1,Math.max(a,b)-0.1),0.008,cz-0.13),s:1});
+    c.rand=()=>c.place(new THREE.Vector3(a+0.15+Math.random()*(b-a-0.3),0,0));
+    c.view=()=>({t:new THREE.Vector3((a+b)/2,0.5,cz-0.12),n:new THREE.Vector3(0,0,1),dist:1.3,up:0.7});});
+  window.CURTAIN_Z=cz;}
  // 파우더룸 화장대 서랍
  // 화장대: 왼쪽 4단 서랍장 · 의자 자리 위 얇은 서랍 · 오른쪽 끝 당겨 여는 슬라이딩 수납장
  [[0.03,0.21],[0.21,0.39],[0.39,0.57],[0.57,0.775]].forEach(([z0,z1],k)=>drawer('x',0.6,1,3.995,4.83,z0,z1,0.48,0xd8b98c,'파우더룸 화장대 서랍장',{hc:GOLD,style:k===3?'cosmetics':'folded'}));
@@ -2828,7 +2858,7 @@ function buildConts(){
  // 폴딩도어 위 벽과 에어컨 단내림 사이 5cm 틈에 끼움
  [5.75,8.85].forEach(x=>pinSpot(new THREE.Vector3(W(x),2.05,Z(12.318)),Math.PI,0.55,'폴딩도어 위 단내림 틈',0.12,0.1,0.06));
  // 플로어 스탠드 갓 속 (집의 floorLamp 두 개) — 기둥 끝에 끼움
- [[3.55,0.42,'안방 안락의자 옆 스탠드 갓 속']].forEach(([x,y,n])=>pinSpot(new THREE.Vector3(W(x),1.466,Z(y)),Math.PI/2,0.72,n,0.3,0.24,0.3));
+ [[5.45,2.33,'안방 침대 옆 스탠드 갓 속']].forEach(([x,y,n])=>pinSpot(new THREE.Vector3(W(x),1.466,Z(y)),Math.PI/2,0.72,n,0.3,0.24,0.3));
  // 검은 소파 등쿠션: 쿠션을 앞으로 눕히면 뒷면 가로 지퍼가 보이고, 지퍼를 열면 안쪽 주머니
  {const L=1.84,cx=W(7.95)-0.03-0.92,zb=Z(12.32),FBm=gm(0x26272a,{roughness:0.92}),ZP=gm(0x9a8a6a,{metalness:0.6,roughness:0.4}),PULL=gm(0xb9a77a,{metalness:0.8,roughness:0.3});
   [-L/2+0.12+0.3,L/2-0.12-0.3].forEach(dx=>{const ms=grab(cx+dx-0.38,0.33,zb-0.42,cx+dx+0.38,1.0,zb+0.12);
@@ -3134,7 +3164,7 @@ function nextFree(){return S.dolls.findIndex(d=>!d.g);}
 function putDoll(i,res,where){const g=S.mode==='family'?makePerson(i,res.pose):makeDoll(i);if(res.extra){g.updateMatrixWorld(true);res.extra(g);}g.scale.setScalar(res.s||1);if(res.sy)g.scale.y*=res.sy;g.position.copy(res.pos);
   if(res.ry!=null)g.rotation.y=res.ry;else{const wp=res.parent.localToWorld(res.pos.clone());const a=Math.atan2(camera.position.x-wp.x,camera.position.z-wp.z);
     const pq=new THREE.Quaternion();res.parent.getWorldQuaternion(pq);const e=new THREE.Euler().setFromQuaternion(pq,'YXZ');g.rotation.y=a-e.y;}
-  res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;g.userData.cont=res.cont||null;clearItems(res.cont,g,S.dolls[i]);dropBump(S.dolls[i]);S.dolls[i].bump=duvetBump(res.cont,g);}
+  res.parent.add(g);S.dolls[i].g=g;S.dolls[i].cont=res.cont||null;S.dolls[i].where=where;S.dolls[i]._cb=null;g.userData.cont=res.cont||null;clearItems(res.cont,g,S.dolls[i]);dropBump(S.dolls[i]);S.dolls[i].bump=duvetBump(res.cont,g);}
 function duvetBump(c,g){return null;   // 숨은 게 있든 없든 이불 모양은 같게
   if(!c||c.type!=='duvet'||!c.dmat)return null;const pv=c.mov,keep=c.amt;c.onAmt(0);pv.updateMatrixWorld(true);g.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()),r=Math.max(sz.x,sz.z);
@@ -3359,6 +3389,8 @@ function buildPS(){if(PSPOTS)return PSPOTS;const L=[];const V=(x,y,z)=>new THREE
     {const o=V(hn.x,1,hn.z),dr=V(pos.x-hn.x,0,pos.z-hn.z),L2=dr.length();dr.normalize();if(castAll(o,dr,L2+0.15).some(h=>!h.object.userData.door&&!invisM(h.object)))return;}
     L.push({name:roomName(pos)+' 문 뒤',group:'문 뒤',fits:p=>!p.baby,ajar:()=>{d.target=0.55;(S.shut=S.shut||[]).push(d);},
       res:p=>({parent:scene,pos:pos.clone(),ry:Math.atan2(-nb.x,-nb.z),pose:'stand'})});});
+  // 안방 통창 암막 커튼 뒤 (양쪽 짝 하나씩)
+  [-5.98,-4.5].forEach(x=>L.push({name:'안방 암막 커튼 뒤',group:'안방 암막 커튼 뒤',fits:p=>!p.baby,res:p=>({parent:scene,pos:V(x,0,(window.CURTAIN_Z||-6.33)-0.125),ry:0,pose:'stand'})}));
   // 큰 소파 밑(다리 7cm라 납작하게) · 트램펄린 밑
   L.push({name:'큰 소파 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(9.4),0.002,Z(8.36+Math.min(2.3,p.H*1.02))),ry:0,pose:'lie',sy:p.baby?0.35:0.27})});
   L.push({name:'큰 소파 카우치 밑',fits:()=>true,res:p=>({parent:scene,pos:V(W(8.05)+Math.min(1.7,p.H*1.02),0.002,Z(11.55)),ry:Math.PI/2,pose:'lie',sy:p.baby?0.35:0.27})});
@@ -3389,23 +3421,27 @@ let WALLB=null;
 // 사람 몸이 벽이나 방문 문짝 속으로 들어갔는지 (정점 일부로 셈)
 function wallHits(g){if(!WALLB)WALLB=wallMeshes.filter(m=>m.visible).map(m=>new THREE.Box3().setFromObject(m).expandByScalar(-0.01)).filter(b=>!b.isEmpty());
   const leaves=[];OPENERS.forEach(d=>{if(!d.objs||d.objs.length!==1)return;d.objs[0].traverse(m=>{if(m.isMesh&&m.geometry.parameters&&m.geometry.parameters.height>1.5){m.updateMatrixWorld(true);if(!m.geometry.boundingBox)m.geometry.computeBoundingBox();leaves.push(m);}});});
-  g.updateMatrixWorld(true);let n=0;const v=new THREE.Vector3(),l=new THREE.Vector3();
-  g.traverse(o=>{if(!o.isMesh||!o.geometry.attributes.position)return;const P=o.geometry.attributes.position;for(let q=0;q<P.count;q+=Math.max(1,Math.floor(P.count/8))){v.fromBufferAttribute(P,q).applyMatrix4(o.matrixWorld);
-    if(WALLB.some(b=>b.containsPoint(v))){n++;continue;}
+  g.updateMatrixWorld(true);let n=0;const v=new THREE.Vector3(),l=new THREE.Vector3(),gb=new THREE.Box3().setFromObject(g),ctr=gb.getCenter(new THREE.Vector3()),ray=new THREE.Ray(),hp=new THREE.Vector3();
+  const near=WALLB.filter(b=>b.intersectsBox(gb));   // 몸 범위에 걸친 벽만
+  // 몸 중심(가운데 아래쪽)에서 그 점까지 가는 길에 벽이 있으면 벽을 뚫고 나간 것
+  const core=new THREE.Vector3(ctr.x,gb.min.y+Math.min(0.35,(gb.max.y-gb.min.y)*0.4),ctr.z);
+  const through=pt=>{const d=pt.clone().sub(core),L=d.length();if(L<1e-4)return false;ray.set(core,d.divideScalar(L));return near.some(b=>ray.intersectBox(b,hp)&&hp.distanceTo(core)<L);};
+  g.traverse(o=>{if(!o.isMesh||!o.geometry.attributes.position||!o.visible)return;const P=o.geometry.attributes.position;for(let q=0;q<P.count;q+=Math.max(1,Math.floor(P.count/60))){v.fromBufferAttribute(P,q).applyMatrix4(o.matrixWorld);
+    if(near.some(b=>b.containsPoint(v))||through(v)){n++;continue;}
     if(leaves.some(m=>{l.copy(v);m.worldToLocal(l);return m.geometry.boundingBox.containsPoint(l);}))n++;}});return n;}
 // 겹치면: 옆으로 20cm 안에서 옮겨 보고, 그래도 안 되면 조금씩 작게 (자리를 벗어나지 않게)
-function unwall(g){if(!wallHits(g))return;const p0=g.position.clone(),s0=g.scale.clone();
-  for(const f of [1,0.92,0.85,0.78,0.7,0.62,0.55]){g.scale.copy(s0).multiplyScalar(f);if(!wallHits(g))return;
+function unwall(g){if(!wallHits(g))return true;const p0=g.position.clone(),s0=g.scale.clone();
+  for(const f of [1,0.92,0.85,0.78,0.7,0.62,0.55]){g.scale.copy(s0).multiplyScalar(f);if(!wallHits(g))return true;
     for(let r=0.04;r<=0.2;r+=0.04)for(let k=0;k<16;k++){const a=k*Math.PI/8;const d=new THREE.Vector3(Math.sin(a)*r,0,Math.cos(a)*r);
       if(g.parent!==scene){const q=new THREE.Quaternion();g.parent.getWorldQuaternion(q);d.applyQuaternion(q.invert());d.y=0;}
-      g.position.set(p0.x+d.x,p0.y,p0.z+d.z);if(!wallHits(g))return;}
+      g.position.set(p0.x+d.x,p0.y,p0.z+d.z);if(!wallHits(g))return true;}
     g.position.copy(p0);}
-  g.scale.copy(s0);g.position.copy(p0);}
+  g.scale.copy(s0);g.position.copy(p0);return false;}
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
   S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);const names=Object.keys(groups).sort(()=>Math.random()-0.5);
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
-      used.add(j);groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g);if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
+      used.add(j);{const r0=sp[j].res(p);putDoll(i,r0,sp[j].name);const g=S.dolls[i].g;if(!unwall(g)){g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;continue;}g.parent.remove(g);S.dolls[i].g=null;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g);if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
 // 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
 function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Vector3();let best=null,bd=1.3;
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
@@ -3417,7 +3453,24 @@ function startSeek(){msg.hidden=true;closeAll(true);shutRoomDoors(S.shut||[]);S.
   say('찾기 시작!',1000);}
 // 힌트: 누가(가족 모드) 얼마나 가까이 있는지만 — 방향·방·열 곳은 알려 주지 않음
 const josaIGa=w=>{const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<11172&&c%28?'이':'가';};
-function hint(){if(noHint())return;const cam=camera.position;let best=null,bd=1e9;S.dolls.forEach(d=>{if(d.found||!d.g)return;const p=d.g.getWorldPosition(new THREE.Vector3());const dist=Math.hypot(p.x-cam.x,p.z-cam.z);if(dist<bd){bd=dist;best=d;}});
+let PATHG=null;const PR=0.1;
+function pathGrid(){if(PATHG)return PATHG;const x0=FG.x0,z0=FG.z0,nx=Math.ceil(FG.nx*FG.res/PR),nz=Math.ceil(FG.nz*FG.res/PR),wall=new Uint8Array(nx*nz);
+  wallMeshes.filter(m=>m.visible).forEach(m=>{const b=new THREE.Box3().setFromObject(m);if(b.isEmpty()||b.min.y>0.6||b.max.y<0.3)return;   // 문 위 벽(인방)은 길을 막지 않음
+    const i0=Math.max(0,Math.floor((b.min.x-0.05-x0)/PR)),i1=Math.min(nx-1,Math.floor((b.max.x+0.05-x0)/PR)),j0=Math.max(0,Math.floor((b.min.z-0.05-z0)/PR)),j1=Math.min(nz-1,Math.floor((b.max.z+0.05-z0)/PR));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)wall[j*nx+i]=1;});
+  return PATHG={x0,z0,nx,nz,wall};}
+function pathDist(from){const P=pathGrid(),{nx,nz,wall}=P,D=new Float32Array(nx*nz).fill(1e9);
+  const cell=(x,z)=>{const i=Math.floor((x-P.x0)/PR),j=Math.floor((z-P.z0)/PR);return(i<0||j<0||i>=nx||j>=nz)?-1:j*nx+i;};
+  const free=(x,z)=>{for(let r=0;r<=4;r++)for(let a=0;a<(r?8:1);a++){const k=cell(x+Math.cos(a*0.785)*r*PR,z+Math.sin(a*0.785)*r*PR);if(k>=0&&!wall[k])return k;}return -1;};
+  const s0=free(from.x,from.z);if(s0<0)return()=>1e9;D[s0]=0;const Q=[s0],NB=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.414],[1,-1,1.414],[-1,1,1.414],[-1,-1,1.414]];
+  // 단순 다익스트라 (칸 수가 적어 배열 큐로 충분)
+  let head=0;while(head<Q.length){const k=Q[head++],i=k%nx,j=(k-i)/nx,dk=D[k];
+    for(const [di,dj,w] of NB){const a=i+di,b=j+dj;if(a<0||b<0||a>=nx||b>=nz)continue;const q=b*nx+a;if(wall[q])continue;if(di&&dj&&(wall[j*nx+a]||wall[b*nx+i]))continue;
+      const nd=dk+w;if(nd<D[q]-1e-6){D[q]=nd;Q.push(q);}}}
+  return p=>{const k=free(p.x,p.z);return k<0||D[k]>=1e9?1e9:D[k]*PR;};}
+function hint(){if(noHint())return;const cam=camera.position,PD=pathDist(cam);let best=null,bd=1e9;S.dolls.forEach(d=>{if(d.found||!d.g)return;const p=d.g.getWorldPosition(new THREE.Vector3());
+    let dist=PD(p);if(dist>=1e9)dist=Math.hypot(p.x-cam.x,p.z-cam.z)*1.5+2;   // 길로 못 가는 곳(난간 밖 등)은 멀게 침
+    if(dist<bd){bd=dist;best=d;}});
   if(!best)return;S.hints++;
   const far=bd<0.9?'바로 코앞에 있어요!':bd<1.8?'아주 가까이 있어요':bd<3.5?'가까이 있어요':bd<6?'조금 떨어져 있어요':bd<9?'멀리 있어요':'아주 멀리 있어요';
   const who=S.mode==='family'?famOf(S.dolls.indexOf(best)).name:'인형';
