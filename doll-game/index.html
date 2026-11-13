@@ -2616,7 +2616,12 @@ function buildConts(){
  [[5.02,5.96],[6.0,6.94]].forEach(([a,b])=>[[0.02,0.31],[0.31,0.62]].forEach(([z0,z1],k)=>drawer('x',0.6,1,a+0.01,b-0.01,z0,z1,0.42,WH,'드레스룸 흰 서랍장',{style:k?'folded':'socks'})));
  [0,0.25,0.5,0.75,1.0].forEach((z,i)=>drawer('x',1.42,-1,5.02,6.28,z+0.005,z+0.25,0.44,0xfafaf8,'드레스룸 큰 서랍장',{hc:0x8a8070,style:i%2?'socks':'folded'}));
  // 파우더룸 화장대 서랍
- [[3.11,3.45],[3.45,4.15],[4.15,4.49]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.69,0.81,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:GOLD,style:'cosmetics'}));   // 상판 아래 얇은 서랍 3칸
+ [[3.11,3.45],[3.45,4.15],[4.15,4.49]].forEach(([a,b])=>drawer('x',0.6,1,a,b,0.69,0.81,0.48,0xd8b98c,'파우더룸 화장대 서랍',{hc:GOLD,style:'cosmetics'}));
+ // 화장대 양옆 수납장: 속을 비우고 문 2짝씩 (가운데서 양쪽으로 열림, 함께 여닫음)
+ [[3.1,3.45],[4.15,4.5]].forEach(([p,q])=>{const m=(p+q)/2;
+   hollow({axis:'x',f:0.6,n:1,a0:p,a1:q,back:0.06,b:0,h:0.68,col:0xd8b98c,inner:0xe9e2d6,holes:[[p+0.006,q-0.006,0.02,0.66,0.5]]});
+   [[p,m,'a'],[m,q,'b']].forEach(([a,b,hg])=>door('x',0.6,1,a,b,0.02,0.66,0.5,0xd8b98c,hg,'파우더룸 화장대 장',{co:0.009,inner:0xe9e2d6,knob:true,hc:GOLD,hy:0.54,shelves:[0,0.32],style:'bath'}));
+   const c1=CONTS[CONTS.length-1],c0=CONTS[CONTS.length-2];c0.pair=c1;c1.pair=c0;c0.pairMain=true;});   // 상판 아래 얇은 서랍 3칸
  // 서재: 이동 서랍장, 철제 서랍장
  [[0.05,0.24],[0.24,0.42],[0.42,0.61]].forEach(([a,b])=>drawer('y',11.5,1,0.99,1.41,a,b,0.42,0x34302d,'서재 책상 서랍장',{hc:0x8a8580,style:'stationery'}));
  for(let i=0;i<6;i++){const z=0.04+i*0.65/6;drawer('y',11.845,-1,2.48,2.79,z+0.003,z+0.65/6-0.003,0.38,0xf1f0ec,'서재 철제 서랍장',{hc:0x8d8d8a,style:i%2?'stationery':'containers'});}
