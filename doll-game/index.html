@@ -264,6 +264,8 @@ const ownerIdx=k=>ROOMS[k].part?byId[ROOMS[k].part]:k;
 const stage=document.getElementById('stage');
 // 휴대폰·태블릿(터치 화면): 발열을 줄이려고 1초 30번만 그리고, 해상도 상한 1.5배, 그림자는 가끔만 다시 계산
 const MOB=matchMedia('(pointer:coarse)').matches;
+// 폰에서 앱을 오가면 GPU용 2D 캔버스(마루·타일 무늬)가 지워져 바닥이 까맣게 됨 → 무늬 캔버스는 CPU 메모리에 그려 지워지지 않게
+{const gc=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(t,o){return gc.call(this,t,t==='2d'?Object.assign({willReadFrequently:true},o||{}):o);};}
 const renderer=new THREE.WebGLRenderer({antialias:!MOB});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,MOB?1.5:2));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=MOB?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;if(MOB)renderer.shadowMap.autoUpdate=false;
@@ -4035,7 +4037,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.028';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.029';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
