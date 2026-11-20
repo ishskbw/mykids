@@ -3286,6 +3286,8 @@ body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!im
 #gIcons i.oth{opacity:.35}
 #gMP{left:calc(8px + env(safe-area-inset-left,0px));bottom:84px;background:rgba(255,250,242,.92);border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.5;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#5a3d22;max-width:46vw}#gMP b{color:#c46a1f}
 .gbig:disabled{opacity:.45}
+.mpinv{margin-top:14px;text-align:center}.mpinv>b{display:block;font-size:14px;color:#5a4d40;margin-bottom:8px}.mpinv>div{display:flex;gap:6px}.mpinv button{flex:1;border:0;border-radius:14px;padding:11px 4px;font-size:15px;font-weight:700;background:#fde74c33;color:#5a3d22;cursor:pointer}.mpinv #mpKa{background:#fee500;color:#191600}.mpinv #mpSms{background:#e6f0ff;color:#1d3d73}.mpinv #mpCopy{background:#efe4d4}
+.mplist{display:flex;flex-direction:column;gap:6px}.mplist button{text-align:left;border:2px solid #ead9c2;background:#fff;border-radius:14px;padding:9px 12px;font-size:15px;color:#5a4d40;cursor:pointer}.mplist button span{font-size:13px;color:#8a6d50}.mplist button small{display:block;font-size:12px;color:#9a8b7c;margin-top:2px}
 `;document.head.appendChild(css);
 const el=(id,cls,html)=>{const d=document.createElement('div');d.id=id;d.className='gx '+(cls||'');d.innerHTML=html||'';document.body.appendChild(d);return d;};
 const top_=el('gTop','','<div id="gIcons"></div><div id="gTime">00:00</div><div id="gGuide"></div>');
@@ -3331,7 +3333,7 @@ function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.o
    <div class="grow"><b>소리</b><div class="gchips" id="gSndM"><button data-v="1" aria-pressed="${SOUND}">🔊 켜기</button><button data-v="0" aria-pressed="${!SOUND}">🔇 끄기</button></div></div>
    <div class="grow"><b>가구를 열면 안이 잘 보이는 곳으로 시점 옮기기</b><div class="gchips" id="gCam"><button data-v="1" aria-pressed="${S.autoCam}">🎥 켜기</button><button data-v="0" aria-pressed="${!S.autoCam}">끄기</button></div></div>
    <button class="gbig" id="gGo">시작하기</button><button class="gbig sec" id="gMPM" style="margin-top:6px">👥 같이 하기 (여러 폰으로)</button><button class="gbig sec" id="gRankM" style="margin-top:6px">🏆 랭킹</button></div>`;
-  $('#gRankM').onclick=()=>{S._cond=null;showRank('menu');};$('#gMPM').onclick=mpOpen;
+  $('#gRankM').onclick=()=>{S._cond=null;showRank('menu');};$('#gMPM').onclick=()=>mpOpen();
   const setN=v=>{S.n=Math.max(1,Math.min(30,v));$('#gNum').textContent=S.n;$('#gRange').value=S.n;};
   $('#gMinus').onclick=()=>setN(S.n-1);$('#gPlus').onclick=()=>setN(S.n+1);$('#gRange').oninput=e=>setN(+e.target.value);
   menu.querySelectorAll('#gLim button').forEach(b=>b.onclick=()=>{S.limit=+b.dataset.v;menu.querySelectorAll('#gLim button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
@@ -4019,17 +4021,18 @@ const setPath=(o,k,v)=>{const ks=k.split('.');let t=o;for(let j=0;j<ks.length-1;
 const MPB=MP_LOCAL?(()=>{const K=c=>'mpmock:'+c,subs={};const rd=c=>{try{return JSON.parse(localStorage.getItem(K(c))||'null');}catch(e){return null;}};
   const wr=(c,d)=>{localStorage.setItem(K(c),JSON.stringify(d));(subs[c]||[]).forEach(f=>setTimeout(()=>f(rd(c)),20));};
   addEventListener('storage',e=>{if(!e.key||!e.key.startsWith('mpmock:'))return;const c=e.key.slice(7);(subs[c]||[]).forEach(f=>f(rd(c)));});
-  return{get:async c=>rd(c),create:async(c,d)=>wr(c,d),
+  return{list:async()=>Object.keys(localStorage).filter(k=>k.startsWith('mpmock:')).map(k=>({code:k.slice(7),...(rd(k.slice(7))||{})})),get:async c=>rd(c),create:async(c,d)=>wr(c,d),
     patch:async(c,o)=>{const d=rd(c);if(!d)throw new Error('no room');Object.entries(o).forEach(([k,v])=>setPath(d,k,v));wr(c,d);},
     claim:async(c,i,v)=>{const d=rd(c);const f=(d.found||{})[i];if(f)return f.pid===v.pid;setPath(d,'found.'+i,v);wr(c,d);return true;},
     listen:(c,f)=>{(subs[c]=subs[c]||[]).push(f);setTimeout(()=>f(rd(c)),20);return()=>{subs[c]=(subs[c]||[]).filter(x=>x!==f);};}};})()
- :{get:async c=>{const {fs,db}=await mpDb();const s=await fs.getDoc(fs.doc(db,'dollRooms',c));return s.exists()?s.data():null;},
+ :{list:async()=>{const {fs,db}=await mpDb();const sn=await fs.getDocs(fs.query(fs.collection(db,'dollRooms'),fs.where('created','>',Date.now()-MP_OPEN),fs.orderBy('created','desc'),fs.limit(15)));return sn.docs.map(x=>({code:x.id,...x.data()}));},
+   get:async c=>{const {fs,db}=await mpDb();const s=await fs.getDoc(fs.doc(db,'dollRooms',c));return s.exists()?s.data():null;},
    create:async(c,d)=>{const {fs,db}=await mpDb();await fs.setDoc(fs.doc(db,'dollRooms',c),d);},
    patch:async(c,o)=>{const {fs,db}=await mpDb();await fs.updateDoc(fs.doc(db,'dollRooms',c),o);},
    claim:async(c,i,v)=>{const {fs,db}=await mpDb();const ref=fs.doc(db,'dollRooms',c);
      return fs.runTransaction(db,async tx=>{const s=await tx.get(ref);const f=((s.data()||{}).found||{})[i];if(f)return f.pid===v.pid;tx.update(ref,{['found.'+i]:v});return true;});},
    listen:(c,f)=>{let un=()=>{},dead=false;mpDb().then(({fs,db})=>{if(dead)return;un=fs.onSnapshot(fs.doc(db,'dollRooms',c),s=>f(s.exists()?s.data():null),e=>{console.warn('room',e);say('연결이 끊겼어요 — 잠시 뒤 다시 들어와 주세요',2600);});}).catch(()=>say('연결이 안 돼요',2000));return()=>{dead=true;un();};}};
-const MP_TTL=6*3600e3;   // 6시간 지난 방 번호는 새 방에 다시 씀
+const MP_TTL=6*3600e3,MP_OPEN=2*3600e3;   // 열린 방 목록에는 2시간 안에 만든 방만   // 6시간 지난 방 번호는 새 방에 다시 씀
 const mpPlayers=d=>Object.entries(d.players||{}).map(([pid,p])=>({pid,...p})).sort((a,b)=>(a.at||0)-(b.at||0));
 const mpCounts=d=>{const c={};Object.values(d.found||{}).forEach(v=>{c[v.pid]=(c[v.pid]||0)+1;});return c;};
 const mpUnit=()=>S.mode==='family'?'명':'개';
@@ -4037,7 +4040,7 @@ function mpSum(d){const c=d.cfg;return `${c.mode==='family'?`가족 ${c.fam.leng
 function mpCover(html){menu.hidden=true;top_.hidden=true;btns.hidden=true;aim.hidden=true;msg.hidden=false;msg.classList.add('cover');msg.innerHTML=html;const b=$('#gMP');if(b)b.hidden=true;}
 
 // 같이 하기 첫 화면: 이름 · 방 만들기 · 방 번호로 들어가기
-function mpOpen(){let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(NAME_KEY)||'';}catch(e){}
+function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(NAME_KEY)||'';}catch(e){}
   const KD={race:['🏁 같이 찾기','컴퓨터가 숨기고, 모두 같은 판에서 누가 많이 찾나 겨뤄요'],hider:['🙈 내가 숨기기','방을 만든 내가 인형을 숨기고, 다른 사람들이 찾아요']};
   const sum=()=>kind==='hider'?`인형 ${S.n}개 · ${S.limit?fmt(S.limit)+' 안에':'시간 제한 없음'}${S.hintOn?'':' · 힌트 없이'}`:mpSum({kind,cfg:{mode:S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel}});
   mpCover(`<div class="gcard"><h1>👥 같이 하기</h1><p class="s">여러 사람이 각자 폰으로 같은 집에 들어와서 함께 놀아요.${MP_OK?'':` <b>같이 하기는 <a href="${RANK_URL}" target="_blank" rel="noopener">kong-gallery.com/doll-game</a> 에서만 돼요.</b>`}</p>
@@ -4045,7 +4048,8 @@ function mpOpen(){let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(N
    <div class="grow"><b>방 만들기</b><div class="gchips" id="mpKind">${Object.entries(KD).map(([v,[t]])=>`<button data-v="${v}" aria-pressed="${v===kind}">${t}</button>`).join('')}</div>
     <p class="s" id="mpTip" style="margin:8px 0 0"></p></div>
    <button class="gbig" id="mpMake" ${MP_OK?'':'disabled'}>방 만들기</button>
-   <div class="grow" style="margin-top:22px"><b>방 번호로 들어가기</b><div class="gsave" style="justify-content:flex-start;margin:0"><input id="mpCode" inputmode="numeric" maxlength="4" placeholder="4자리 번호" autocomplete="off"><button id="mpJoin" ${MP_OK?'':'disabled'}>들어가기</button></div></div>
+   <div class="grow" style="margin-top:22px"><b>지금 열린 방 <button class="glink" id="mpRe" style="font-size:13px">새로 고침</button></b><div id="mpList" class="mplist"><p class="s" style="margin:0">찾는 중…</p></div></div>
+   <div class="grow"><b>방 번호로 들어가기</b><div class="gsave" style="justify-content:flex-start;margin:0"><input id="mpCode" inputmode="numeric" maxlength="4" placeholder="4자리 번호" autocomplete="off" value="${code0||''}"><button id="mpJoin" ${MP_OK?'':'disabled'}>들어가기</button></div></div>
    <p class="s" id="mpErr" style="color:#b5452b;margin:6px 0 0;min-height:1.2em"></p>
    <button class="gbig sec" id="mpBack">메뉴로</button></div>`);
   const tip=()=>{$('#mpTip').innerHTML=`${KD[kind][1]}<br><small>메뉴에서 고른 설정으로 해요: ${escH(sum())}</small>`;};tip();
@@ -4053,7 +4057,16 @@ function mpOpen(){let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(N
   const name=()=>{const v=($('#mpName').value||'').trim().slice(0,10);if(!v){$('#mpErr').textContent='이름을 먼저 써 주세요';$('#mpName').focus();return null;}try{localStorage.setItem(NAME_KEY,v);}catch(e){}return v;};
   $('#mpMake').onclick=()=>{const n=name();if(n)mpCreate(kind,n);};
   $('#mpJoin').onclick=()=>{const n=name();if(n)mpJoin(($('#mpCode').value||'').trim(),n);};
-  $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};}
+  $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};
+  const KN={race:'🏁 같이 찾기',hider:'🙈 방장이 숨김'},ST={lobby:'기다리는 중',hiding:'숨기는 중',seek:'찾는 중',end:'끝남'};
+  const load=()=>{const L=$('#mpList');if(!L)return;if(!MP_OK){L.innerHTML='<p class="s" style="margin:0">kong-gallery.com에서만 보여요</p>';return;}L.innerHTML='<p class="s" style="margin:0">찾는 중…</p>';
+    withTimeout(MPB.list(),12000).then(rs=>{if(!$('#mpList'))return;rs=rs.filter(r=>r.created&&Date.now()-r.created<MP_OPEN&&r.state!=='end'&&Object.values(r.players||{}).some(x=>!x.gone)).sort((a,b)=>b.created-a.created);
+      if(!rs.length){L.innerHTML='<p class="s" style="margin:0">지금 열린 방이 없어요. 방을 만들어 보세요!</p>';return;}
+      L.innerHTML=rs.map(r=>{const n=Object.values(r.players||{}).filter(x=>!x.gone).length;return `<button data-c="${escH(r.code)}"><b>👑 ${escH(r.hostName||'')}</b> <span>${KN[r.kind]||''} · ${n}명 · ${ST[r.state]||''}</span><small>방 ${escH(r.code)} · ${escH(mpSum(r))}</small></button>`;}).join('');
+      L.querySelectorAll('button').forEach(b=>b.onclick=()=>{const n=name();if(n)mpJoin(b.dataset.c,n);});})
+    .catch(e=>{console.warn(e);if($('#mpList'))L.innerHTML='<p class="s" style="margin:0">목록을 못 불러왔어요. 새로 고침을 눌러 보세요</p>';});};
+  $('#mpRe').onclick=load;load();
+  if(code0&&MP_OK&&nm)mpJoin(code0,nm);}
 async function mpCreate(kind,name){const err=$('#mpErr');err.textContent='방을 만드는 중…';
   const cfg={mode:kind==='hider'?'doll':S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel.slice()};
   try{for(let t=0;t<12;t++){const code=String(1000+Math.floor(Math.random()*9000));const old=await withTimeout(MPB.get(code),12000);if(old&&Date.now()-(old.created||0)<MP_TTL)continue;
@@ -4078,8 +4091,15 @@ function mpLobby(){S.phase='mplobby';const d=S.mp.room;
    <ul class="glist" style="text-align:left">${ps.map(p=>`<li>${p.pid===d.host?'👑':'🙂'} ${escH(p.name)}${p.pid===MP_PID?' (나)':''}</li>`).join('')}</ul>
    ${host?`<button class="gbig" id="mpGo">${d.kind==='hider'?'🙈 숨기러 가기':'▶ 시작하기'}</button><p class="s" style="margin:8px 0 0">다른 사람에게 방 번호를 알려 주세요. 들어오면 위 목록에 보여요.</p>`
      :'<p class="s" style="margin-top:12px">방장이 시작하기를 기다리는 중이에요…</p>'}
-   <button class="gbig sec" id="mpOut">방 나가기</button></div>`);
-  if(host)$('#mpGo').onclick=mpStartRound;$('#mpOut').onclick=mpLeave;}
+   <div class="mpinv"><b>🔗 초대 링크 보내기</b><div><button id="mpKa">💬 카카오톡</button><button id="mpSms">✉️ 문자</button><button id="mpCopy">📋 복사</button></div></div><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
+  if(host)$('#mpGo').onclick=mpStartRound;$('#mpOut').onclick=mpLeave;$('#mpKa').onclick=()=>mpInvite('kakao');$('#mpSms').onclick=()=>mpInvite('sms');$('#mpCopy').onclick=()=>mpInvite('copy');}
+// 초대 링크: 누르면 이 방으로 바로 들어옴 (이름은 그 기기에 저장된 이름, 없으면 이름만 쓰면 됨)
+function mpInvite(how){const code=S.mp.code,base=SHARED_HOST?location.origin+location.pathname:RANK_URL,url=base+'?room='+code,text=`🧸 인형 숨바꼭질 같이 해요! 방 ${code}`,all=text+' '+url;
+  const copy=msg2=>(navigator.clipboard?navigator.clipboard.writeText(all):Promise.reject()).then(()=>say(msg2,2600)).catch(()=>{prompt('이 링크를 복사해서 보내 주세요',all);});
+  if(how==='sms'){const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);location.href='sms:'+(ios?'&':'?')+'body='+encodeURIComponent(all);return;}   // 문자 앱이 링크가 적힌 채로 열림 (받는 사람만 고르면 됨)
+  if(how==='kakao'){if(navigator.share){navigator.share({title:'인형 숨바꼭질 같이 하기',text,url}).catch(()=>{});return;}   // 폰 공유 창 → 카카오톡 고르기
+    copy('링크를 복사했어요<br><small>카카오톡 대화방에 붙여 넣어 보내세요</small>');return;}
+  copy('링크를 복사했어요<br><small>카톡·문자에 붙여 넣어 보내세요</small>');}
 function mpCfg(d){const c=d.cfg;S.mode=c.mode;S.limit=c.limit;S.hintOn=c.hintOn;S.diff=c.diff;S.dollN=0;S.dollAuto=null;
   if(c.mode==='family'){S.fam=c.fam.slice();S.n=S.fam.length;S.auto=true;}else{S.n=c.n;S.auto=d.kind==='race';}}
 // 모든 기기가 같은 집 상태에서 숨기기 시작: 문은 처음 상태로 바로, 시점은 현관 앞
@@ -4195,6 +4215,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();wallSafeConts();deSparkle();buildFurn();OPENERS.forEach(d=>{d.tdef=d.target;});{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
+{const q=new URLSearchParams(location.search),rm=q.get('room');if(rm&&/^\d{4}$/.test(rm)){q.delete('room');try{history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);}catch(e){}if(MP_OK)setTimeout(()=>mpOpen(rm),200);}}   // ?room=1234 초대 링크
 // 앱으로 설치(홈 화면): kong-gallery.com에서만 서비스 워커 등록
 if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))navigator.serviceWorker.register('/doll-game/sw.js',{scope:'/doll-game/'}).catch(e=>console.warn(e));
 // 버벅임 자동 조절: 4초 동안 평균 프레임이 35 미만이면 해상도를 20% 낮춤 (한 판에 최대 3번, 최소 15초 간격).
@@ -4208,7 +4229,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.031';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.032';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
