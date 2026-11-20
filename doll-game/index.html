@@ -3301,7 +3301,11 @@ body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!im
 #gChat.open{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto;background:rgba(255,250,242,.97);border-radius:16px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:min(94vw,420px);width:min(94vw,420px);box-sizing:border-box}
 #gChat.open #gChatLog{width:100%;max-height:26vh}#gChat.open #gChatLog div{box-shadow:none}#gChat.open #gChatRow{width:100%}#gChat.open #gChatIn{flex:1;width:auto;min-width:0}#gChat.open #gMP{display:none}
 #gChatIn{width:min(50vw,220px);font-size:16px;padding:9px 10px;border-radius:12px;border:1px solid #dccdb5;background:#fff}#gChatSend{border:0;border-radius:12px;background:#d98a3a;color:#fff;font-weight:700;font-size:15px;padding:10px 12px;cursor:pointer}
-body.mpchat #gMsg{padding-bottom:max(140px,env(safe-area-inset-bottom))}
+body.mpchat:not(.mpbox) #gMsg{padding-bottom:max(140px,env(safe-area-inset-bottom))}body.mpbox #gChat{display:none!important}
+#gMenu,#gMsg,#gChat,#gLeaveBox{color-scheme:light}.gx input{color:#2b2420!important;-webkit-text-fill-color:#2b2420!important;background-color:#fff;caret-color:#c46a1f;opacity:1}.gx input::placeholder{color:#a89a8b;-webkit-text-fill-color:#a89a8b}
+.mpcbox{margin-top:14px;background:#fff;border:2px solid #ead9c2;border-radius:16px;padding:10px 12px;text-align:left}.mpcbox>b{display:block;font-size:14px;color:#5a4d40;margin-bottom:6px}
+#mpChatLog{max-height:150px;min-height:40px;overflow:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:8px}#mpChatLog div{font-size:15px;line-height:1.4;color:#2b2420;word-break:break-all}#mpChatLog div b{color:#c46a1f;margin-right:6px}#mpChatLog div.me b{color:#2a7a5a}#mpChatLog .empty{color:#9a8b7c;font-size:13px}
+.mprow{display:flex;gap:6px}#mpChatIn{flex:1;min-width:0;font-size:16px;padding:10px 12px;border:1.5px solid #dccdb5;border-radius:12px}#mpChatSend{border:0;border-radius:12px;background:#d98a3a;color:#fff;font-weight:700;font-size:15px;padding:0 14px;cursor:pointer}
 #gChat #gMP{position:static;max-width:none;background:rgba(255,250,242,.92);border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.5;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#5a3d22;max-width:46vw}#gMP b{color:#c46a1f}
 .gbig:disabled{opacity:.45}
 .mpinv{margin-top:14px;text-align:center}.mpinv>b{display:block;font-size:14px;color:#5a4d40;margin-bottom:8px}.mpinv>div{display:flex;gap:6px}.mpinv button{flex:1;border:0;border-radius:14px;padding:11px 4px;font-size:15px;font-weight:700;background:#fde74c33;color:#5a3d22;cursor:pointer}.mpinv #mpKa{background:#fee500;color:#191600}.mpinv #mpSms{background:#e6f0ff;color:#1d3d73}.mpinv #mpCopy{background:#efe4d4}
@@ -4056,7 +4060,9 @@ const mpPlayers=d=>Object.entries(d.players||{}).map(([pid,p])=>({pid,...p})).so
 const mpCounts=d=>{const c={};Object.values(d.found||{}).forEach(v=>{c[v.pid]=(c[v.pid]||0)+1;});return c;};
 const mpUnit=()=>S.mode==='family'?'명':'개';
 function mpSum(d){const c=d.cfg;return `${c.mode==='family'?`가족 ${c.fam.length}명`:`인형 ${c.n}개`}${d.kind==='race'&&c.mode!=='family'?' · '+DIFF[c.diff]:''} · ${c.limit?fmt(c.limit)+' 안에':'시간 제한 없음'}${c.hintOn?'':' · 힌트 없이'}`;}
-function mpCover(html){menu.hidden=true;top_.hidden=true;btns.hidden=true;aim.hidden=true;msg.hidden=false;msg.classList.add('cover');msg.innerHTML=html;const b=$('#gMP');if(b)b.hidden=true;}
+const CHATBOX='<div class="mpcbox"><b>💬 채팅</b><div id="mpChatLog"></div><div class="mprow"><input id="mpChatIn" maxlength="60" placeholder="여기에 써서 보내요" autocomplete="off" enterkeyhint="send"><button id="mpChatSend">보내기</button></div></div>';
+function keepChat(){const ci=$('#mpChatIn');const v=ci?ci.value:'',f=!!ci&&document.activeElement===ci,st=ci?ci.selectionStart:0;return()=>chatBoxBind(v,f,st);}
+function mpCover(html){const back=keepChat();menu.hidden=true;top_.hidden=true;btns.hidden=true;aim.hidden=true;msg.hidden=false;msg.classList.add('cover');msg.innerHTML=html;const b=$('#gMP');if(b)b.hidden=true;back();}
 
 // 같이 하기 첫 화면: 이름 · 방 만들기 · 방 번호로 들어가기
 function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(NAME_KEY)||'';}catch(e){}
@@ -4111,6 +4117,7 @@ function mpLobby(){S.phase='mplobby';const d=S.mp.room;
    <ul class="glist" style="text-align:left">${ps.map(p=>`<li>${p.pid===d.host?'👑':'🙂'} ${escH(p.name)}${p.pid===MP_PID?' (나)':''}</li>`).join('')}</ul>
    ${host?`<button class="gbig" id="mpGo">${d.kind==='hider'?'🙈 숨기러 가기':'▶ 시작하기'}</button><p class="s" style="margin:8px 0 0">다른 사람에게 방 번호를 알려 주세요. 들어오면 위 목록에 보여요.</p>`
      :'<p class="s" style="margin-top:12px">방장이 시작하기를 기다리는 중이에요…</p>'}
+   ${CHATBOX}
    <div class="mpinv"><b>🔗 초대 링크 보내기</b><div><button id="mpKa">💬 카카오톡</button><button id="mpSms">✉️ 문자</button><button id="mpCopy">📋 복사</button></div></div><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
   if(host)$('#mpGo').onclick=mpStartRound;$('#mpOut').onclick=mpLeave;$('#mpKa').onclick=()=>mpInvite('kakao');$('#mpSms').onclick=()=>mpInvite('sms');$('#mpCopy').onclick=()=>mpInvite('copy');}
 // 초대 링크: 누르면 이 방으로 바로 들어옴 (이름은 그 기기에 저장된 이름, 없으면 이름만 쓰면 됨)
@@ -4155,7 +4162,7 @@ function mpApply(d,watch){S.mp.round=d.round;mpCfg(d);armBack();clearDolls();mpR
   if(S.mode==='family')famReplay(L.f,d.seed||1);else (L.d||[]).forEach((R,i)=>{if(i<S.n)mpPlace(i,R);});
   closeAll(true);if(watch){S.dolls.forEach(x=>{x.found=false;});mpWatch();mpSync(d);mpWatchDraw();return;}startSeek();mpSync(d);}
 function mpWait(d){S.phase='mpwait';
-  mpCover(`<div class="gcard" style="text-align:center"><h1>⏳ 입장을 기다리는 중…</h1><p class="s">방장이 시작하면 바로 같이 찾아요.<br>방 ${S.mp.code} · ${escH(mpSum(d))}</p><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
+  mpCover(`<div class="gcard" style="text-align:center"><h1>⏳ 입장을 기다리는 중…</h1><p class="s">방장이 시작하면 바로 같이 찾아요.<br>방 ${S.mp.code} · ${escH(mpSum(d))}</p>${CHATBOX}<button class="gbig sec" id="mpOut">방 나가기</button></div>`);
   $('#mpOut').onclick=mpLeave;}
 // 누가 찾았는지 맞추기: 다른 사람이 먼저 찾은 건 내 화면에서도 사라짐
 function mpClaim(i){if(!S.mp)return;MPB.claim(S.mp.code,String(i),{pid:MP_PID,name:S.mp.name,t:Date.now()}).catch(e=>{console.warn(e);say('연결이 불안정해요',1400);});}
@@ -4185,13 +4192,13 @@ function mpShowEnd(win,gaveUp){if(win!==undefined)S.mpEndArgs=[win,gaveUp];S.pha
 function mpEndDraw(){if(!S.mp||S.phase!=='end')return;const d=S.mp.room||{},cnt=mpCounts(d),F=d.found||{},[win,gaveUp]=S.mpEndArgs||[false,false];
   const ps=mpPlayers(d).filter(p=>(!p.gone||cnt[p.pid])&&!(d.kind==='hider'&&p.pid===d.host)).sort((a,c)=>(cnt[c.pid]||0)-(cnt[a.pid]||0)),top=ps.length?cnt[ps[0].pid]||0:0;
   const miss=S.dolls.map((x,i)=>({d:x,i})).filter(o=>!F[o.i]&&!o.d.mine&&o.d.g),host=d.host===MP_PID,nf=Object.keys(F).length;
-  msg.hidden=false;msg.classList.remove('cover');
+  msg.hidden=false;msg.classList.remove('cover');const back=keepChat();
   msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>${nf>=S.n?'🎉 다 찾았어요!':gaveUp?'🏳️ 여기까지!':d.state==='end'?'🏁 이번 판 끝!':'⏳ 다른 사람은 아직 찾는 중'}</h1>
    <p class="s">방 ${S.mp.code} · ${nf} / ${S.n}${mpUnit()} 찾음</p>
    <ol class="grank">${ps.map((p,k)=>`<li${p.pid===MP_PID?' class="me"':''}><span class="rk">${top>0&&(cnt[p.pid]||0)===top?'🏆':k+1}</span><span class="nm">${escH(p.name)}</span><span class="sc">${cnt[p.pid]||0}${mpUnit()}</span></li>`).join('')}</ol>
    ${miss.length&&d.state==='end'?`<button class="gbig sec" id="gRev">아무도 못 찾은 ${miss.length}${mpUnit()} 보러 가기</button>`:''}
    ${host?`<button class="gbig" id="mpAgain">🔁 같은 방에서 한 판 더</button>`:'<p class="s" style="margin-top:10px">방장이 한 판 더 하면 바로 이어서 해요</p>'}
-   <button class="gbig sec" id="mpOut">방 나가기</button></div>`;
+   ${CHATBOX}<button class="gbig sec" id="mpOut">방 나가기</button></div>`;back();
   if($('#gRev'))$('#gRev').onclick=()=>reveal(miss);
   if(host)$('#mpAgain').onclick=()=>{MPB.patch(S.mp.code,{state:'lobby'}).catch(()=>{});clearDolls();mpLobby();};
   $('#mpOut').onclick=mpLeave;}
@@ -4214,20 +4221,25 @@ chatEl.hidden=true;chatEl.prepend($('#gMP'));
 ['pointerdown','pointerup','touchstart','touchend','mousedown','click','keydown','keyup','wheel'].forEach(t=>chatEl.addEventListener(t,e=>e.stopPropagation()));   // 채팅을 누르거나 쓸 때 게임이 움직이지 않게
 let CHAT_OPEN=false;
 const chatList=d=>Object.values((d&&d.chat)||{}).filter(m=>m&&m.t).sort((a,b)=>(a.at||0)-(b.at||0));
-function chatDraw(){const log=$('#gChatLog');if(!log||!S.mp)return;const L=S.mp.chatL||[],now=Date.now();
+const boxOn=()=>!msg.hidden&&!!$('#mpChatLog');
+function chatBoxBind(v,f,st){const ci=$('#mpChatIn');if(ci){ci.value=v||'';$('#mpChatSend').onclick=()=>{chatSend('mpChatIn');ci.focus();};ci.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&!e.isComposing){e.preventDefault();chatSend('mpChatIn');}});
+    ci.addEventListener('focus',()=>setTimeout(()=>{try{ci.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){}},350));if(f){ci.focus({preventScroll:true});try{ci.setSelectionRange(st,st);}catch(e){}}if(S.mp)S.mp.unread=0;}chatDraw();}
+function chatDraw(){document.body.classList.toggle('mpbox',boxOn());const bl=$('#mpChatLog');if(bl&&S.mp){const L=(S.mp.chatL||[]).slice(-30);const atEnd=bl.scrollHeight-bl.scrollTop-bl.clientHeight<30;
+    bl.innerHTML=L.length?L.map(m=>`<div${m.p===MP_PID?' class="me"':''}><b>${escH(m.n||'')}</b>${escH(m.t)}</div>`).join(''):'<div class="empty">아직 대화가 없어요. 인사해 보세요 👋</div>';if(atEnd||L.length<5)bl.scrollTop=bl.scrollHeight;}
+  const log=$('#gChatLog');if(!log||!S.mp)return;const L=S.mp.chatL||[],now=Date.now();
   const show=CHAT_OPEN?L.slice(-8):L.filter(m=>now-m.seenAt<10000).slice(-3);
   log.innerHTML=show.map(m=>`<div${m.p===MP_PID?' class="me"':''}><b>${escH(m.n||'')}</b> ${escH(m.t)}</div>`).join('');log.scrollTop=log.scrollHeight;}
 function chatSync(d){if(!S.mp)return;const L=chatList(d),K=S.mp.chatK||(S.mp.chatK={}),first=!S.mp.chatInit;let fresh=false;
   L.forEach(m=>{const k=m.at+'|'+m.p;if(!(k in K)){K[k]=first?0:Date.now();if(!first&&m.p!==MP_PID)fresh=true;}m.seenAt=K[k];});   // 들어오기 전 말은 말풍선으로 띄우지 않음
-  S.mp.chatInit=1;S.mp.chatL=L;if(fresh){if(SOUND)try{tone([880],0.08,'sine',0.08);}catch(e){}if(!CHAT_OPEN){S.mp.unread=(S.mp.unread||0)+L.filter(m=>m.p!==MP_PID&&m.seenAt>Date.now()-50).length;chatBadge(true);}}chatDraw();}
+  S.mp.chatInit=1;S.mp.chatL=L;if(fresh){if(SOUND)try{tone([880],0.08,'sine',0.08);}catch(e){}if(!CHAT_OPEN&&!boxOn()){S.mp.unread=(S.mp.unread||0)+L.filter(m=>m.p!==MP_PID&&m.seenAt>Date.now()-50).length;chatBadge(true);}}chatDraw();}
 function chatBadge(ping){const b=$('#gChatBtn'),n=(S.mp&&S.mp.unread)||0;b.innerHTML=(CHAT_OPEN?'✕ 닫기':'💬 채팅')+(n&&!CHAT_OPEN?`<i>${n>9?'9+':n}</i>`:'');if(ping){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping');}}
 function chatShow(on){chatEl.hidden=!on;document.body.classList.toggle('mpchat',!!on);if(!on){CHAT_OPEN=false;chatOpen(false);}}
 function chatOpen(on){CHAT_OPEN=on;if(on&&S.mp)S.mp.unread=0;chatEl.style.top='';chatBadge();$('#gChatIn').hidden=!on;$('#gChatSend').hidden=!on;chatEl.classList.toggle('open',on);if(on)setTimeout(()=>$('#gChatIn').focus(),30);else $('#gChatIn').blur();chatDraw();}
 $('#gChatBtn').onclick=()=>chatOpen(!CHAT_OPEN);
-function chatSend(){const inp=$('#gChatIn'),t=(inp.value||'').trim().slice(0,60);if(!t||!S.mp)return;inp.value='';const at=Date.now();
+function chatSend(id){const inp=$('#'+(id||'gChatIn')),t=(inp.value||'').trim().slice(0,60);if(!t||!S.mp)return;inp.value='';const at=Date.now();
   MPB.patch(S.mp.code,{['chat.m'+at+MP_PID]:{n:S.mp.name,t,at,p:MP_PID}}).catch(()=>say('못 보냈어요',1200));}
-$('#gChatSend').onclick=chatSend;$('#gChatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();chatSend();}});
-setInterval(()=>{if(S.mp&&!CHAT_OPEN)chatDraw();},1000);
+$('#gChatSend').onclick=()=>chatSend('gChatIn');$('#gChatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();chatSend('gChatIn');}});
+setInterval(()=>{if(S.mp&&!CHAT_OPEN&&!boxOn())chatDraw();else document.body.classList.toggle('mpbox',boxOn());},1000);
 if(window.visualViewport){const vv=visualViewport,fit=()=>{if(CHAT_OPEN)chatEl.style.top=(vv.offsetTop+8)+'px';};vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);}   // 키보드가 화면을 가려도 입력 칸은 보이게
 
 // ---------- 매 프레임 ----------
@@ -4277,7 +4289,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.037';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.038';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
