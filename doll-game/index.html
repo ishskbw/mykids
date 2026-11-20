@@ -4241,6 +4241,55 @@ function chatSend(id){const inp=$('#'+(id||'gChatIn')),t=(inp.value||'').trim().
 $('#gChatSend').onclick=()=>chatSend('gChatIn');$('#gChatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();chatSend('gChatIn');}});
 setInterval(()=>{if(S.mp&&!CHAT_OPEN&&!boxOn())chatDraw();else document.body.classList.toggle('mpbox',boxOn());},1000);
 if(window.visualViewport){const vv=visualViewport,fit=()=>{if(CHAT_OPEN)chatEl.style.top=(vv.offsetTop+8)+'px';};vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);}   // 키보드가 화면을 가려도 입력 칸은 보이게
+// ================= 같이 하기: 서로 돌아다니는 모습 =================
+// Realtime Database dollPos/{방}/{나}: 찾는 동안 0.2초마다(움직였을 때만, 멈춰 있어도 3초마다 한 번) 내 위치·방향·자세를 올림.
+// 다른 사람은 캐릭터 + 이름표로 그림 (가족 이름이면 그 가족 캐릭터). 벽 너머는 안 보이고, 눌러도 '찾았다'가 되지 않음.
+const POS_URL='https://kongkong-gallery-default-rtdb.asia-southeast1.firebasedatabase.app';
+let PDB=null;const posDb=()=>PDB||(PDB=(async()=>{const base='https://www.gstatic.com/firebasejs/12.4.0/';
+  const [{initializeApp},rd]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-database.js')]);
+  return {rd,db:rd.getDatabase(initializeApp(Object.assign({},RANK_FB,{databaseURL:POS_URL}),'dollpos'))};})().catch(e=>{PDB=null;throw e;}));
+const AV=new Map();   // pid → {g,k,name,tx,ty,tz,tr,seen,t}
+const POS={code:null,un:null,me:null,last:null,lastT:0,sent:false};
+let AV_BUSY=false;
+function avMake(name,k){const fi=FAM.findIndex(f=>f.name===name||f.short===name);const save=S.fam;let g;
+  try{if(fi>=0)S.fam=[fi];
+    else{let h=7;for(const ch of name)h=(h*31+ch.charCodeAt(0))>>>0;const C=[0x5b8bd9,0xd96b5b,0x5bb37a,0xb07ad9,0xd9a35b,0x4fb3b3];
+      FAM.push({name,short:name,tag:'',H:1.6,hair:h%2?'short':'bob',top:C[h%C.length],bot:0x2b2f38,shoe:0xf2f2f0,ico:C[h%C.length]});S.fam=[FAM.length-1];}
+    g=makePerson(0,k===2?'lie':k===1?'crouch':'stand');}
+  finally{if(fi<0)FAM.pop();S.fam=save;}
+  g.traverse(o=>{o.userData.noPick=true;delete o.userData.dollIdx;o.userData.root=false;o.userData.person=0;if(o.isSprite)o.visible=false;o.castShadow=false;});
+  const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');x.font='bold 32px sans-serif';const w=Math.min(250,x.measureText(name).width+30);
+  x.fillStyle='rgba(30,26,22,.8)';x.beginPath();if(x.roundRect)x.roundRect(128-w/2,8,w,48,24);else x.rect(128-w/2,8,w,48);x.fill();x.fillStyle='#fff';x.textAlign='center';x.textBaseline='middle';x.fillText(name,128,33);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));g.updateMatrixWorld(true);
+  const bb=new THREE.Box3().setFromObject(g);sp.position.y=(k===2?0.45:bb.max.y)+0.2;sp.scale.set(0.96,0.24,1);sp.userData.noPick=true;sp.renderOrder=5;g.add(sp);
+  return g;}
+function avSync(val){const now=performance.now(),seen=new Set();
+  Object.entries(val||{}).forEach(([pid,p])=>{if(pid===MP_PID||!p||typeof p.x!=='number'||typeof p.z!=='number')return;seen.add(pid);let a=AV.get(pid);
+    const k=p.k||0,name=String(p.n||'').slice(0,10)||'친구';
+    if(a&&(a.k!==k||a.name!==name)){scene.remove(a.g);AV.delete(pid);a=null;}
+    if(!a){const g=avMake(name,k);g.position.set(p.x,p.y||0,p.z);g.rotation.y=(p.r||0)+Math.PI;scene.add(g);a={g,k,name,seen:now,t:p.t};AV.set(pid,a);}
+    if(a.t!==p.t){a.seen=now;a.t=p.t;}a.tx=p.x;a.ty=p.y||0;a.tz=p.z;a.tr=(p.r||0)+Math.PI;});
+  AV.forEach((a,pid)=>{if(!seen.has(pid)){scene.remove(a.g);AV.delete(pid);}});window.__poke&&window.__poke(300);}
+function posStart(code){posStop();POS.code=code;
+  posDb().then(({rd,db})=>{if(POS.code!==code)return;POS.me=rd.ref(db,`dollPos/${code}/${MP_PID}`);rd.onDisconnect(POS.me).remove().catch(()=>{});
+    POS.un=rd.onValue(rd.ref(db,`dollPos/${code}`),s=>avSync(s.val()),e=>console.warn('pos',e));}).catch(e=>console.warn('pos db',e));}
+function posStop(){if(POS.me&&POS.sent)posDb().then(({rd})=>rd.remove(POS.me)).catch(()=>{});try{POS.un&&POS.un();}catch(e){}
+  POS.code=null;POS.un=null;POS.me=null;POS.sent=false;POS.last=null;AV.forEach(a=>scene.remove(a.g));AV.clear();}
+// 0.2초마다: 찾는 중이면 내 위치를 올리고, 찾기를 멈추면 내 자리를 지움
+setInterval(()=>{if(!MP_OK)return;if(!S.mp){if(POS.code)posStop();return;}if(POS.code!==S.mp.code)posStart(S.mp.code);
+  const on=S.phase==='seek'&&!S.paused;if(!POS.me)return;
+  if(!on){if(POS.sent){POS.sent=false;POS.last=null;posDb().then(({rd})=>rd.remove(POS.me)).catch(()=>{});}return;}
+  const p=camera.position,y=Math.max(-0.2,p.y-WALK.eye),r=WALK.yaw,k=S.pose==='prone'?2:S.pose==='sit'?1:0,L=POS.last,now=Date.now();
+  if(L&&Math.hypot(p.x-L.x,p.z-L.z)<0.03&&Math.abs(r-L.r)<0.05&&k===L.k&&now-POS.lastT<3000)return;
+  POS.last={x:p.x,z:p.z,r,k};POS.lastT=now;POS.sent=true;
+  posDb().then(({rd})=>rd.set(POS.me,{x:+p.x.toFixed(3),y:+y.toFixed(3),z:+p.z.toFixed(3),r:+r.toFixed(3),t:now,k,n:String(S.mp&&S.mp.name||'').slice(0,10)})).catch(e=>console.warn('pos set',e));},200);
+// 매 프레임: 다른 사람 캐릭터를 받은 자리로 부드럽게 옮김 (15초 넘게 소식이 없으면 숨김)
+{let lt=performance.now();const step=now=>{requestAnimationFrame(step);const dt=Math.min(0.1,(now-lt)/1000);lt=now;let mv=false;
+  const show=!!S.mp&&['seek','reveal','end'].includes(S.phase),f=1-Math.exp(-dt*9);
+  AV.forEach(a=>{const g=a.g;g.visible=show&&now-a.seen<15000;if(!g.visible||a.tx==null)return;
+    const dx=a.tx-g.position.x,dy=a.ty-g.position.y,dz=a.tz-g.position.z;let dr=a.tr-g.rotation.y;dr=Math.atan2(Math.sin(dr),Math.cos(dr));
+    if(Math.abs(dx)+Math.abs(dy)+Math.abs(dz)+Math.abs(dr)>0.004){mv=true;g.position.x+=dx*f;g.position.y+=dy*f;g.position.z+=dz*f;g.rotation.y+=dr*f;}});
+  AV_BUSY=mv;};requestAnimationFrame(step);}
 
 // ---------- 매 프레임 ----------
 let lastT=performance.now();
@@ -4249,7 +4298,7 @@ function sofaLift(dt){if(!WALK.on||S.cam)return;let gy=0;const cp=camera.positio
   if(SOFA_BOX.some(b=>cp.x>b.min.x&&cp.x<b.max.x&&cp.z>b.min.z&&cp.z<b.max.z)){sofaRC.set(new THREE.Vector3(cp.x,1.5,cp.z),new THREE.Vector3(0,-1,0));sofaRC.far=1.6;
     const h=sofaRC.intersectObjects(SOFA_M.filter(m=>{let o=m;while(o){if(!o.visible)return false;o=o.parent;}return true;}),false).find(h=>h.point.y<0.62);if(h)gy=h.point.y;}
   S.ground=(S.ground||0)+(gy-(S.ground||0))*Math.min(1,dt*7);if(!S.camHold)cp.y=WALK.eye+S.ground;}
-window.__busy=()=>!!S.cam||beacons.length>0||CONTS.some(c=>!c.fixed&&Math.abs(c.amt-c.tgt)>0.001)||S.dolls.some(d=>d.anim||(d.g&&d.g.userData.bob!=null));
+window.__busy=()=>AV_BUSY||!!S.cam||beacons.length>0||CONTS.some(c=>!c.fixed&&Math.abs(c.amt-c.tgt)>0.001)||S.dolls.some(d=>d.anim||(d.g&&d.g.userData.bob!=null));
 function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;sofaLift(dt);
   CONTS.forEach(c=>{if(c.fixed)return;if(Math.abs(c.amt-c.tgt)>0.001){c.amt+=Math.sign(c.tgt-c.amt)*Math.min(Math.abs(c.tgt-c.amt),dt*3.2*(c.speed||1));c.onAmt&&c.onAmt(THREE.MathUtils.smoothstep(c.amt,0,1));
     const v=c.amt>0.01;c.inner.forEach(m=>m.visible=v);}});
@@ -4289,7 +4338,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.038';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.039';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
