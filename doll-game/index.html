@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>인형 숨바꼭질</title>
 <link rel="manifest" href="/doll-game/manifest.webmanifest">
@@ -32,10 +32,10 @@
   --bg:#141715; --scene:#1a1e1b; --ink:#e6eae5; --muted:#99a29b; --line:#323a34;
   --panel:rgba(26,30,27,.92); --chip:#242a26; --accent:#86c7ab; --accent-ink:#0e1a14;
   --label-bg:rgba(24,28,25,.85); color-scheme:dark}
-html,body{height:100%}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);overflow:hidden;
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));}
-#stage{position:fixed;inset:0;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#stage{position:fixed;inset:0;z-index:0;isolation:isolate;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #stage canvas{display:block}
 .panel{position:fixed;z-index:5;top:calc(14px + env(safe-area-inset-top, 0px));left:calc(14px + env(safe-area-inset-left, 0px));
   width:300px;max-width:calc(100% - 28px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
@@ -3260,7 +3260,7 @@ const css=document.createElement('style');css.textContent=`
 
 .gx[hidden]{display:none!important}
 body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!important}
-.gx{position:fixed;z-index:30;font-family:var(--f-body),system-ui,sans-serif;color:#2b2420}
+.gx{position:fixed;z-index:30;-webkit-transform:translateZ(0);transform:translateZ(0);font-family:var(--f-body),system-ui,sans-serif;color:#2b2420}
 #gLeaveBox{z-index:45}
 #gMenu,#gMsg,#gLeaveBox{inset:0;display:flex;align-items:center;align-items:safe center;justify-content:center;background:rgba(20,18,16,.55);backdrop-filter:blur(3px);padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));overflow:auto}
 .grank{list-style:none;margin:0 0 12px;padding:0}.grank li{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:2px 8px;padding:7px 4px;border-bottom:1px solid #eee3d2}.grank li.me{background:#fff0c9;border-radius:10px}.grank .rk{font-weight:700;text-align:center}.grank .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.grank .sc{font-weight:700;color:#c46a1f}.grank small{grid-column:2/4;opacity:.65;font-size:11.5px}
@@ -4043,11 +4043,14 @@ const setPath=(o,k,v)=>{const ks=k.split('.');let t=o;for(let j=0;j<ks.length-1;
 const MPB=MP_LOCAL?(()=>{const K=c=>'mpmock:'+c,subs={};const rd=c=>{try{return JSON.parse(localStorage.getItem(K(c))||'null');}catch(e){return null;}};
   const wr=(c,d)=>{localStorage.setItem(K(c),JSON.stringify(d));(subs[c]||[]).forEach(f=>setTimeout(()=>f(rd(c)),20));};
   addEventListener('storage',e=>{if(!e.key||!e.key.startsWith('mpmock:'))return;const c=e.key.slice(7);(subs[c]||[]).forEach(f=>f(rd(c)));});
-  return{list:async()=>Object.keys(localStorage).filter(k=>k.startsWith('mpmock:')).map(k=>({code:k.slice(7),...(rd(k.slice(7))||{})})),get:async c=>rd(c),create:async(c,d)=>wr(c,d),
+  const lst=()=>Object.keys(localStorage).filter(k=>k.startsWith('mpmock:')).map(k=>({code:k.slice(7),...(rd(k.slice(7))||{})}));
+  return{watchList:(f)=>{const h=e=>{if(!e||!e.key||e.key.startsWith('mpmock:'))f(lst());};addEventListener('storage',h);const t=setInterval(()=>f(lst()),2000);setTimeout(()=>f(lst()),20);return()=>{removeEventListener('storage',h);clearInterval(t);};},
+    list:async()=>Object.keys(localStorage).filter(k=>k.startsWith('mpmock:')).map(k=>({code:k.slice(7),...(rd(k.slice(7))||{})})),get:async c=>rd(c),create:async(c,d)=>wr(c,d),
     patch:async(c,o)=>{const d=rd(c);if(!d)throw new Error('no room');Object.entries(o).forEach(([k,v])=>setPath(d,k,v));wr(c,d);},
     claim:async(c,i,v)=>{const d=rd(c);const f=(d.found||{})[i];if(f)return f.pid===v.pid;setPath(d,'found.'+i,v);wr(c,d);return true;},
     listen:(c,f)=>{(subs[c]=subs[c]||[]).push(f);setTimeout(()=>f(rd(c)),20);return()=>{subs[c]=(subs[c]||[]).filter(x=>x!==f);};}};})()
- :{list:async()=>{const {fs,db}=await mpDb();const sn=await fs.getDocs(fs.query(fs.collection(db,'dollRooms'),fs.where('created','>',Date.now()-MP_OPEN),fs.orderBy('created','desc'),fs.limit(15)));return sn.docs.map(x=>({code:x.id,...x.data()}));},
+ :{watchList:(f,fe)=>{let un=()=>{},dead=false;mpDb().then(({fs,db})=>{if(dead)return;un=fs.onSnapshot(fs.query(fs.collection(db,'dollRooms'),fs.where('created','>',Date.now()-MP_OPEN),fs.orderBy('created','desc'),fs.limit(15)),s=>f(s.docs.map(x=>({code:x.id,...x.data()}))),e=>fe&&fe(e));}).catch(e=>fe&&fe(e));return()=>{dead=true;un();};},
+   list:async()=>{const {fs,db}=await mpDb();const sn=await fs.getDocs(fs.query(fs.collection(db,'dollRooms'),fs.where('created','>',Date.now()-MP_OPEN),fs.orderBy('created','desc'),fs.limit(15)));return sn.docs.map(x=>({code:x.id,...x.data()}));},
    get:async c=>{const {fs,db}=await mpDb();const s=await fs.getDoc(fs.doc(db,'dollRooms',c));return s.exists()?s.data():null;},
    create:async(c,d)=>{const {fs,db}=await mpDb();await fs.setDoc(fs.doc(db,'dollRooms',c),d);},
    patch:async(c,o)=>{const {fs,db}=await mpDb();await fs.updateDoc(fs.doc(db,'dollRooms',c),o);},
@@ -4084,13 +4087,16 @@ function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind
   $('#mpJoin').onclick=()=>{const n=name();if(n)mpJoin(($('#mpCode').value||'').trim(),n);};
   $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};
   const KN={race:'🏁 같이 찾기',hider:'🙈 방장이 숨김'},ST={lobby:'입장 기다리는 중',hiding:'입장 기다리는 중',seek:'찾는 중',end:'끝남'};
-  const load=()=>{const L=$('#mpList');if(!L)return;if(!MP_OK){L.innerHTML='<p class="s" style="margin:0">kong-gallery.com에서만 보여요</p>';return;}L.innerHTML='<p class="s" style="margin:0">찾는 중…</p>';
-    withTimeout(MPB.list(),12000).then(rs=>{if(!$('#mpList'))return;rs=rs.filter(r=>r.created&&Date.now()-r.created<MP_OPEN&&!r.closed&&mpLive((r.players||{})[r.host]||{})).sort((a,b)=>b.created-a.created);
-      if(!rs.length){L.innerHTML='<p class="s" style="margin:0">지금 열린 방이 없어요. 방을 만들어 보세요!</p>';return;}
-      L.innerHTML=rs.map(r=>{const n=Object.values(r.players||{}).filter(mpLive).length;return `<button data-c="${escH(r.code)}"><b>👑 ${escH(r.hostName||'')}</b> <span>${KN[r.kind]||''} · ${n}명 · ${ST[r.state]||''}</span><small>방 ${escH(r.code)} · ${escH(mpSum(r))}</small></button>`;}).join('');
-      L.querySelectorAll('button').forEach(b=>b.onclick=()=>{const n=name();if(n)mpJoin(b.dataset.c,n);});})
-    .catch(e=>{console.warn(e);if($('#mpList'))L.innerHTML='<p class="s" style="margin:0">목록을 못 불러왔어요. 새로 고침을 눌러 보세요</p>';});};
-  $('#mpRe').onclick=load;load();
+  // 열린 방 목록: 서버에서 바뀔 때마다 바로 다시 그림 (+5초마다 오래된 방 걸러 내기) — 이 화면을 떠나면 멈춤
+  let last=null,un=null,tk=0;const stop=()=>{try{un&&un();}catch(e){}un=null;clearInterval(tk);};
+  const render=()=>{const L=$('#mpList');if(!L)return false;if(!MP_OK){L.innerHTML='<p class="s" style="margin:0">kong-gallery.com에서만 보여요</p>';return true;}if(!last)return true;
+    const rs=last.filter(r=>r.created&&Date.now()-r.created<MP_OPEN&&!r.closed&&mpLive((r.players||{})[r.host]||{})).sort((a,b)=>b.created-a.created);
+    const html=rs.length?rs.map(r=>{const n=Object.values(r.players||{}).filter(mpLive).length;return `<button data-c="${escH(r.code)}"><b>👑 ${escH(r.hostName||'')}</b> <span>${KN[r.kind]||''} · ${n}명 · ${ST[r.state]||''}</span><small>방 ${escH(r.code)} · ${escH(mpSum(r))}</small></button>`;}).join('')
+      :'<p class="s" style="margin:0">지금 열린 방이 없어요. 방을 만들어 보세요!</p>';
+    if(L.dataset.h!==html){L.dataset.h=html;L.innerHTML=html;L.querySelectorAll('button').forEach(b=>b.onclick=()=>{const n=name();if(n){stop();mpJoin(b.dataset.c,n);}});}return true;};
+  if(MP_OK){un=MPB.watchList(rs=>{last=rs;if(!render())stop();},e=>{console.warn(e);const L=$('#mpList');if(L)L.innerHTML='<p class="s" style="margin:0">목록을 못 불러왔어요. 잠시 뒤 다시 열어 주세요</p>';});
+    tk=setInterval(()=>{if(!render())stop();},5000);}else render();
+  $('#mpRe').hidden=true;
   if(code0&&MP_OK&&nm)mpJoin(code0,nm);}
 async function mpCreate(kind,name){const err=$('#mpErr');err.textContent='방을 만드는 중…';
   const cfg={mode:kind==='hider'?'doll':S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel.slice()};
@@ -4320,6 +4326,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
   buildConts();wallSafeConts();deSparkle();buildFurn();OPENERS.forEach(d=>{d.tdef=d.target;});{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
+['gesturestart','gesturechange'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));   // 아이폰 두 손가락 확대 막기 (확대되면 위 목록·버튼이 화면 밖으로 밀림)
 {const q=new URLSearchParams(location.search),rm=q.get('room');if(rm&&/^\d{4}$/.test(rm)){q.delete('room');try{history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);}catch(e){}if(MP_OK)setTimeout(()=>mpOpen(rm),200);}
  else if(MP_OK){let sv=null;try{sv=JSON.parse(localStorage.getItem('dollgame.room')||'null');}catch(e){}
   if(sv&&sv.code&&Date.now()-(sv.at||0)<20*60e3)withTimeout(MPB.get(sv.code),12000).then(d=>{const me=d&&(d.players||{})[MP_PID];
@@ -4338,7 +4345,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.039';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.040';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
