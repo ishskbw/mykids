@@ -3282,6 +3282,10 @@ body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!im
 @keyframes gfall{to{transform:translateY(110vh) rotate(720deg)}}
 .glist{margin:10px 0 0;padding:0;list-style:none;font-size:14px;color:#5a4d40;max-height:30vh;overflow:auto}.glist li{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0e5d6}.glist li i{width:20px;height:24px;display:block;flex:none}
 #gAim{left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
+#gMsg.cover{background:#1d1916;backdrop-filter:none}
+#gIcons i.oth{opacity:.35}
+#gMP{left:calc(8px + env(safe-area-inset-left,0px));bottom:84px;background:rgba(255,250,242,.92);border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.5;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#5a3d22;max-width:46vw}#gMP b{color:#c46a1f}
+.gbig:disabled{opacity:.45}
 `;document.head.appendChild(css);
 const el=(id,cls,html)=>{const d=document.createElement('div');d.id=id;d.className='gx '+(cls||'');d.innerHTML=html||'';document.body.appendChild(d);return d;};
 const top_=el('gTop','','<div id="gIcons"></div><div id="gTime">00:00</div><div id="gGuide"></div>');
@@ -3313,7 +3317,7 @@ function setSound(on){SOUND=on;try{localStorage.setItem('dollgame.sound',on?'on'
 const DIFF=['매우 쉬움','쉬움','보통','어려움','최상'];
 const DIFF_TIP=['서서 둘러보면 보이는 곳에만 숨겨요 (유리 술장·카메라 제습함 안 포함)','대부분 보이는 곳, 가끔 서랍·장 속','서랍·장 속과 가구 틈에 골고루','주로 서랍·장 속, 바깥은 가려진 곳만','꼭꼭 숨겨요 · 서랍·장 속이나 엎드려야 보이는 곳'];
 const noHint=()=>!S.hintOn;
-function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.out){b.dataset.out=1;b.style.opacity='0';setTimeout(()=>b.remove(),450);}}S.phase='menu';beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
+function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.out){b.dataset.out=1;b.style.opacity='0';setTimeout(()=>b.remove(),450);}}S.phase='menu';msg.classList.remove('cover');{const mb=document.getElementById('gMP');if(mb)mb.hidden=true;}beacons.forEach(x=>scene.remove(x));beacons=[];if(S.dollN){S.n=S.dollN;S.auto=S.dollAuto;S.dollN=0;S.dollAuto=null;}document.body.classList.add('game');[top_,btns,msg].forEach(e=>e.hidden=true);aim.hidden=true;menu.hidden=false;
   const TL=[[0,'무제한'],[60,'1분'],[180,'3분'],[300,'5분'],[600,'10분'],[900,'15분'],[1200,'20분']];
   menu.innerHTML=`<div class="gcard"><h1>🧸 우리집 인형 숨바꼭질</h1><p class="s">한 사람이 집 안 곳곳에 인형을 숨기고, 다른 사람이 걸어 다니며 찾아요. 서랍·옷장·냉장고·식기세척기·세탁기·침대 이불은 열 수 있고, 책은 꺼내서 뒤를 볼 수 있고, 바구니·웨건·소파 지퍼 속에도 숨길 수 있어요. 소파·침대 밑은 엎드려서 보세요.</p>
    <div class="grow"><b>무엇을 숨길까요?</b><div class="gchips" id="gMode"><button data-v="doll" aria-pressed="${S.mode!=='family'}">🧸 인형</button><button data-v="family" aria-pressed="${S.mode==='family'}">👨‍👩‍👧 가족</button></div></div>
@@ -3326,8 +3330,8 @@ function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.o
    <div class="grow"><b>힌트</b><div class="gchips" id="gHint"><button data-v="1" aria-pressed="${S.hintOn}">🔥 쓸 수 있게</button><button data-v="0" aria-pressed="${!S.hintOn}">힌트 없이</button></div></div>
    <div class="grow"><b>소리</b><div class="gchips" id="gSndM"><button data-v="1" aria-pressed="${SOUND}">🔊 켜기</button><button data-v="0" aria-pressed="${!SOUND}">🔇 끄기</button></div></div>
    <div class="grow"><b>가구를 열면 안이 잘 보이는 곳으로 시점 옮기기</b><div class="gchips" id="gCam"><button data-v="1" aria-pressed="${S.autoCam}">🎥 켜기</button><button data-v="0" aria-pressed="${!S.autoCam}">끄기</button></div></div>
-   <button class="gbig" id="gGo">시작하기</button><button class="gbig sec" id="gRankM" style="margin-top:6px">🏆 랭킹</button></div>`;
-  $('#gRankM').onclick=()=>{S._cond=null;showRank('menu');};
+   <button class="gbig" id="gGo">시작하기</button><button class="gbig sec" id="gMPM" style="margin-top:6px">👥 같이 하기 (여러 폰으로)</button><button class="gbig sec" id="gRankM" style="margin-top:6px">🏆 랭킹</button></div>`;
+  $('#gRankM').onclick=()=>{S._cond=null;showRank('menu');};$('#gMPM').onclick=mpOpen;
   const setN=v=>{S.n=Math.max(1,Math.min(30,v));$('#gNum').textContent=S.n;$('#gRange').value=S.n;};
   $('#gMinus').onclick=()=>setN(S.n-1);$('#gPlus').onclick=()=>setN(S.n+1);$('#gRange').oninput=e=>setN(+e.target.value);
   menu.querySelectorAll('#gLim button').forEach(b=>b.onclick=()=>{S.limit=+b.dataset.v;menu.querySelectorAll('#gLim button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
@@ -3349,7 +3353,7 @@ function showMenu(){{const b=document.getElementById('gBoot');if(b&&!b.dataset.o
 function clearDolls(){(S.shut||[]).forEach(d=>{d.target=1;delete d.maxOpen;});S.shut=[];(S.undo||[]).forEach(f=>f());S.undo=[];beacons.forEach(b=>scene.remove(b));beacons=[];   // 지난 판 노란 빛기둥도 지움
   S.dolls.forEach(d=>{dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.g&&d.g.parent&&d.g.parent.remove(d.g);});S.dolls=[];}
 function closeAll(inst){CONTS.forEach(c=>{if(c.fixed)return;c.tgt=0;if(inst){c.amt=0;c.onAmt&&c.onAmt(0);c.inner.forEach(m=>m.visible=false);}});}
-function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}">${iconOf(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
+function renderIcons(){$('#gIcons').innerHTML=S.dolls.map((d,i)=>`<i data-i="${i}" class="${d.found?'got':''}${d.other?' oth':''}">${iconOf(i,S.phase==='hide'?!!d.g:d.found)}</i>`).join('');}
 function setBtns(list){btns.innerHTML='';list.forEach(([t,fn,pri])=>{const b=document.createElement('button');b.textContent=t;if(pri)b.className='pri';b.onclick=fn;btns.appendChild(b);});}
 const EYE={stand:1.3,sit:0.55,prone:0.06};
 function setPose(p,quiet){S.pose=p;WALK.eye=EYE[p];camera.position.y=WALK.eye;camera.near=p==='prone'?0.01:0.05;camera.updateProjectionMatrix();S.cam=null;S.camHold=null;if(p==='prone')WALK.pitch=0;else if(p==='sit')WALK.pitch=Math.max(WALK.pitch,-0.2);applyLook();if(!quiet)refreshBtns();}
@@ -3385,12 +3389,12 @@ function askLeave(){const t=S.phase==='seek'&&!S.paused?performance.now():0;if(t
    <button class="gbig" id="gStay">계속하기</button><button class="gbig sec" id="gOut">나가기</button></div>`;
   $('#gStay').onclick=()=>{if(t){S.t0+=performance.now()-S.paused;S.paused=0;}leaveBox.hidden=true;armBack();};
   $('#gOut').onclick=()=>{leaveBox.hidden=true;goHome();};}
-function goHome(){S.paused=0;clearDolls();closeAll(true);beacons.forEach(b=>scene.remove(b));beacons=[];msg.hidden=true;showMenu();}
+function goHome(){if(S.mp){mpLeave();return;}S.paused=0;clearDolls();closeAll(true);beacons.forEach(b=>scene.remove(b));beacons=[];msg.hidden=true;showMenu();}
 function refreshBtns(){if(S.phase==='hide')setBtns([...closeBtn(),...poseBtns(),[S.mode==='family'?'🎲 남은 사람 자동으로':'🎲 남은 인형 자동으로',autoRest],['✅ 다 숨겼어요',doneHide,!anyOpen()],['🏠 처음으로',goHome]]);
   else if(S.phase==='seek')setBtns([...closeBtn(),...poseBtns(),...(noHint()?[]:[['🔥 힌트',hint],['📍 장소 힌트',placeHint]]),['🏳️ 그만하기',askQuit]]);
-  else if(S.phase==='reveal')setBtns([...poseBtns(),['🔁 다시 하기',showMenu,true]]);}
+  else if(S.phase==='reveal')setBtns([...poseBtns(),S.mp?['↩️ 결과 보기',()=>{beacons.forEach(b=>scene.remove(b));beacons=[];mpShowEnd();},true]:['🔁 다시 하기',showMenu,true]]);}
 
-function startHide(){armBack();clearDolls();roomDoors().forEach(d=>{d.target=1;});closeAll(true);S.phase='hide';S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
+function startHide(){armBack();clearDolls();roomDoors().forEach(d=>{d.target=1;});closeAll(true);S.phase='hide';S.famSeed=0;S.famPick=[];S.placed=0;S.found=0;S.hints=0;setPose('stand',true);
   for(let i=0;i<S.n;i++)S.dolls.push({g:null,found:false,where:''});
   top_.hidden=false;btns.hidden=false;
   if(!WALK.on)walkStart(7.0,7.3,Math.PI);camera.position.y=WALK.eye;
@@ -3414,7 +3418,8 @@ function clearItems(c,g,d){d.hid=[];if(!c||!c.items||!c.items.length)return;g.up
   c.items.forEach(m=>{if(!m.visible)return;m.updateMatrixWorld(true);b.setFromObject(m);if(b.intersectsBox(db)){m.visible=false;d.hid.push(m);}});}
 function removeDoll(i){const d=S.dolls[i];dropBump(d);(d.hid||[]).forEach(m=>m.visible=true);d.hid=[];if(d.g){d.g.parent.remove(d.g);}d.g=null;d.cont=null;}
 function doneHide(){const n=S.dolls.filter(d=>d.g).length;if(n<S.n){say(`아직 ${S.n-n}개 남았어요<br><small>남은 건 🎲 자동으로 숨길 수도 있어요</small>`,1800);return;}
-  aim.hidden=true;msg.hidden=false;S.phase='handover';
+  if(S.mp){mpHidden();return;}
+  aim.hidden=true;msg.hidden=false;msg.classList.add('cover');S.phase='handover';
   msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🙈 숨기기 끝!</h1><p class="s">이제 찾는 사람에게 넘겨주세요.<br>${S.limit?fmt(S.limit)+' 안에':'시간 제한 없이'} ${S.mode==='family'?`숨은 사람 ${S.n}명을`:`인형 ${S.n}개를`} 찾아야 해요.</p><button class="gbig" id="gSeek">찾기 시작</button></div>`;
   $('#gSeek').onclick=startSeek;}
 function autoRest(fromStart){OBST=null;const used=[];S.dolls.forEach(d=>{if(d.g)used.push(d.g.getWorldPosition(new THREE.Vector3()));});
@@ -3759,19 +3764,25 @@ function sofaPush(){if(!(S.undo||[]).some(f=>f.sofa)){const ps=[];scene.traverse
   CONTS.filter(c=>c.name==='큰 소파 등받이 뒤').forEach(c=>{if(c.pushed)return;c.pushed=true;c.fixed=true;c.amt=c.tgt=1;c.mov.position.x=-0.47;
   (S.undo=S.undo||[]).push(()=>{c.pushed=false;c.fixed=false;c.amt=c.tgt=0;c.onAmt(0);});});}
 function famRest(){   // 같은 이름(붙박이장 여러 칸 등)은 한 묶음으로 보고 묶음부터 고르게 뽑음
+  if(!S.famSeed)S.famSeed=1+Math.floor(Math.random()*1e6);S.famPick=S.famPick||[];
   const sp=buildPS(),groups={};sp.forEach((s,j)=>(groups[s.group||s.name]=groups[s.group||s.name]||[]).push(j));const used=new Set();
-  S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);if(p.angel&&angelPlace(i,p))return;const GW=n=>/커튼/.test(n)?5:1,names=Object.keys(groups).map(n=>[n,-Math.log(Math.random())/GW(n)]).sort((x,y)=>x[1]-y[1]).map(x=>x[0]);   // 커튼 뒤는 5배 자주 고름
+  S.dolls.forEach((d,i)=>{if(d.g)return;const p=famOf(i);if(p.angel&&withSeed(famSeedOf(i)+3,()=>angelPlace(i,p))){S.famPick[i]=-1;return;}const GW=n=>/커튼/.test(n)?5:1,names=Object.keys(groups).map(n=>[n,-Math.log(Math.random())/GW(n)]).sort((x,y)=>x[1]-y[1]).map(x=>x[0]);   // 커튼 뒤는 5배 자주 고름
     for(const n of names){const free=groups[n].filter(j=>!used.has(j)&&sp[j].fits(p));if(!free.length)continue;const j=free[Math.floor(Math.random()*free.length)];
-      used.add(j);if(sp[j].ajar)sp[j].ajar();{const r0=sp[j].res(p);putDoll(i,r0,sp[j].name);const g=S.dolls[i].g;if(!unwall(g,/난간/.test(sp[j].name))){g.parent&&g.parent.remove(g);S.dolls[i].g=null;S.dolls[i].cont=null;continue;}g.parent.remove(g);S.dolls[i].g=null;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];putDoll(i,sp[j].res(p),sp[j].name);unwall(S.dolls[i].g,/난간/.test(sp[j].name));if(sp[j].shut)shutDoor(...sp[j].shut);if(sp[j].ajar)sp[j].ajar();return;}});}
+      used.add(j);if(sp[j].ajar)sp[j].ajar();{OBST=null;const ok=withSeed(famSeedOf(i),()=>{putDoll(i,sp[j].res(p),sp[j].name);return unwall(S.dolls[i].g,/난간/.test(sp[j].name));});removeDoll(i);if(!ok)continue;}groups[n]=groups[n].filter(x=>x!==j);if(!groups[n].length)delete groups[n];else if(!/붙박이장|난간|문 뒤/.test(n))delete groups[n];famPut(i,j);return;}});}
+// 같은 씨앗이면 어느 기기에서나 같은 자리·자세 (같이 하기)
+function withSeed(seed,fn){const R0=Math.random;Math.random=RNG(seed);try{return fn();}finally{Math.random=R0;}}
+const famSeedOf=i=>(S.famSeed||1)*13+i*7919;
+function famPut(i,j){const s=buildPS()[j],p=famOf(i);if(s.ajar)s.ajar();OBST=null;withSeed(famSeedOf(i),()=>{putDoll(i,s.res(p),s.name);unwall(S.dolls[i].g,/난간/.test(s.name));});
+  if(s.shut)shutDoor(...s.shut);if(s.ajar)s.ajar();(S.famPick=S.famPick||[])[i]=j;}
 // 숨은 사람이 있는 방 문 닫기 (새 판에 다시 엶)
 function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Vector3();let best=null,bd=1.3;
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
   if(best&&best.target>0.5){best.target=0;(S.shut=S.shut||[]).push(best);}}
 
-function startSeek(){msg.hidden=true;closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.phints=0;S.ended=false;S.dolls.forEach(d=>{d.found=false;d.ph=false;});
+function startSeek(){msg.hidden=true;msg.classList.remove('cover');S.taken=0;S.dolls.forEach(d=>{d.other=null;d.mine=false;});closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.phints=0;S.ended=false;S.dolls.forEach(d=>{d.found=false;d.ph=false;});
   walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
   $('#gGuide').innerHTML=(S.mode==='family'?'붙박이장·냉장고·세탁기도 열어 보고, 침대 밑은 🐛 엎드려서 · 베란다 밖도 살펴보세요 · 사람을 찾으면 눌러요!':'서랍·옷장은 눌러서 열고, 책은 눌러서 꺼내 보세요 · 소파·침대 밑은 🐛 엎드려서 · 인형을 찾으면 눌러요!');renderIcons();refreshBtns();aim.hidden=false;
-  say('찾기 시작!',1000);}
+  say('찾기 시작!',1000);if(S.mp)mpBoard();}
 // 힌트: 누가(가족 모드) 얼마나 가까이 있는지만 — 방향·방·열 곳은 알려 주지 않음
 const josaIGa=w=>{const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<11172&&c%28?'이':'가';};
 let PATHG=null;const PR=0.1;
@@ -3807,13 +3818,13 @@ function placeHint(){if(S.phase!=='seek'||S.paused||noHint())return;const left=S
   $('#gPHx').onclick=resume;
   msg.querySelectorAll('#gPH button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,d=S.dolls[i];d.ph=true;S.phints=(S.phints||0)+1;resume();
     const who=fam?famOf(i).short:'이 인형',room=roomName(d.g.getWorldPosition(new THREE.Vector3()));say(`📍 ${who}${eunNeun(who)} <b>${room}</b>에 있어요`,2600);});}
-function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;
+function foundDoll(i){const d=S.dolls[i];if(d.found)return;d.found=true;if(S.mp){d.mine=true;mpClaim(i);}
   // 문 뒤에 숨은 사람을 다 찾으면 그 문은 다시 끝까지 열림
   (S.shut||[]).forEach(dr=>{if(!dr.maxOpen||!dr.objs||!dr.objs[0])return;const hp=dr.objs[0].getWorldPosition(new THREE.Vector3());if(!S.dolls.some(o=>o.g&&!o.found&&o.g.getWorldPosition(new THREE.Vector3()).distanceTo(hp)<1.4))delete dr.maxOpen;});dropBump(d);S.found++;sFound();
   const g=d.g;const wp=g.getWorldPosition(new THREE.Vector3());const ws=g.getWorldScale(new THREE.Vector3());scene.attach(g);
   const angel=S.mode==='family'&&famOf(i).angel;
   if(angel){g.userData.bob=null;angelFarewell(d,g,wp,ws.x);}else d.anim={t:0,p:wp,s:ws.x};
-  renderIcons();const left=S.n-S.found;say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),angel?900:1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}   // 천사는 말풍선과 겹치지 않게 짧게
+  renderIcons();const left=S.n-S.found-(S.taken||0);say((S.mode==='family'?`🙌 ${famOf(i).short} 찾았다!`:'🎉 찾았다!')+(left?` (${S.found}/${S.n})`:'<br>다 찾았다!'),angel?900:1400);if(!left)setTimeout(()=>endGame(true),angel?4300:900);}   // 천사는 말풍선과 겹치지 않게 짧게
 // 미옥(천사)을 찾으면: 내 앞 바닥으로 내려오며 원래 크기로 → "사랑해 ❤️" → 천천히 사라짐
 function angelFarewell(d,g,wp,s0){d._said=0;
   {const i=S.dolls.indexOf(d),ng=makePerson(i,'stand'),e=new THREE.Euler().setFromQuaternion(g.getWorldQuaternion(new THREE.Quaternion()),'YXZ');   // 웅크림·누움 자세였어도 똑바로 선 모습으로 바꿔서 나를 보고 말함
@@ -3853,7 +3864,7 @@ async function rankSync(fs,db){const L=rankLoad(),pend=L.filter(r=>r.pending);if
   for(const r of pend){const {id,pending,...rec}=r;try{await withTimeout(fs.addDoc(fs.collection(db,'dollRanks'),rec),15000);r.pending=false;r.synced=true;}catch(e){console.warn('rank sync',e);}}
   rankSave(L.filter(r=>!r.synced));}
 async function rankFetch(){if(!SHARED_HOST)return {shared:false,list:rankLoad(),away:true};
-  try{return await tryTwice(async()=>{const {fs,db}=await withTimeout(rankDb(),15000);await rankSync(fs,db);const q=fs.query(fs.collection(db,'dollRanks'),fs.orderBy('score','desc'),fs.limit(100));
+  try{return await tryTwice(async()=>{const {fs,db}=await withTimeout(rankDb(),15000);await rankSync(fs,db);const q=fs.query(fs.collection(db,'dollRanks'),fs.orderBy('score','desc'),fs.limit(400));
     const sn=await withTimeout(fs.getDocs(q),15000);return {shared:true,list:sn.docs.map(d=>({id:d.id,...d.data()})).filter(r=>!NO_RANK(r))};});}
   catch(e){console.warn('rank fetch',e);return {shared:false,list:rankLoad()};}}
 async function rankAdd(rec){const local=()=>{const L=rankLoad(),id='L'+Date.now();L.push({id,...rec,pending:SHARED_HOST});L.sort((a,b)=>b.score-a.score);return rankSave(L)?{shared:false,id,away:!SHARED_HOST}:null;};
@@ -3874,18 +3885,18 @@ function rankRows(L,hl){return L.length?`<ol class="grank">${L.slice(0,10).map((
   <small>${r.mode==='family'?'👨‍👩‍👧':'🧸'} ${r.found}/${r.n} · ${fmt(r.time)} · ${escH(r.level)}${r.hints?` · 힌트 ${r.hints}`:''} · ${new Date(r.date).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}</small></li>`).join('')}</ol>`:'<p class="s" style="text-align:center">아직 기록이 없어요. 한 판 해 보세요!</p>';}
 async function showRank(back,hl,tab,data){tab=tab||'all';menu.hidden=true;msg.hidden=false;
   if(!data){msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>🏆 랭킹</h1><p class="s">불러오는 중…</p></div>`;data=await rankFetch();}
-  const cond=S._cond,all=data.list.slice().sort((a,b)=>b.score-a.score),L=all.filter(r=>tab==='all'||(tab==='same'?(cond&&r.mode===cond.mode&&r.n===cond.n&&r.level===cond.level):r.mode===tab));
+  const cond=S._cond,seen=new Set(),all=data.list.slice().sort((a,b)=>b.score-a.score),L=all.filter(r=>tab==='all'||(tab==='same'?(cond&&r.mode===cond.mode&&r.n===cond.n&&r.level===cond.level):r.mode===tab)).filter((r,_,a,k=String(r.name||'').trim())=>!(seen.has(k)||!seen.add(k)));   // 한 사람이 싹쓸이하지 않게: 같은 이름은 최고 기록 하나만
   msg.innerHTML=`<div class="gcard"><h1>🏆 랭킹</h1><p class="s" style="margin-top:-4px">${data.shared?'모두 함께 보는 랭킹이에요.':data.away?`여기서는 이 기기 기록만 보여요. 함께 보는 랭킹은 <a href="${RANK_URL}" target="_blank" rel="noopener">kong-gallery.com/doll-game</a> 에서 해야 올라가요.`:'지금은 함께 보는 랭킹에 연결이 안 돼서 이 기기 기록만 보여요. 연결되면 이 기기 기록도 자동으로 올라가요.'}</p>
    <div class="gchips" id="gRTab" style="margin:6px 0 10px">${[...(S._cond?[['same',`같은 조건 (${S._cond.mode==='family'?'가족':'인형'} ${S._cond.n}${S._cond.mode==='family'?'명':'개'}·${escH(S._cond.level)})`]]:[]),['all','전체 점수'],['doll','🧸 인형'],['family','👨‍👩‍👧 가족']].map(([v,t])=>`<button data-v="${v}" aria-pressed="${v===tab}">${t}</button>`).join('')}</div>
    ${rankRows(L,hl)}<details class="ghow"><summary>점수는 이렇게 매겨요</summary><ul>
      <li>찾은 개수 × 100점 × 난이도 배수 (장소 힌트로 찾은 사람은 30%만 · 지우·미옥은 2배)<br><small>매우 쉬움 0.6 · 쉬움 0.8 · 보통 1 · 어려움 1.3 · 최상 1.6 · 사람이 숨김 1.0 · 가족 모드 1.2</small></li>
      <li>빨리 찾은 보너스: (찾은 개수 × 45초 − 걸린 시간) × 1.5점</li><li>모두 찾으면 +150점</li><li>🔥 가깝다·멀다 힌트 1번에 −2점 (마음껏 써도 돼요)</li><li>힌트 없이 하면 마지막에 ×1.1</li>
-     <li><b>같은 조건</b> 탭은 모드·개수·난이도가 같은 판끼리만 비교해요</li></ul></details>
+     <li>사람별로 순위를 매겨서, 같은 이름은 <b>최고 기록 하나만</b> 보여요</li><li><b>같은 조건</b> 탭은 모드·개수·난이도가 같은 판끼리만 비교해요</li></ul></details>
    <button class="gbig" id="gRBack">${back==='end'?'닫기':'메뉴로'}</button>${!data.shared&&all.length?'<button class="gbig sec" id="gRClr" style="margin-top:6px">이 기기 기록 모두 지우기</button>':''}</div>`;
   msg.querySelectorAll('#gRTab button').forEach(b=>b.onclick=()=>showRank(back,hl,b.dataset.v,data));
   $('#gRBack').onclick=()=>{msg.hidden=true;if(back==='end'&&S._endHtml){msg.hidden=false;msg.innerHTML=S._endHtml;S._endBind&&S._endBind();}else showMenu();};
   const clr=$('#gRClr');if(clr)clr.onclick=()=>{if(clr.dataset.ok){rankSave([]);showRank(back,null,tab,{shared:false,list:[]});}else{clr.dataset.ok=1;clr.textContent='정말 지울까요? 한 번 더 누르면 지워져요';}};}
-function endGame(win,gaveUp){if(S.ended)return;S.ended=true;S.phase='end';aim.hidden=true;const t=S.elapsed;const sc=scoreOf(win);S._savedId=null;S._cond={mode:S.mode,n:S.n,level:levelOf()};let nm0='';try{nm0=localStorage.getItem(NAME_KEY)||'';}catch(e){}
+function endGame(win,gaveUp){if(S.ended)return;S.ended=true;S.phase='end';aim.hidden=true;if(S.mp){if(win){sWin();confetti();}mpShowEnd(win,gaveUp);mpBoard();return;}const t=S.elapsed;const sc=scoreOf(win);S._savedId=null;S._cond={mode:S.mode,n:S.n,level:levelOf()};let nm0='';try{nm0=localStorage.getItem(NAME_KEY)||'';}catch(e){}
   if(win){sWin();confetti();}
   const miss=S.dolls.map((d,i)=>({d,i})).filter(o=>!o.d.found);
   msg.hidden=false;msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>${win?'🎉 모두 찾았어요!':gaveUp?'🏳️ 여기까지!':'⏰ 시간 끝!'}</h1>
@@ -3996,6 +4007,166 @@ function placeFree(h){const i=nextFree();if(i<0){say(S.mode==='family'?'모두 �
    if(lc){const r=lc.place(h.point);r.cont=lc;putDoll(i,r,lc.name);sPlace();renderIcons();updHideGuide();return;}}if(h.point.z>Z(14.12)){say('난간 밖에는 못 숨겨요',1100);return;}const cd=coverDist(h.point);if(cd<0.07){say('여기는 너무 좁아서 안 들어가요',1100);return;}
   putDoll(i,{parent:scene,pos:h.point.clone().add(new THREE.Vector3(0,0.002,0)),s:fit(cd-0.01)},roomName(h.point)+(floors.includes(h.object)?' 바닥':''));unwall(S.dolls[i].g);sPlace();renderIcons();updHideGuide();}
 
+// ================= 같이 하기: 여러 기기가 한 방에서 =================
+// 방 = Firestore dollRooms/{4자리 번호}. kind 'race' = 컴퓨터가 숨기고 모두 같은 판에서 찾기 · 'hider' = 방장이 숨기고 나머지가 찾기
+// 숨긴 자리는 방장 기기에서 정해 방에 올림 (인형: 자리 그대로, 가족: 고른 자리 번호 + 난수 씨앗) → 다른 기기도 똑같이 놓음
+const MP_LOCAL=/[?&]mplocal\b/.test(location.search);   // 시험용: 같은 브라우저 탭끼리 (localStorage)
+const MP_OK=SHARED_HOST||MP_LOCAL;
+const MP_PID=(()=>{let v='';try{v=sessionStorage.getItem('dollgame.pid')||'';}catch(e){}if(!v){v='p'+Math.random().toString(36).slice(2,10);try{sessionStorage.setItem('dollgame.pid',v);}catch(e){}}return v;})();
+let MPDB=null;const mpDb=()=>MPDB||(MPDB=(async()=>{const base='https://www.gstatic.com/firebasejs/12.4.0/';
+  const [{initializeApp},fs]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js')]);return {fs,db:fs.getFirestore(initializeApp(RANK_FB,'dollroom'))};})().catch(e=>{MPDB=null;throw e;}));
+const setPath=(o,k,v)=>{const ks=k.split('.');let t=o;for(let j=0;j<ks.length-1;j++){t=t[ks[j]]=(t[ks[j]]&&typeof t[ks[j]]==='object')?t[ks[j]]:{};}t[ks[ks.length-1]]=v;};
+const MPB=MP_LOCAL?(()=>{const K=c=>'mpmock:'+c,subs={};const rd=c=>{try{return JSON.parse(localStorage.getItem(K(c))||'null');}catch(e){return null;}};
+  const wr=(c,d)=>{localStorage.setItem(K(c),JSON.stringify(d));(subs[c]||[]).forEach(f=>setTimeout(()=>f(rd(c)),20));};
+  addEventListener('storage',e=>{if(!e.key||!e.key.startsWith('mpmock:'))return;const c=e.key.slice(7);(subs[c]||[]).forEach(f=>f(rd(c)));});
+  return{get:async c=>rd(c),create:async(c,d)=>wr(c,d),
+    patch:async(c,o)=>{const d=rd(c);if(!d)throw new Error('no room');Object.entries(o).forEach(([k,v])=>setPath(d,k,v));wr(c,d);},
+    claim:async(c,i,v)=>{const d=rd(c);const f=(d.found||{})[i];if(f)return f.pid===v.pid;setPath(d,'found.'+i,v);wr(c,d);return true;},
+    listen:(c,f)=>{(subs[c]=subs[c]||[]).push(f);setTimeout(()=>f(rd(c)),20);return()=>{subs[c]=(subs[c]||[]).filter(x=>x!==f);};}};})()
+ :{get:async c=>{const {fs,db}=await mpDb();const s=await fs.getDoc(fs.doc(db,'dollRooms',c));return s.exists()?s.data():null;},
+   create:async(c,d)=>{const {fs,db}=await mpDb();await fs.setDoc(fs.doc(db,'dollRooms',c),d);},
+   patch:async(c,o)=>{const {fs,db}=await mpDb();await fs.updateDoc(fs.doc(db,'dollRooms',c),o);},
+   claim:async(c,i,v)=>{const {fs,db}=await mpDb();const ref=fs.doc(db,'dollRooms',c);
+     return fs.runTransaction(db,async tx=>{const s=await tx.get(ref);const f=((s.data()||{}).found||{})[i];if(f)return f.pid===v.pid;tx.update(ref,{['found.'+i]:v});return true;});},
+   listen:(c,f)=>{let un=()=>{},dead=false;mpDb().then(({fs,db})=>{if(dead)return;un=fs.onSnapshot(fs.doc(db,'dollRooms',c),s=>f(s.exists()?s.data():null),e=>{console.warn('room',e);say('연결이 끊겼어요 — 잠시 뒤 다시 들어와 주세요',2600);});}).catch(()=>say('연결이 안 돼요',2000));return()=>{dead=true;un();};}};
+const MP_TTL=6*3600e3;   // 6시간 지난 방 번호는 새 방에 다시 씀
+const mpPlayers=d=>Object.entries(d.players||{}).map(([pid,p])=>({pid,...p})).sort((a,b)=>(a.at||0)-(b.at||0));
+const mpCounts=d=>{const c={};Object.values(d.found||{}).forEach(v=>{c[v.pid]=(c[v.pid]||0)+1;});return c;};
+const mpUnit=()=>S.mode==='family'?'명':'개';
+function mpSum(d){const c=d.cfg;return `${c.mode==='family'?`가족 ${c.fam.length}명`:`인형 ${c.n}개`}${d.kind==='race'&&c.mode!=='family'?' · '+DIFF[c.diff]:''} · ${c.limit?fmt(c.limit)+' 안에':'시간 제한 없음'}${c.hintOn?'':' · 힌트 없이'}`;}
+function mpCover(html){menu.hidden=true;top_.hidden=true;btns.hidden=true;aim.hidden=true;msg.hidden=false;msg.classList.add('cover');msg.innerHTML=html;const b=$('#gMP');if(b)b.hidden=true;}
+
+// 같이 하기 첫 화면: 이름 · 방 만들기 · 방 번호로 들어가기
+function mpOpen(){let kind=S._mpKind||'race',nm='';try{nm=localStorage.getItem(NAME_KEY)||'';}catch(e){}
+  const KD={race:['🏁 같이 찾기','컴퓨터가 숨기고, 모두 같은 판에서 누가 많이 찾나 겨뤄요'],hider:['🙈 내가 숨기기','방을 만든 내가 인형을 숨기고, 다른 사람들이 찾아요']};
+  const sum=()=>kind==='hider'?`인형 ${S.n}개 · ${S.limit?fmt(S.limit)+' 안에':'시간 제한 없음'}${S.hintOn?'':' · 힌트 없이'}`:mpSum({kind,cfg:{mode:S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel}});
+  mpCover(`<div class="gcard"><h1>👥 같이 하기</h1><p class="s">여러 사람이 각자 폰으로 같은 집에 들어와서 함께 놀아요.${MP_OK?'':` <b>같이 하기는 <a href="${RANK_URL}" target="_blank" rel="noopener">kong-gallery.com/doll-game</a> 에서만 돼요.</b>`}</p>
+   <div class="grow"><b>내 이름</b><div class="gsave" style="justify-content:flex-start;margin:0"><input id="mpName" maxlength="10" placeholder="이름" value="${escH(nm)}" autocomplete="off"></div></div>
+   <div class="grow"><b>방 만들기</b><div class="gchips" id="mpKind">${Object.entries(KD).map(([v,[t]])=>`<button data-v="${v}" aria-pressed="${v===kind}">${t}</button>`).join('')}</div>
+    <p class="s" id="mpTip" style="margin:8px 0 0"></p></div>
+   <button class="gbig" id="mpMake" ${MP_OK?'':'disabled'}>방 만들기</button>
+   <div class="grow" style="margin-top:22px"><b>방 번호로 들어가기</b><div class="gsave" style="justify-content:flex-start;margin:0"><input id="mpCode" inputmode="numeric" maxlength="4" placeholder="4자리 번호" autocomplete="off"><button id="mpJoin" ${MP_OK?'':'disabled'}>들어가기</button></div></div>
+   <p class="s" id="mpErr" style="color:#b5452b;margin:6px 0 0;min-height:1.2em"></p>
+   <button class="gbig sec" id="mpBack">메뉴로</button></div>`);
+  const tip=()=>{$('#mpTip').innerHTML=`${KD[kind][1]}<br><small>메뉴에서 고른 설정으로 해요: ${escH(sum())}</small>`;};tip();
+  msg.querySelectorAll('#mpKind button').forEach(b=>b.onclick=()=>{kind=S._mpKind=b.dataset.v;msg.querySelectorAll('#mpKind button').forEach(x=>x.setAttribute('aria-pressed',x===b));tip();});
+  const name=()=>{const v=($('#mpName').value||'').trim().slice(0,10);if(!v){$('#mpErr').textContent='이름을 먼저 써 주세요';$('#mpName').focus();return null;}try{localStorage.setItem(NAME_KEY,v);}catch(e){}return v;};
+  $('#mpMake').onclick=()=>{const n=name();if(n)mpCreate(kind,n);};
+  $('#mpJoin').onclick=()=>{const n=name();if(n)mpJoin(($('#mpCode').value||'').trim(),n);};
+  $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};}
+async function mpCreate(kind,name){const err=$('#mpErr');err.textContent='방을 만드는 중…';
+  const cfg={mode:kind==='hider'?'doll':S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel.slice()};
+  try{for(let t=0;t<12;t++){const code=String(1000+Math.floor(Math.random()*9000));const old=await withTimeout(MPB.get(code),12000);if(old&&Date.now()-(old.created||0)<MP_TTL)continue;
+      await withTimeout(MPB.create(code,{host:MP_PID,hostName:name,kind,cfg,state:'lobby',round:0,created:Date.now(),lay:null,seed:0,found:{},players:{[MP_PID]:{name,room:'',at:Date.now()}}}),12000);
+      mpEnter(code,name);return;}
+    err.textContent='방 번호를 못 만들었어요. 다시 해 보세요';}catch(e){console.warn(e);err.textContent='연결이 안 돼요. 잠시 뒤 다시 해 보세요';}}
+async function mpJoin(code,name){const err=$('#mpErr');if(!/^\d{4}$/.test(code)){err.textContent='4자리 방 번호를 넣어 주세요';return;}err.textContent='들어가는 중…';
+  try{const d=await withTimeout(MPB.get(code),12000);if(!d||Date.now()-(d.created||0)>MP_TTL){err.textContent='그런 방이 없어요. 번호를 다시 확인해 주세요';return;}
+    await withTimeout(MPB.patch(code,{['players.'+MP_PID]:{name,room:'',at:Date.now()}}),12000);mpEnter(code,name);}
+  catch(e){console.warn(e);err.textContent='연결이 안 돼요. 잠시 뒤 다시 해 보세요';}}
+function mpEnter(code,name){S.mpMenu={mode:S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,auto:S.auto,famSel:S.famSel.slice()};
+  S.mp={code,name,round:0,room:null,unsub:null};S.phase='mplobby';mpLobby();S.mp.unsub=MPB.listen(code,mpOnRoom);}
+function mpLeave(){if(S.mp){const c=S.mp.code;try{S.mp.unsub&&S.mp.unsub();}catch(e){}MPB.patch(c,{['players.'+MP_PID+'.gone']:true}).catch(()=>{});S.mp=null;}
+  const m=S.mpMenu;if(m){Object.assign(S,{mode:m.mode,n:m.n,limit:m.limit,hintOn:m.hintOn,diff:m.diff,auto:m.auto,famSel:m.famSel,dollN:0,dollAuto:null});S.mpMenu=null;}
+  msg.classList.remove('cover');goHome();}
+// 대기실: 방 번호 크게 + 들어온 사람 목록, 방장만 시작
+function mpLobby(){S.phase='mplobby';const d=S.mp.room;
+  if(!d){mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 ${S.mp.code}</h1><p class="s">불러오는 중…</p><button class="gbig sec" id="mpOut">방 나가기</button></div>`);$('#mpOut').onclick=mpLeave;return;}
+  const host=d.host===MP_PID,ps=mpPlayers(d).filter(p=>!p.gone);
+  mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 번호</h1><div style="font-size:46px;font-weight:800;letter-spacing:.14em;color:#c46a1f;margin:0 0 4px">${S.mp.code}</div>
+   <p class="s">${d.kind==='hider'?`🙈 ${escH(d.hostName)}님이 숨기고 나머지가 찾아요`:'🏁 컴퓨터가 숨기고 모두 같이 찾아요'}<br>${escH(mpSum(d))}</p>
+   <ul class="glist" style="text-align:left">${ps.map(p=>`<li>${p.pid===d.host?'👑':'🙂'} ${escH(p.name)}${p.pid===MP_PID?' (나)':''}</li>`).join('')}</ul>
+   ${host?`<button class="gbig" id="mpGo">${d.kind==='hider'?'🙈 숨기러 가기':'▶ 시작하기'}</button><p class="s" style="margin:8px 0 0">다른 사람에게 방 번호를 알려 주세요. 들어오면 위 목록에 보여요.</p>`
+     :'<p class="s" style="margin-top:12px">방장이 시작하기를 기다리는 중이에요…</p>'}
+   <button class="gbig sec" id="mpOut">방 나가기</button></div>`);
+  if(host)$('#mpGo').onclick=mpStartRound;$('#mpOut').onclick=mpLeave;}
+function mpCfg(d){const c=d.cfg;S.mode=c.mode;S.limit=c.limit;S.hintOn=c.hintOn;S.diff=c.diff;S.dollN=0;S.dollAuto=null;
+  if(c.mode==='family'){S.fam=c.fam.slice();S.n=S.fam.length;S.auto=true;}else{S.n=c.n;S.auto=d.kind==='race';}}
+// 모든 기기가 같은 집 상태에서 숨기기 시작: 문은 처음 상태로 바로, 시점은 현관 앞
+function mpReset(){OPENERS.forEach(d=>{if(!d.apply||d.tdef==null)return;delete d.maxOpen;d.target=d.tdef;d.t=d.tdef;d.apply(d.tdef);});walkStart(7.0,7.3,Math.PI);setPose('stand',true);}
+async function mpStartRound(){const d=S.mp.room;if(!d)return;const r=(d.round||0)+1;
+  try{await withTimeout(MPB.patch(S.mp.code,{state:'hiding',round:r,found:{},lay:null}),12000);}catch(e){say('연결이 안 돼요. 다시 눌러 주세요',1800);return;}
+  S.mp.hiding=r;mpCfg(d);msg.hidden=true;msg.classList.remove('cover');clearDolls();mpReset();startHide();}
+// 다 숨기면(doneHide): 자리를 방에 올리고 찾기 시작 / 숨긴 사람은 지켜보기
+function mpSer(d){const g=d.g;if(!g)return null;const c=d.cont||null,k=c?CONTS.indexOf(c):-1,base=k>=0?c.G:scene;let path=[],o=g.parent;
+  while(o&&o!==base){const p=o.parent;if(!p)break;path.unshift(p.children.indexOf(o));o=p;}
+  const R={k,w:d.where||'',h:k>=0?(d.hid||[]).map(m=>c.items.indexOf(m)).filter(x=>x>=0):[]};
+  if(o===base){Object.assign(R,{path,p:g.position.toArray(),q:g.quaternion.toArray(),s:g.scale.toArray()});}
+  else{g.updateMatrixWorld(true);const wp=new THREE.Vector3(),wq=new THREE.Quaternion(),ws=new THREE.Vector3();g.matrixWorld.decompose(wp,wq,ws);Object.assign(R,{path:'W',p:wp.toArray(),q:wq.toArray(),s:ws.toArray()});}
+  return R;}
+function mpPlace(i,R){if(!R)return;const c=R.k>=0?CONTS[R.k]:null;let par=scene;
+  if(R.path!=='W'){par=c?c.G:scene;for(const j of R.path){par=par&&par.children[j];}if(!par)return;}
+  putDoll(i,{parent:par,pos:new THREE.Vector3(...R.p),ry:0,s:1,cont:c},R.w);const d=S.dolls[i],g=d.g;
+  (d.hid||[]).forEach(m=>m.visible=true);d.hid=[];g.position.fromArray(R.p);g.quaternion.fromArray(R.q);g.scale.fromArray(R.s);
+  if(c&&c.items)(R.h||[]).forEach(x=>{const m=c.items[x];if(m&&m.visible){m.visible=false;d.hid.push(m);}});}
+function famReplay(pk,seed){S.famSeed=seed;S.famPick=[];(pk||[]).forEach((j,i)=>{if(j==null||i>=S.n)return;
+  if(j===-1){const p=famOf(i);withSeed(famSeedOf(i)+3,()=>angelPlace(i,p));S.famPick[i]=-1;return;}famPut(i,j);});}
+async function mpHidden(){const r=S.mp.hiding,d0=S.mp.room||{};const lay=S.mode==='family'?{f:(S.famPick||[]).slice(0,S.n)}:{d:S.dolls.map(mpSer)};
+  S.phase='handover';mpCover(`<div class="gcard" style="text-align:center"><h1>📡 보내는 중…</h1><p class="s">숨긴 자리를 다른 사람들에게 보내고 있어요</p></div>`);
+  S.mp.round=r;
+  try{await withTimeout(MPB.patch(S.mp.code,{state:'seek',lay:JSON.stringify(lay),seed:S.famSeed||0}),15000);}
+  catch(e){console.warn(e);mpCover(`<div class="gcard" style="text-align:center"><h1>😥 못 보냈어요</h1><p class="s">연결을 확인하고 다시 눌러 주세요</p><button class="gbig" id="mpRe">다시 보내기</button><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
+    $('#mpRe').onclick=mpHidden;$('#mpOut').onclick=mpLeave;return;}
+  if(d0.kind==='hider')mpWatch();else startSeek();}
+// 다른 기기: 방에 올라온 자리대로 놓고 찾기 시작 (가족은 같은 난수로 같은 자리)
+function mpApply(d){S.mp.round=d.round;mpCfg(d);armBack();clearDolls();mpReset();roomDoors().forEach(x=>{x.target=1;});closeAll(true);
+  S.phase='hide';S.found=0;S.hints=0;S.famSeed=0;S.famPick=[];for(let i=0;i<S.n;i++)S.dolls.push({g:null,found:false,where:''});top_.hidden=false;btns.hidden=false;
+  let L={};try{L=JSON.parse(d.lay||'{}')||{};}catch(e){}
+  if(S.mode==='family')famReplay(L.f,d.seed||1);else (L.d||[]).forEach((R,i)=>{if(i<S.n)mpPlace(i,R);});
+  closeAll(true);startSeek();mpSync(d);}
+function mpWait(d){S.phase='mpwait';
+  mpCover(`<div class="gcard" style="text-align:center"><h1>${d.kind==='hider'?'🙈':'🎲'} 숨기는 중…</h1><p class="s">${d.kind==='hider'?`${escH(d.hostName)}님이 숨기고 있어요. 다 숨기면 바로 시작해요.`:'곧 시작해요!'}<br>방 ${S.mp.code} · ${escH(mpSum(d))}</p><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
+  $('#mpOut').onclick=mpLeave;}
+// 누가 찾았는지 맞추기: 다른 사람이 먼저 찾은 건 내 화면에서도 사라짐
+function mpClaim(i){if(!S.mp)return;MPB.claim(S.mp.code,String(i),{pid:MP_PID,name:S.mp.name,t:Date.now()}).catch(e=>{console.warn(e);say('연결이 불안정해요',1400);});}
+function mpSync(d){if(!S.mp||d.round!==S.mp.round||!['seek','end','reveal','watch'].includes(S.phase))return;const F=d.found||{};let tk=0;
+  Object.entries(F).forEach(([k,v])=>{const i=+k,x=S.dolls[i];if(!x||v.pid===MP_PID)return;tk++;
+    const who=v.name||'누군가',what=S.mode==='family'?famOf(i).short:'인형 하나';
+    if(!x.found){x.found=true;x.other=who;if(x.g)x.g.visible=false;if(S.phase==='seek')say(`${escH(who)}${josaIGa(who)} ${escH(what)} 찾았어요`,1500);}
+    else if(x.mine){x.mine=false;x.other=who;S.found=Math.max(0,S.found-1);if(S.phase==='seek')say(`아깝다! ${escH(who)}${josaIGa(who)} 먼저 찾았어요`,1600);}});
+  S.taken=tk;if(S.phase==='seek'||S.phase==='hide')renderIcons();mpBoard();
+  if(S.phase==='seek'&&!S.ended&&S.found+tk>=S.n)setTimeout(()=>endGame(true),900);}
+function mpBoard(){const b=$('#gMP');if(!b)return;const d=S.mp&&S.mp.room;if(!d||S.phase!=='seek'){b.hidden=true;return;}const cnt=mpCounts(d);
+  const ps=mpPlayers(d).filter(p=>!p.gone&&!(d.kind==='hider'&&p.pid===d.host)).sort((a,c)=>(cnt[c.pid]||0)-(cnt[a.pid]||0));b.hidden=false;
+  b.innerHTML=`방 <b>${S.mp.code}</b>`+ps.map(p=>`<br>${p.pid===MP_PID?'<b>':''}${escH(p.name)} ${cnt[p.pid]||0}${mpUnit()}${p.pid===MP_PID?'</b>':''}`).join('');}
+// 숨긴 사람(방장): 누가 몇 개 찾았고 지금 어느 방에 있는지 지켜봄
+function mpWatch(){S.phase='watch';S.watchT0=performance.now();mpWatchDraw();}
+function mpWatchDraw(){const d=S.mp&&S.mp.room;if(!d||S.phase!=='watch')return;const F=d.found||{},cnt=mpCounts(d),nf=Object.keys(F).length,ps=mpPlayers(d).filter(p=>!p.gone&&p.pid!==d.host);
+  mpCover(`<div class="gcard"><h1>👀 찾는 중</h1><p class="s">${nf} / ${S.n}${mpUnit()} 찾았어요${S.limit?` · 남은 시간 <b id="mpWT">${fmt(S.limit-(performance.now()-S.watchT0)/1000)}</b>`:''}</p>
+   <ul class="glist">${ps.map(p=>`<li><b>${escH(p.name)}</b> ${cnt[p.pid]||0}${mpUnit()} · ${p.room?escH(p.room)+'에 있어요':'들어오는 중'}</li>`).join('')||'<li>아직 찾는 사람이 없어요</li>'}</ul>
+   <ul class="glist">${S.dolls.map((x,i)=>`<li><i>${iconOf(i,!!F[i])}</i>${escH(x.where||'')}${F[i]?` — <b>${escH(F[i].name)}</b> 찾음`:''}</li>`).join('')}</ul>
+   <button class="gbig sec" id="mpEnd">이번 판 끝내기</button></div>`);
+  $('#mpEnd').onclick=()=>{MPB.patch(S.mp.code,{state:'end'}).catch(()=>{});mpShowEnd(false,false);};
+  if(nf>=S.n){MPB.patch(S.mp.code,{state:'end'}).catch(()=>{});mpShowEnd(true,false);}}
+// 결과: 사람별 찾은 개수
+function mpShowEnd(win,gaveUp){if(win!==undefined)S.mpEndArgs=[win,gaveUp];S.phase='end';S.ended=true;aim.hidden=true;top_.hidden=false;btns.hidden=true;mpEndDraw();
+  const b=$('#gMP');if(b)b.hidden=true;
+  const d=S.mp&&S.mp.room;if(d&&d.state==='seek'&&!gaveUp&&win!==undefined&&(win||S.limit))MPB.patch(S.mp.code,{state:'end'}).catch(()=>{});}
+function mpEndDraw(){if(!S.mp||S.phase!=='end')return;const d=S.mp.room||{},cnt=mpCounts(d),F=d.found||{},[win,gaveUp]=S.mpEndArgs||[false,false];
+  const ps=mpPlayers(d).filter(p=>(!p.gone||cnt[p.pid])&&!(d.kind==='hider'&&p.pid===d.host)).sort((a,c)=>(cnt[c.pid]||0)-(cnt[a.pid]||0)),top=ps.length?cnt[ps[0].pid]||0:0;
+  const miss=S.dolls.map((x,i)=>({d:x,i})).filter(o=>!F[o.i]&&!o.d.mine&&o.d.g),host=d.host===MP_PID,nf=Object.keys(F).length;
+  msg.hidden=false;msg.classList.remove('cover');
+  msg.innerHTML=`<div class="gcard" style="text-align:center"><h1>${nf>=S.n?'🎉 다 찾았어요!':gaveUp?'🏳️ 여기까지!':d.state==='end'?'🏁 이번 판 끝!':'⏳ 다른 사람은 아직 찾는 중'}</h1>
+   <p class="s">방 ${S.mp.code} · ${nf} / ${S.n}${mpUnit()} 찾음</p>
+   <ol class="grank">${ps.map((p,k)=>`<li${p.pid===MP_PID?' class="me"':''}><span class="rk">${top>0&&(cnt[p.pid]||0)===top?'🏆':k+1}</span><span class="nm">${escH(p.name)}</span><span class="sc">${cnt[p.pid]||0}${mpUnit()}</span></li>`).join('')}</ol>
+   ${miss.length&&d.state==='end'?`<button class="gbig sec" id="gRev">아무도 못 찾은 ${miss.length}${mpUnit()} 보러 가기</button>`:''}
+   ${host?`<button class="gbig" id="mpAgain">🔁 같은 방에서 한 판 더</button>`:'<p class="s" style="margin-top:10px">방장이 한 판 더 하면 바로 이어서 해요</p>'}
+   <button class="gbig sec" id="mpOut">방 나가기</button></div>`;
+  if($('#gRev'))$('#gRev').onclick=()=>reveal(miss);
+  if(host)$('#mpAgain').onclick=()=>{MPB.patch(S.mp.code,{state:'lobby'}).catch(()=>{});clearDolls();mpLobby();};
+  $('#mpOut').onclick=mpLeave;}
+function mpOnRoom(d){if(!S.mp)return;if(!d){say('방이 없어졌어요',1600);mpLeave();return;}S.mp.room=d;const host=d.host===MP_PID,ph=S.phase;
+  if(d.state==='lobby'){if(ph==='mplobby'||(!host&&!['hide','handover'].includes(ph)))mpLobby();return;}
+  if(ph==='mplobby'&&(host||d.state==='end')){mpLobby();return;}
+  if(d.state==='hiding'){if(!host&&ph!=='mpwait')mpWait(d);return;}
+  if(d.state==='seek'){if(!host&&d.round!==S.mp.round){mpApply(d);return;}mpSync(d);if(ph==='watch')mpWatchDraw();else if(ph==='end')mpEndDraw();return;}
+  if(d.state==='end'){mpSync(d);if(d.round!==S.mp.round)return;if(S.phase==='seek')endGame(false);else if(S.phase==='watch')mpShowEnd(false,false);else if(S.phase==='end')mpEndDraw();}}
+// 찾는 사람이 지금 있는 방을 2.5초마다 (바뀔 때만) 올림 · 숨긴 사람 화면의 남은 시간
+setInterval(()=>{if(!S.mp)return;
+  if(S.phase==='seek'&&!S.paused){const r=roomName(camera.position);if(r&&r!==S.mp.lastRoom){S.mp.lastRoom=r;MPB.patch(S.mp.code,{['players.'+MP_PID+'.room']:r}).catch(()=>{});}}
+  if(S.phase==='watch'&&S.limit){const rem=S.limit-(performance.now()-S.watchT0)/1000,t=$('#mpWT');if(t)t.textContent=fmt(rem);if(rem<=0){MPB.patch(S.mp.code,{state:'end'}).catch(()=>{});mpShowEnd(false,false);}}},1000);
+el('gMP','','').hidden=true;
+
 // ---------- 매 프레임 ----------
 let lastT=performance.now();
 const sofaRC=new THREE.Raycaster();
@@ -4022,7 +4193,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min(0.05,(now-lastT
 
 // ---------- 시작 ----------
 function init(){['showFrames','showSug'].forEach(id=>{const e=document.getElementById(id);if(e&&e.checked){e.checked=false;e.dispatchEvent(new Event('change'));}});
-  buildConts();wallSafeConts();deSparkle();buildFurn();{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
+  buildConts();wallSafeConts();deSparkle();buildFurn();OPENERS.forEach(d=>{d.tdef=d.target;});{const seen=new Set();scene.traverse(o=>{if(!o.isMesh||!o.userData.game)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m&&!seen.has(m)){seen.add(m);envFix(m);}});});}requestAnimationFrame(tick);showMenu();walkStart(7.0,7.3,Math.PI);}
 init();
 // 앱으로 설치(홈 화면): kong-gallery.com에서만 서비스 워커 등록
 if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))navigator.serviceWorker.register('/doll-game/sw.js',{scope:'/doll-game/'}).catch(e=>console.warn(e));
@@ -4037,7 +4208,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.029';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.031';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
