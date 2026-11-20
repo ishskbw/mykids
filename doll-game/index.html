@@ -3803,7 +3803,8 @@ function shutDoor(px,py){const t=new THREE.Vector3(W(px),1,Z(py)),w=new THREE.Ve
   OPENERS.forEach(d=>{if(!d.objs||!d.objs[0]||d.target==null)return;d.objs[0].getWorldPosition(w);w.y=1;const k=w.distanceTo(t);if(k<bd){bd=k;best=d;}});
   if(best&&best.target>0.5){best.target=0;(S.shut=S.shut||[]).push(best);}}
 
-function startSeek(){if(typeof CHAT_OPEN!=='undefined'&&CHAT_OPEN)chatOpen(false);msg.hidden=true;msg.classList.remove('cover');S.taken=0;S.dolls.forEach(d=>{d.other=null;d.mine=false;});closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.phints=0;S.ended=false;S.dolls.forEach(d=>{d.found=false;d.ph=false;});
+function startSeek(){if(typeof CHAT_OPEN!=='undefined'&&CHAT_OPEN)chatOpen(false);msg.hidden=true;top_.hidden=false;btns.hidden=false;menu.hidden=true;   // 같이 하기 방장: '보내는 중' 화면이 가렸던 위 목록·버튼을 다시 보이게
+  msg.classList.remove('cover');S.taken=0;S.dolls.forEach(d=>{d.other=null;d.mine=false;});closeAll(true);S.phase='seek';S.paused=0;S.found=0;S.hints=0;S.phints=0;S.ended=false;S.dolls.forEach(d=>{d.found=false;d.ph=false;});
   walkStart(7.0,7.3,Math.PI);setPose('stand',true);S.t0=performance.now();S.elapsed=0;
   $('#gGuide').innerHTML=(S.mode==='family'?'붙박이장·냉장고·세탁기도 열어 보고, 침대 밑은 🐛 엎드려서 · 베란다 밖도 살펴보세요 · 사람을 찾으면 눌러요!':'서랍·옷장은 눌러서 열고, 책은 눌러서 꺼내 보세요 · 소파·침대 밑은 🐛 엎드려서 · 인형을 찾으면 눌러요!');renderIcons();refreshBtns();aim.hidden=false;
   say('찾기 시작!',1000);if(S.mp)mpBoard();}
@@ -4345,7 +4346,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.041';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.042';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
