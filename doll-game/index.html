@@ -4014,7 +4014,7 @@ function placeFree(h){const i=nextFree();if(i<0){say(S.mode==='family'?'모두 �
 // 숨긴 자리는 방장 기기에서 정해 방에 올림 (인형: 자리 그대로, 가족: 고른 자리 번호 + 난수 씨앗) → 다른 기기도 똑같이 놓음
 const MP_LOCAL=/[?&]mplocal\b/.test(location.search);   // 시험용: 같은 브라우저 탭끼리 (localStorage)
 const MP_OK=SHARED_HOST||MP_LOCAL;
-const MP_PID=(()=>{let v='';try{v=sessionStorage.getItem('dollgame.pid')||'';}catch(e){}if(!v){v='p'+Math.random().toString(36).slice(2,10);try{sessionStorage.setItem('dollgame.pid',v);}catch(e){}}return v;})();
+const MP_PID=(()=>{const st=()=>MP_LOCAL?sessionStorage:localStorage;let v='';try{v=st().getItem('dollgame.pid')||'';}catch(e){}if(!v){v='p'+Math.random().toString(36).slice(2,10);try{st().setItem('dollgame.pid',v);}catch(e){}}return v;})();   // 이 기기 = 한 사람
 let MPDB=null;const mpDb=()=>MPDB||(MPDB=(async()=>{const base='https://www.gstatic.com/firebasejs/12.4.0/';
   const [{initializeApp},fs]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js')]);return {fs,db:fs.getFirestore(initializeApp(RANK_FB,'dollroom'))};})().catch(e=>{MPDB=null;throw e;}));
 const setPath=(o,k,v)=>{const ks=k.split('.');let t=o;for(let j=0;j<ks.length-1;j++){t=t[ks[j]]=(t[ks[j]]&&typeof t[ks[j]]==='object')?t[ks[j]]:{};}t[ks[ks.length-1]]=v;};
@@ -4032,7 +4032,8 @@ const MPB=MP_LOCAL?(()=>{const K=c=>'mpmock:'+c,subs={};const rd=c=>{try{return 
    claim:async(c,i,v)=>{const {fs,db}=await mpDb();const ref=fs.doc(db,'dollRooms',c);
      return fs.runTransaction(db,async tx=>{const s=await tx.get(ref);const f=((s.data()||{}).found||{})[i];if(f)return f.pid===v.pid;tx.update(ref,{['found.'+i]:v});return true;});},
    listen:(c,f)=>{let un=()=>{},dead=false;mpDb().then(({fs,db})=>{if(dead)return;un=fs.onSnapshot(fs.doc(db,'dollRooms',c),s=>f(s.exists()?s.data():null),e=>{console.warn('room',e);say('연결이 끊겼어요 — 잠시 뒤 다시 들어와 주세요',2600);});}).catch(()=>say('연결이 안 돼요',2000));return()=>{dead=true;un();};}};
-const MP_TTL=6*3600e3,MP_OPEN=2*3600e3;   // 열린 방 목록에는 2시간 안에 만든 방만   // 6시간 지난 방 번호는 새 방에 다시 씀
+const MP_TTL=6*3600e3,MP_OPEN=2*3600e3,MP_LIVE=150e3;   // 2분 30초 넘게 소식이 없는 사람은 나간 걸로 봄
+const mpLive=p=>!p.gone&&Date.now()-(p.seen||p.at||0)<MP_LIVE;   // 열린 방 목록에는 2시간 안에 만든 방만   // 6시간 지난 방 번호는 새 방에 다시 씀
 const mpPlayers=d=>Object.entries(d.players||{}).map(([pid,p])=>({pid,...p})).sort((a,b)=>(a.at||0)-(b.at||0));
 const mpCounts=d=>{const c={};Object.values(d.found||{}).forEach(v=>{c[v.pid]=(c[v.pid]||0)+1;});return c;};
 const mpUnit=()=>S.mode==='family'?'명':'개';
@@ -4060,9 +4061,9 @@ function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind
   $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};
   const KN={race:'🏁 같이 찾기',hider:'🙈 방장이 숨김'},ST={lobby:'기다리는 중',hiding:'숨기는 중',seek:'찾는 중',end:'끝남'};
   const load=()=>{const L=$('#mpList');if(!L)return;if(!MP_OK){L.innerHTML='<p class="s" style="margin:0">kong-gallery.com에서만 보여요</p>';return;}L.innerHTML='<p class="s" style="margin:0">찾는 중…</p>';
-    withTimeout(MPB.list(),12000).then(rs=>{if(!$('#mpList'))return;rs=rs.filter(r=>r.created&&Date.now()-r.created<MP_OPEN&&r.state!=='end'&&Object.values(r.players||{}).some(x=>!x.gone)).sort((a,b)=>b.created-a.created);
+    withTimeout(MPB.list(),12000).then(rs=>{if(!$('#mpList'))return;rs=rs.filter(r=>r.created&&Date.now()-r.created<MP_OPEN&&!r.closed&&mpLive((r.players||{})[r.host]||{})).sort((a,b)=>b.created-a.created);
       if(!rs.length){L.innerHTML='<p class="s" style="margin:0">지금 열린 방이 없어요. 방을 만들어 보세요!</p>';return;}
-      L.innerHTML=rs.map(r=>{const n=Object.values(r.players||{}).filter(x=>!x.gone).length;return `<button data-c="${escH(r.code)}"><b>👑 ${escH(r.hostName||'')}</b> <span>${KN[r.kind]||''} · ${n}명 · ${ST[r.state]||''}</span><small>방 ${escH(r.code)} · ${escH(mpSum(r))}</small></button>`;}).join('');
+      L.innerHTML=rs.map(r=>{const n=Object.values(r.players||{}).filter(mpLive).length;return `<button data-c="${escH(r.code)}"><b>👑 ${escH(r.hostName||'')}</b> <span>${KN[r.kind]||''} · ${n}명 · ${ST[r.state]||''}</span><small>방 ${escH(r.code)} · ${escH(mpSum(r))}</small></button>`;}).join('');
       L.querySelectorAll('button').forEach(b=>b.onclick=()=>{const n=name();if(n)mpJoin(b.dataset.c,n);});})
     .catch(e=>{console.warn(e);if($('#mpList'))L.innerHTML='<p class="s" style="margin:0">목록을 못 불러왔어요. 새로 고침을 눌러 보세요</p>';});};
   $('#mpRe').onclick=load;load();
@@ -4070,22 +4071,22 @@ function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind
 async function mpCreate(kind,name){const err=$('#mpErr');err.textContent='방을 만드는 중…';
   const cfg={mode:kind==='hider'?'doll':S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,fam:S.famSel.slice()};
   try{for(let t=0;t<12;t++){const code=String(1000+Math.floor(Math.random()*9000));const old=await withTimeout(MPB.get(code),12000);if(old&&Date.now()-(old.created||0)<MP_TTL)continue;
-      await withTimeout(MPB.create(code,{host:MP_PID,hostName:name,kind,cfg,state:'lobby',round:0,created:Date.now(),lay:null,seed:0,found:{},players:{[MP_PID]:{name,room:'',at:Date.now()}}}),12000);
+      await withTimeout(MPB.create(code,{host:MP_PID,hostName:name,kind,cfg,state:'lobby',round:0,created:Date.now(),lay:null,seed:0,found:{},players:{[MP_PID]:{name,room:'',at:Date.now(),seen:Date.now()}}}),12000);
       mpEnter(code,name);return;}
     err.textContent='방 번호를 못 만들었어요. 다시 해 보세요';}catch(e){console.warn(e);err.textContent='연결이 안 돼요. 잠시 뒤 다시 해 보세요';}}
 async function mpJoin(code,name){const err=$('#mpErr');if(!/^\d{4}$/.test(code)){err.textContent='4자리 방 번호를 넣어 주세요';return;}err.textContent='들어가는 중…';
   try{const d=await withTimeout(MPB.get(code),12000);if(!d||Date.now()-(d.created||0)>MP_TTL){err.textContent='그런 방이 없어요. 번호를 다시 확인해 주세요';return;}
-    await withTimeout(MPB.patch(code,{['players.'+MP_PID]:{name,room:'',at:Date.now()}}),12000);mpEnter(code,name);}
+    if(d.closed){err.textContent='그 방은 닫혔어요';return;}const me=(d.players||{})[MP_PID];await withTimeout(MPB.patch(code,{['players.'+MP_PID]:{name,room:'',at:me&&!me.gone?me.at:Date.now(),seen:Date.now()}}),12000);mpEnter(code,name);}
   catch(e){console.warn(e);err.textContent='연결이 안 돼요. 잠시 뒤 다시 해 보세요';}}
 function mpEnter(code,name){S.mpMenu={mode:S.mode,n:S.n,limit:S.limit,hintOn:S.hintOn,diff:S.diff,auto:S.auto,famSel:S.famSel.slice()};
   S.mp={code,name,round:0,room:null,unsub:null};S.phase='mplobby';mpLobby();S.mp.unsub=MPB.listen(code,mpOnRoom);}
-function mpLeave(){if(S.mp){const c=S.mp.code;try{S.mp.unsub&&S.mp.unsub();}catch(e){}MPB.patch(c,{['players.'+MP_PID+'.gone']:true}).catch(()=>{});S.mp=null;}
+function mpLeave(){if(S.mp){const c=S.mp.code,host=S.mp.room&&S.mp.room.host===MP_PID;try{S.mp.unsub&&S.mp.unsub();}catch(e){}MPB.patch(c,Object.assign({['players.'+MP_PID+'.gone']:true},host?{closed:true}:{})).catch(()=>{});S.mp=null;}
   const m=S.mpMenu;if(m){Object.assign(S,{mode:m.mode,n:m.n,limit:m.limit,hintOn:m.hintOn,diff:m.diff,auto:m.auto,famSel:m.famSel,dollN:0,dollAuto:null});S.mpMenu=null;}
   msg.classList.remove('cover');goHome();}
 // 대기실: 방 번호 크게 + 들어온 사람 목록, 방장만 시작
 function mpLobby(){S.phase='mplobby';const d=S.mp.room;
   if(!d){mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 ${S.mp.code}</h1><p class="s">불러오는 중…</p><button class="gbig sec" id="mpOut">방 나가기</button></div>`);$('#mpOut').onclick=mpLeave;return;}
-  const host=d.host===MP_PID,ps=mpPlayers(d).filter(p=>!p.gone);
+  const host=d.host===MP_PID,ps=mpPlayers(d).filter(p=>p.pid===MP_PID||mpLive(p));
   mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 번호</h1><div style="font-size:46px;font-weight:800;letter-spacing:.14em;color:#c46a1f;margin:0 0 4px">${S.mp.code}</div>
    <p class="s">${d.kind==='hider'?`🙈 ${escH(d.hostName)}님이 숨기고 나머지가 찾아요`:'🏁 컴퓨터가 숨기고 모두 같이 찾아요'}<br>${escH(mpSum(d))}</p>
    <ul class="glist" style="text-align:left">${ps.map(p=>`<li>${p.pid===d.host?'👑':'🙂'} ${escH(p.name)}${p.pid===MP_PID?' (나)':''}</li>`).join('')}</ul>
@@ -4147,11 +4148,11 @@ function mpSync(d){if(!S.mp||d.round!==S.mp.round||!['seek','end','reveal','watc
   S.taken=tk;if(S.phase==='seek'||S.phase==='hide')renderIcons();mpBoard();
   if(S.phase==='seek'&&!S.ended&&S.found+tk>=S.n)setTimeout(()=>endGame(true),900);}
 function mpBoard(){const b=$('#gMP');if(!b)return;const d=S.mp&&S.mp.room;if(!d||S.phase!=='seek'){b.hidden=true;return;}const cnt=mpCounts(d);
-  const ps=mpPlayers(d).filter(p=>!p.gone&&!(d.kind==='hider'&&p.pid===d.host)).sort((a,c)=>(cnt[c.pid]||0)-(cnt[a.pid]||0));b.hidden=false;
+  const ps=mpPlayers(d).filter(p=>(p.pid===MP_PID||mpLive(p))&&!(d.kind==='hider'&&p.pid===d.host)).sort((a,c)=>(cnt[c.pid]||0)-(cnt[a.pid]||0));b.hidden=false;
   b.innerHTML=`방 <b>${S.mp.code}</b>`+ps.map(p=>`<br>${p.pid===MP_PID?'<b>':''}${escH(p.name)} ${cnt[p.pid]||0}${mpUnit()}${p.pid===MP_PID?'</b>':''}`).join('');}
 // 숨긴 사람(방장): 누가 몇 개 찾았고 지금 어느 방에 있는지 지켜봄
 function mpWatch(){S.phase='watch';S.watchT0=performance.now();mpWatchDraw();}
-function mpWatchDraw(){const d=S.mp&&S.mp.room;if(!d||S.phase!=='watch')return;const F=d.found||{},cnt=mpCounts(d),nf=Object.keys(F).length,ps=mpPlayers(d).filter(p=>!p.gone&&p.pid!==d.host);
+function mpWatchDraw(){const d=S.mp&&S.mp.room;if(!d||S.phase!=='watch')return;const F=d.found||{},cnt=mpCounts(d),nf=Object.keys(F).length,ps=mpPlayers(d).filter(p=>mpLive(p)&&p.pid!==d.host);
   mpCover(`<div class="gcard"><h1>👀 찾는 중</h1><p class="s">${nf} / ${S.n}${mpUnit()} 찾았어요${S.limit?` · 남은 시간 <b id="mpWT">${fmt(S.limit-(performance.now()-S.watchT0)/1000)}</b>`:''}</p>
    <ul class="glist">${ps.map(p=>`<li><b>${escH(p.name)}</b> ${cnt[p.pid]||0}${mpUnit()} · ${p.room?escH(p.room)+'에 있어요':'들어오는 중'}</li>`).join('')||'<li>아직 찾는 사람이 없어요</li>'}</ul>
    <ul class="glist">${S.dolls.map((x,i)=>`<li><i>${iconOf(i,!!F[i])}</i>${escH(x.where||'')}${F[i]?` — <b>${escH(F[i].name)}</b> 찾음`:''}</li>`).join('')}</ul>
@@ -4175,7 +4176,7 @@ function mpEndDraw(){if(!S.mp||S.phase!=='end')return;const d=S.mp.room||{},cnt=
   if($('#gRev'))$('#gRev').onclick=()=>reveal(miss);
   if(host)$('#mpAgain').onclick=()=>{MPB.patch(S.mp.code,{state:'lobby'}).catch(()=>{});clearDolls();mpLobby();};
   $('#mpOut').onclick=mpLeave;}
-function mpOnRoom(d){if(!S.mp)return;if(!d){say('방이 없어졌어요',1600);mpLeave();return;}S.mp.room=d;const host=d.host===MP_PID,ph=S.phase;
+function mpOnRoom(d){if(!S.mp)return;if(!d){say('방이 없어졌어요',1600);mpLeave();return;}if(d.closed&&d.host!==MP_PID){say('방장이 방을 닫았어요',1800);mpLeave();return;}S.mp.room=d;const host=d.host===MP_PID,ph=S.phase;
   if(d.state==='lobby'){if(ph==='mplobby'||(!host&&!['hide','handover'].includes(ph)))mpLobby();return;}
   if(ph==='mplobby'&&(host||d.state==='end')){mpLobby();return;}
   if(d.state==='hiding'){if(!host&&ph!=='mpwait')mpWait(d);return;}
@@ -4183,6 +4184,7 @@ function mpOnRoom(d){if(!S.mp)return;if(!d){say('방이 없어졌어요',1600);m
   if(d.state==='end'){mpSync(d);if(d.round!==S.mp.round)return;if(S.phase==='seek')endGame(false);else if(S.phase==='watch')mpShowEnd(false,false);else if(S.phase==='end')mpEndDraw();}}
 // 찾는 사람이 지금 있는 방을 2.5초마다 (바뀔 때만) 올림 · 숨긴 사람 화면의 남은 시간
 setInterval(()=>{if(!S.mp)return;
+  if(!S.mp.beat||Date.now()-S.mp.beat>30e3){S.mp.beat=Date.now();MPB.patch(S.mp.code,{['players.'+MP_PID+'.seen']:Date.now(),['players.'+MP_PID+'.gone']:false}).catch(()=>{});}
   if(S.phase==='seek'&&!S.paused){const r=roomName(camera.position);if(r&&r!==S.mp.lastRoom){S.mp.lastRoom=r;MPB.patch(S.mp.code,{['players.'+MP_PID+'.room']:r}).catch(()=>{});}}
   if(S.phase==='watch'&&S.limit){const rem=S.limit-(performance.now()-S.watchT0)/1000,t=$('#mpWT');if(t)t.textContent=fmt(rem);if(rem<=0){MPB.patch(S.mp.code,{state:'end'}).catch(()=>{});mpShowEnd(false,false);}}},1000);
 el('gMP','','').hidden=true;
@@ -4229,7 +4231,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.032';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.033';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
