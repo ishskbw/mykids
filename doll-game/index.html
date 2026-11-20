@@ -3294,8 +3294,12 @@ body.game .panel,body.game .bar,body.game #card,body.game #chips{display:none!im
 #gMsg.cover{background:#1d1916;backdrop-filter:none}
 #gIcons i.oth{opacity:.35}
 #gChat{left:calc(8px + env(safe-area-inset-left,0px));bottom:84px;z-index:50;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(80vw,360px);pointer-events:none}#gChat>*{pointer-events:auto}
-#gChatLog{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-height:34vh;overflow:auto}#gChatLog div{background:rgba(30,26,22,.8);color:#fff;border-radius:12px;padding:5px 10px;font-size:14px;line-height:1.4;word-break:break-all}#gChatLog div.me{background:rgba(217,138,58,.92)}#gChatLog b{color:#ffd27a;margin-right:4px}#gChatLog div.me b{color:#fff3dc}
-#gChat.open #gChatLog{background:rgba(255,250,242,.15);border-radius:12px}#gChatRow{display:flex;gap:6px;align-items:center}#gChatBtn{width:44px;height:44px;border-radius:22px;border:0;background:rgba(255,250,242,.95);font-size:21px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;padding:0}
+#gChatLog{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-height:34vh;overflow:auto}#gChatLog div{background:#fffaf2;color:#2b2420;border-radius:14px;padding:7px 12px;font-size:15.5px;line-height:1.4;word-break:break-all;box-shadow:0 3px 12px rgba(0,0,0,.35);border:2px solid #d98a3a}#gChatLog div.me{background:rgba(217,138,58,.92)}#gChatLog b{color:#c46a1f;margin-right:5px}#gChatLog div.me{background:#d98a3a;color:#fff;border-color:#d98a3a}#gChatLog div.me b{color:#fff3dc}
+#gChat.open #gChatLog{background:rgba(255,250,242,.15);border-radius:12px}#gChatRow{display:flex;gap:6px;align-items:center}#gChatBtn{position:relative;height:46px;border-radius:23px;border:0;background:#d98a3a;color:#fff;font-size:17px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.35);cursor:pointer;padding:0 16px;white-space:nowrap}#gChat.open #gChatBtn{background:#8a6d50}
+#gChatBtn i{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;border-radius:11px;background:#e5383b;color:#fff;font-style:normal;font-size:13px;line-height:22px;text-align:center;padding:0 5px;box-sizing:border-box;box-shadow:0 0 0 2px #fff}
+#gChatBtn.ping{animation:gping .9s ease 2}@keyframes gping{0%,100%{transform:scale(1)}30%{transform:scale(1.18)}60%{transform:scale(.96)}}
+#gChat.open{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto;background:rgba(255,250,242,.97);border-radius:16px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:min(94vw,420px);width:min(94vw,420px);box-sizing:border-box}
+#gChat.open #gChatLog{width:100%;max-height:26vh}#gChat.open #gChatLog div{box-shadow:none}#gChat.open #gChatRow{width:100%}#gChat.open #gChatIn{flex:1;width:auto;min-width:0}#gChat.open #gMP{display:none}
 #gChatIn{width:min(50vw,220px);font-size:16px;padding:9px 10px;border-radius:12px;border:1px solid #dccdb5;background:#fff}#gChatSend{border:0;border-radius:12px;background:#d98a3a;color:#fff;font-weight:700;font-size:15px;padding:10px 12px;cursor:pointer}
 body.mpchat #gMsg{padding-bottom:max(140px,env(safe-area-inset-bottom))}
 #gChat #gMP{position:static;max-width:none;background:rgba(255,250,242,.92);border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.5;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#5a3d22;max-width:46vw}#gMP b{color:#c46a1f}
@@ -4205,7 +4209,7 @@ setInterval(()=>{if(!S.mp)return;
 el('gMP','','').hidden=true;
 // 방 채팅: 방에 들어온 사람끼리 짧은 말 주고받기 (방 문서의 chat 칸, 한 줄 60자)
 // 왼쪽 아래 💬 버튼 → 입력 칸 · 새 말은 10초 동안 말풍선으로 보였다가 사라짐 (💬을 열면 지난 말까지)
-const chatEl=el('gChat','','<div id="gChatLog"></div><div id="gChatRow"><button id="gChatBtn" aria-label="채팅">💬</button><input id="gChatIn" maxlength="60" placeholder="말 보내기" autocomplete="off" enterkeyhint="send" hidden><button id="gChatSend" hidden>보내기</button></div>');
+const chatEl=el('gChat','','<div id="gChatLog"></div><div id="gChatRow"><button id="gChatBtn" aria-label="채팅">💬 채팅</button><input id="gChatIn" maxlength="60" placeholder="말 보내기" autocomplete="off" enterkeyhint="send" hidden><button id="gChatSend" hidden>보내기</button></div>');
 chatEl.hidden=true;chatEl.prepend($('#gMP'));
 ['pointerdown','pointerup','touchstart','touchend','mousedown','click','keydown','keyup','wheel'].forEach(t=>chatEl.addEventListener(t,e=>e.stopPropagation()));   // 채팅을 누르거나 쓸 때 게임이 움직이지 않게
 let CHAT_OPEN=false;
@@ -4215,14 +4219,16 @@ function chatDraw(){const log=$('#gChatLog');if(!log||!S.mp)return;const L=S.mp.
   log.innerHTML=show.map(m=>`<div${m.p===MP_PID?' class="me"':''}><b>${escH(m.n||'')}</b> ${escH(m.t)}</div>`).join('');log.scrollTop=log.scrollHeight;}
 function chatSync(d){if(!S.mp)return;const L=chatList(d),K=S.mp.chatK||(S.mp.chatK={}),first=!S.mp.chatInit;let fresh=false;
   L.forEach(m=>{const k=m.at+'|'+m.p;if(!(k in K)){K[k]=first?0:Date.now();if(!first&&m.p!==MP_PID)fresh=true;}m.seenAt=K[k];});   // 들어오기 전 말은 말풍선으로 띄우지 않음
-  S.mp.chatInit=1;S.mp.chatL=L;if(fresh&&SOUND)try{tone([880],0.08,'sine',0.08);}catch(e){}chatDraw();}
+  S.mp.chatInit=1;S.mp.chatL=L;if(fresh){if(SOUND)try{tone([880],0.08,'sine',0.08);}catch(e){}if(!CHAT_OPEN){S.mp.unread=(S.mp.unread||0)+L.filter(m=>m.p!==MP_PID&&m.seenAt>Date.now()-50).length;chatBadge(true);}}chatDraw();}
+function chatBadge(ping){const b=$('#gChatBtn'),n=(S.mp&&S.mp.unread)||0;b.innerHTML=(CHAT_OPEN?'✕ 닫기':'💬 채팅')+(n&&!CHAT_OPEN?`<i>${n>9?'9+':n}</i>`:'');if(ping){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping');}}
 function chatShow(on){chatEl.hidden=!on;document.body.classList.toggle('mpchat',!!on);if(!on){CHAT_OPEN=false;chatOpen(false);}}
-function chatOpen(on){CHAT_OPEN=on;$('#gChatIn').hidden=!on;$('#gChatSend').hidden=!on;chatEl.classList.toggle('open',on);if(on)setTimeout(()=>$('#gChatIn').focus(),30);else $('#gChatIn').blur();chatDraw();}
+function chatOpen(on){CHAT_OPEN=on;if(on&&S.mp)S.mp.unread=0;chatEl.style.top='';chatBadge();$('#gChatIn').hidden=!on;$('#gChatSend').hidden=!on;chatEl.classList.toggle('open',on);if(on)setTimeout(()=>$('#gChatIn').focus(),30);else $('#gChatIn').blur();chatDraw();}
 $('#gChatBtn').onclick=()=>chatOpen(!CHAT_OPEN);
 function chatSend(){const inp=$('#gChatIn'),t=(inp.value||'').trim().slice(0,60);if(!t||!S.mp)return;inp.value='';const at=Date.now();
   MPB.patch(S.mp.code,{['chat.m'+at+MP_PID]:{n:S.mp.name,t,at,p:MP_PID}}).catch(()=>say('못 보냈어요',1200));}
 $('#gChatSend').onclick=chatSend;$('#gChatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();chatSend();}});
 setInterval(()=>{if(S.mp&&!CHAT_OPEN)chatDraw();},1000);
+if(window.visualViewport){const vv=visualViewport,fit=()=>{if(CHAT_OPEN)chatEl.style.top=(vv.offsetTop+8)+'px';};vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);}   // 키보드가 화면을 가려도 입력 칸은 보이게
 
 // ---------- 매 프레임 ----------
 let lastT=performance.now();
@@ -4271,7 +4277,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.036';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.037';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
