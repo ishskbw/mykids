@@ -4077,14 +4077,14 @@ function mpOpen(code0){code0=typeof code0==='string'?code0:'';let kind=S._mpKind
     <p class="s" id="mpTip" style="margin:8px 0 0"></p></div>
    <button class="gbig" id="mpMake" ${MP_OK?'':'disabled'}>방 만들기</button>
    <div class="grow" style="margin-top:22px"><b>지금 열린 방 <button class="glink" id="mpRe" style="font-size:13px">새로 고침</button></b><div id="mpList" class="mplist"><p class="s" style="margin:0">찾는 중…</p></div></div>
-   <div class="grow"><b>방 번호로 들어가기</b><div class="gsave" style="justify-content:flex-start;margin:0"><input id="mpCode" inputmode="numeric" maxlength="4" placeholder="4자리 번호" autocomplete="off" value="${code0||''}"><button id="mpJoin" ${MP_OK?'':'disabled'}>들어가기</button></div></div>
+   
    <p class="s" id="mpErr" style="color:#b5452b;margin:6px 0 0;min-height:1.2em"></p>
    <button class="gbig sec" id="mpBack">메뉴로</button></div>`);
   const tip=()=>{$('#mpTip').innerHTML=`${KD[kind][1]}<br><small>메뉴에서 고른 설정으로 해요: ${escH(sum())}</small>`;};tip();
   msg.querySelectorAll('#mpKind button').forEach(b=>b.onclick=()=>{kind=S._mpKind=b.dataset.v;msg.querySelectorAll('#mpKind button').forEach(x=>x.setAttribute('aria-pressed',x===b));tip();});
   const name=()=>{const v=($('#mpName').value||'').trim().slice(0,10);if(!v){$('#mpErr').textContent='이름을 먼저 써 주세요';$('#mpName').focus();return null;}try{localStorage.setItem(NAME_KEY,v);}catch(e){}return v;};
   $('#mpMake').onclick=()=>{const n=name();if(n)mpCreate(kind,n);};
-  $('#mpJoin').onclick=()=>{const n=name();if(n)mpJoin(($('#mpCode').value||'').trim(),n);};
+  
   $('#mpBack').onclick=()=>{msg.hidden=true;showMenu();};
   const KN={race:'🏁 같이 찾기',hider:'🙈 방장이 숨김'},ST={lobby:'입장 기다리는 중',hiding:'입장 기다리는 중',seek:'찾는 중',end:'끝남'};
   // 열린 방 목록: 서버에서 바뀔 때마다 바로 다시 그림 (+5초마다 오래된 방 걸러 내기) — 이 화면을 떠나면 멈춤
@@ -4118,10 +4118,10 @@ function mpLeave(){chatShow(false);mpSave(null);if(S.mp){const c=S.mp.code,host=
 function mpLobby(){S.phase='mplobby';const d=S.mp.room;
   if(!d){mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 ${S.mp.code}</h1><p class="s">불러오는 중…</p><button class="gbig sec" id="mpOut">방 나가기</button></div>`);$('#mpOut').onclick=mpLeave;return;}
   const host=d.host===MP_PID,ps=mpPlayers(d).filter(p=>p.pid===MP_PID||mpLive(p));
-  mpCover(`<div class="gcard" style="text-align:center"><h1>👥 방 번호</h1><div style="font-size:46px;font-weight:800;letter-spacing:.14em;color:#c46a1f;margin:0 0 4px">${S.mp.code}</div>
+  mpCover(`<div class="gcard" style="text-align:center"><h1>👥 ${escH(d.hostName||'')}님의 방</h1><p class="s" style="margin:0 0 6px;font-size:12px">방 ${S.mp.code}</p>
    <p class="s">${d.kind==='hider'?`🙈 ${escH(d.hostName)}님이 숨기고 나머지가 찾아요`:'🏁 컴퓨터가 숨기고 모두 같이 찾아요'}<br>${escH(mpSum(d))}</p>
    <ul class="glist" style="text-align:left">${ps.map(p=>`<li>${p.pid===d.host?'👑':'🙂'} ${escH(p.name)}${p.pid===MP_PID?' (나)':''}</li>`).join('')}</ul>
-   ${host?`<button class="gbig" id="mpGo">${d.kind==='hider'?'🙈 숨기러 가기':'▶ 시작하기'}</button><p class="s" style="margin:8px 0 0">다른 사람에게 방 번호를 알려 주세요. 들어오면 위 목록에 보여요.</p>`
+   ${host?`<button class="gbig" id="mpGo">${d.kind==='hider'?'🙈 숨기러 가기':'▶ 시작하기'}</button><p class="s" style="margin:8px 0 0">다른 사람은 같이 하기 화면의 '지금 열린 방'에서 이 방을 누르거나, 아래 초대 링크로 들어와요.</p>`
      :'<p class="s" style="margin-top:12px">방장이 시작하기를 기다리는 중이에요…</p>'}
    ${CHATBOX}
    <div class="mpinv"><b>🔗 초대 링크 보내기</b><div><button id="mpKa">💬 카카오톡</button><button id="mpSms">✉️ 문자</button><button id="mpCopy">📋 복사</button></div></div><button class="gbig sec" id="mpOut">방 나가기</button></div>`);
@@ -4345,7 +4345,7 @@ if('serviceWorker' in navigator&&/kong-gallery\.com$/.test(location.hostname))na
   b.style.cssText='position:fixed;left:8px;bottom:28px;z-index:61;width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,0.32);color:#fff;font-size:19px;line-height:40px;padding:0;cursor:pointer;';
   b.onclick=e=>{e.stopPropagation();setSound(!SOUND);};['pointerdown','touchstart','mousedown'].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(b);}
 // 게임 버전 표시 (커밋할 때마다 0.001씩 올림)
-const GAME_VER='1.040';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
+const GAME_VER='1.041';{const v=document.createElement('div');v.id='gVer';v.textContent='v'+GAME_VER;
   v.style.cssText='position:fixed;left:8px;bottom:6px;z-index:60;font:11px/1 system-ui,sans-serif;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.28);padding:3px 6px;border-radius:6px;pointer-events:none;';document.body.appendChild(v);}
 window.__G={S,foundDoll,CONTS,OPENERS,blockNow:()=>BLOCK,toggleC:toggle,buildPS,makePerson,FAM,roomName,wallMeshes,unwall,wallHits,sightOK,contSight,autoPick,castAll,FG,putDoll,hint,startSeek,startHide,autoRest,doneHide,endGame,reveal,toggle,camTo,setPose,camera,WALK,applyLook};
 })();
